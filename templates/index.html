@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Painel - Organizador de Música Litúrgica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-music"></i> Painel Principal</h1>
+                <div>
+                    <!-- View Mode Toggle -->
+                    <div class="btn-group me-2" role="group">
+                        <a href="{{ url_for('index', view='card') }}" 
+                           class="btn btn-outline-secondary {% if view_mode == 'card' %}active{% endif %}">
+                            <i class="fas fa-th-large"></i> Cards
+                        </a>
+                        <a href="{{ url_for('index', view='list') }}" 
+                           class="btn btn-outline-secondary {% if view_mode == 'list' %}active{% endif %}">
+                            <i class="fas fa-list"></i> Lista
+                        </a>
+                    </div>
+                    
+                    <button type="button" class="btn btn-success me-2" onclick="toggleBulkSelect()">
+                        <i class="fas fa-check-square"></i> Seleção Múltipla
+                    </button>
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Adicionar Música
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Selection Panel -->
+    <div id="bulkSelectPanel" class="row mb-4" style="display: none;">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">Criar Lista de músicas</h6>
+                    <form method="POST" action="{{ url_for('create_merge_list') }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" name="list_name" 
+                                       placeholder="Nome da lista de música" required>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="form-text">
+                                    <strong id="selectedCount">0</strong> arquivo(s) selecionado(s)
+                                </span>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-success" id="createListBtn" disabled>
+                                    <i class="fas fa-list-alt"></i> Criar Lista
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Filtros</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label small">Por Categoria</label>
+                            <div class="btn-group flex-wrap" role="group">
+                                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">Todas</a>
+                                {% for category in categories %}
+                                    <a href="{{ url_for('search', category=category) }}" 
+                                       class="btn btn-outline-secondary btn-sm">{{ category }}</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Por Tempo Litúrgico</label>
+                            <div class="btn-group flex-wrap" role="group">
+                                {% for time in liturgical_times %}
+                                    <a href="{{ url_for('search', liturgical_time=time) }}" 
+                                       class="btn btn-outline-info btn-sm">{{ time }}</a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge Lists Section -->
+    {% if merge_lists %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Listas de Fusão Recentes</h6>
+                        <a href="{{ url_for('merge_lists') }}" class="btn btn-sm btn-outline-primary">
+                            Ver Todas
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for list in merge_lists[:3] %}
+                                <div class="col-md-4">
+                                    <div class="card border">
+                                        <div class="card-body p-3">
+                                            <h6 class="card-title">{{ list[1] }}</h6>
+                                            <p class="card-text small text-muted">
+                                                Atualizada: {{ list[3][:16] if list[3] else 'N/A' }}
+                                            </p>
+                                            <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" 
+                                               class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i> Editar
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Files Display -->
+    {% if files %}
+        {% if view_mode == 'list' %}
+            <!-- List View -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Músicas ({{ files|length }})</h6>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;">
+                                            <div class="bulk-select-checkbox" style="display: none;">
+                                                <input type="checkbox" class="form-check-input" id="selectAll" 
+                                                       onchange="toggleSelectAll()">
+                                            </div>
+                                        </th>
+                                        <th>Música / Artista</th>
+                                        <th>Categoria</th>
+                                        <th>Tom</th>
+                                        <th>Tempo Litúrgico</th>
+                                        <th>Páginas</th>
+                                        <th>Data</th>
+                                        <th style="width: 150px;">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for file in files %}
+                                        <tr>
+                                            <td>
+                                                <div class="bulk-select-checkbox" style="display: none;">
+                                                    <input type="checkbox" class="form-check-input file-selector" 
+                                                           name="selected_files" value="{{ file[0] }}" 
+                                                           onchange="updateBulkSelection()">
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                                    <div>
+                                                        {% if file[3] %}
+                                                            <strong>{{ file[3] }}</strong><br>
+                                                        {% endif %}
+                                                        {% if file[4] %}
+                                                            <small class="text-muted">por {{ file[4] }}</small><br>
+                                                        {% endif %}
+                                                        <small class="text-muted">{{ file[2] }}</small>
+                                                        {% if file[8] %}
+                                                            <a href="{{ file[8] }}" target="_blank" class="ms-2">
+                                                                <i class="fab fa-youtube text-danger"></i>
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td><span class="badge bg-primary">{{ file[5] }}</span></td>
+                                            <td>
+                                                {% if file[7] %}
+                                                    <span class="badge bg-success">{{ file[7] }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if file[6] %}
+                                                    <span class="badge bg-info">{{ file[6] }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ file[11] or '-' }}</td>
+                                            <td><small>{{ file[10][:16] if file[10] else '-' }}</small></td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('music_details', file_id=file[0]) }}" 
+                                                       class="btn btn-outline-info btn-sm" title="Detalhes">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </a>
+                                                    <a href="{{ url_for('view_file', file_id=file[0]) }}" 
+                                                       class="btn btn-outline-primary btn-sm" target="_blank" title="Ver PDF">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                                            onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" title="Deletar">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Card View -->
+            <div class="row">
+                {% for file in files %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card file-card h-100">
+                        <div class="card-body">
+                            <!-- Bulk selection checkbox -->
+                            <div class="bulk-select-checkbox" style="display: none;">
+                                <input type="checkbox" class="form-check-input file-selector" 
+                                       name="selected_files" value="{{ file[0] }}" 
+                                       onchange="updateBulkSelection()">
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title text-truncate" title="{{ file[2] }}">
+                                    <i class="fas fa-file-pdf text-danger"></i>
+                                    {{ file[1][:25] }}{% if file[1]|length > 25 %}...{% endif %}
+                                </h5>
+                                <span class="badge bg-primary category-badge">{{ file[5] }}</span>
+                            </div>
+                            
+                            <!-- Song Name and Artist -->
+                            {% if file[3] or file[4] %}
+                                <div class="mb-2">
+                                    {% if file[3] %}
+                                        <h6 class="mb-1"><strong>{{ file[3] }}</strong></h6>
+                                    {% endif %}
+                                    {% if file[4] %}
+                                        <p class="text-muted small mb-1">por {{ file[4] }}</p>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            
+                            <div class="mb-2">
+                                {% if file[6] %}
+                                    <span class="badge bg-info">{{ file[6] }}</span>
+                                {% endif %}
+                                {% if file[7] %}
+                                    <span class="badge bg-success">{{ file[7] }}</span>
+                                {% endif %}
+                                {% if file[8] %}
+                                    <a href="{{ file[8] }}" target="_blank" class="badge bg-danger text-decoration-none">
+                                        <i class="fab fa-youtube"></i> YouTube
+                                    </a>
+                                {% endif %}
+                            </div>
+                            
+                            <p class="text-muted small mb-2">
+                                <strong>Arquivo:</strong> {{ file[2] }}
+                            </p>
+                            
+                            {% if file[12] %}
+                                <p class="text-muted small mb-2">{{ file[12] }}</p>
+                            {% endif %}
+                            
+                            <div class="row text-muted small mb-3">
+                                <div class="col-6">
+                                    <strong>Páginas:</strong> {{ file[11] or 'N/A' }}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Tamanho:</strong> 
+                                    {% if file[9] %}
+                                        {{ "%.1f"|format(file[9] / 1024 / 1024) }} MB
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-calendar"></i> {{ file[10][:19] if file[10] else 'Desconhecido' }}
+                            </p>
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100" role="group">
+                                <a href="{{ url_for('music_details', file_id=file[0]) }}" 
+                                   class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-info-circle"></i> Detalhes
+                                </a>
+                                <a href="{{ url_for('view_file', file_id=file[0]) }}" 
+                                   class="btn btn-outline-primary btn-sm" target="_blank">
+                                    <i class="fas fa-eye"></i> Ver PDF
+                                </a>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')">
+                                    <i class="fas fa-trash"></i> Deletar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-music fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">Nenhuma música encontrada</h3>
+                    <p class="text-muted">Comece enviando sua primeira música litúrgica.</p>
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Enviar Música
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja deletar <strong id="deleteFileName"></strong>?</p>
+                <p class="text-muted">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Deletar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let bulkSelectMode = false;
+
+function toggleBulkSelect() {
+    bulkSelectMode = !bulkSelectMode;
+    const checkboxes = document.querySelectorAll('.bulk-select-checkbox');
+    const panel = document.getElementById('bulkSelectPanel');
+    const btn = document.querySelector('[onclick="toggleBulkSelect()"]');
+    
+    if (bulkSelectMode) {
+        checkboxes.forEach(cb => cb.style.display = 'block');
+        panel.style.display = 'block';
+        btn.innerHTML = '<i class="fas fa-times"></i> Cancelar Seleção';
+        btn.className = 'btn btn-secondary me-2';
+    } else {
+        checkboxes.forEach(cb => {
+            cb.style.display = 'none';
+            cb.querySelector('input').checked = false;
+        });
+        panel.style.display = 'none';
+        btn.innerHTML = '<i class="fas fa-check-square"></i> Seleção Múltipla';
+        btn.className = 'btn btn-success me-2';
+        updateBulkSelection();
+    }
+}
+
+function updateBulkSelection() {
+    const selected = document.querySelectorAll('.file-selector:checked');
+    const count = selected.length;
+    
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('createListBtn').disabled = count === 0;
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.file-selector');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    
+    updateBulkSelection();
+}
+
+function deleteFile(fileId, fileName) {
+    document.getElementById('deleteFileName').textContent = fileName;
+    document.getElementById('deleteForm').action = '/delete/' + fileId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %} 

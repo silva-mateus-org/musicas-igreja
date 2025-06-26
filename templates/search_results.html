@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Resultados da Busca - Organizador de Música Litúrgica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1><i class="fas fa-search"></i> Resultados da Busca</h1>
+                    {% if query and selected_category and selected_liturgical %}
+                        <p class="text-muted">
+                            Resultados para "<strong>{{ query }}</strong>" em "<strong>{{ selected_category }}</strong>" - "<strong>{{ selected_liturgical }}</strong>"
+                        </p>
+                    {% elif query and selected_category %}
+                        <p class="text-muted">
+                            Resultados para "<strong>{{ query }}</strong>" na categoria "<strong>{{ selected_category }}</strong>"
+                        </p>
+                    {% elif query and selected_liturgical %}
+                        <p class="text-muted">
+                            Resultados para "<strong>{{ query }}</strong>" no tempo "<strong>{{ selected_liturgical }}</strong>"
+                        </p>
+                    {% elif query %}
+                        <p class="text-muted">Resultados para "<strong>{{ query }}</strong>"</p>
+                    {% elif selected_category %}
+                        <p class="text-muted">Músicas na categoria "<strong>{{ selected_category }}</strong>"</p>
+                    {% elif selected_liturgical %}
+                        <p class="text-muted">Músicas do tempo "<strong>{{ selected_liturgical }}</strong>"</p>
+                    {% endif %}
+                    <p class="small text-muted">{{ files|length }} música(s) encontrada(s)</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Voltar para Todas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Search Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('search') }}">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="q" class="form-label">Search Term</label>
+                                <input type="text" class="form-control" id="q" name="q" 
+                                       value="{{ query }}" placeholder="Search in filename, description...">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="category" class="form-label">Category</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="">All Categories</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category }}" 
+                                            {% if category == selected_category %}selected{% endif %}>
+                                            {{ category }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    {% if files %}
+        <div class="row">
+            {% for file in files %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card file-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title text-truncate" title="{{ file[2] }}">
+                                    <i class="fas fa-file-pdf text-danger"></i>
+                                    {{ file[1][:30] }}{% if file[1]|length > 30 %}...{% endif %}
+                                </h5>
+                                <span class="badge bg-primary category-badge">{{ file[3] }}</span>
+                            </div>
+                            
+                            <div class="mb-2">
+                                {% if file[4] %}
+                                    <span class="badge bg-info">{{ file[4] }}</span>
+                                {% endif %}
+                                {% if file[5] %}
+                                    <span class="badge bg-success">{{ file[5] }}</span>
+                                {% endif %}
+                                {% if file[6] %}
+                                    <a href="{{ file[6] }}" target="_blank" class="badge bg-danger text-decoration-none">
+                                        <i class="fab fa-youtube"></i> YouTube
+                                    </a>
+                                {% endif %}
+                            </div>
+                            
+                            <p class="text-muted small mb-2">
+                                <strong>Original:</strong> {{ file[2] }}
+                            </p>
+                            
+                            {% if file[10] %}
+                                <p class="text-muted small mb-2">{{ file[10] }}</p>
+                            {% endif %}
+                            
+                            <div class="row text-muted small mb-3">
+                                <div class="col-6">
+                                    <strong>Páginas:</strong> {{ file[9] or 'N/A' }}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Tamanho:</strong> 
+                                    {% if file[7] %}
+                                        {{ "%.1f"|format(file[7] / 1024 / 1024) }} MB
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-calendar"></i> {{ file[8][:19] if file[8] else 'Desconhecido' }}
+                            </p>
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100" role="group">
+                                <a href="{{ url_for('music_details', file_id=file[0]) }}" 
+                                   class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-info-circle"></i> Detalhes
+                                </a>
+                                <a href="{{ url_for('view_file', file_id=file[0]) }}" 
+                                   class="btn btn-outline-primary btn-sm" target="_blank">
+                                    <i class="fas fa-eye"></i> Ver PDF
+                                </a>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')">
+                                    <i class="fas fa-trash"></i> Deletar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">No files found</h3>
+                    {% if query or selected_category %}
+                        <p class="text-muted">Try adjusting your search criteria or browse all files.</p>
+                        <div class="mt-3">
+                            <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                                <i class="fas fa-list"></i> View All Files
+                            </a>
+                            <a href="{{ url_for('upload_file') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-upload"></i> Upload PDF
+                            </a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Start by uploading your first PDF file.</p>
+                        <a href="{{ url_for('upload_file') }}" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Upload PDF
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteFileName"></strong>?</p>
+                <p class="text-muted">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteFile(fileId, fileName) {
+    document.getElementById('deleteFileName').textContent = fileName;
+    document.getElementById('deleteForm').action = '/delete/' + fileId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %} 

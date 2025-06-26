@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Enviar Música - Organizador de Música{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0"><i class="fas fa-upload"></i> Enviar Música</h3>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Selecionar Arquivo PDF</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".pdf" required>
+                            <div class="form-text">Tamanho máximo: 50MB</div>
+                        </div>
+
+                        <!-- PDF Preview -->
+                        <div id="pdfPreviewContainer" class="mb-3" style="display: none;">
+                            <label class="form-label">Pré-visualização do PDF</label>
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span id="pdfFileName" class="fw-bold"></span>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="prevPage()">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span class="btn btn-outline-secondary" id="pageInfo">1 / 1</span>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="nextPage()">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2">
+                                    <div class="text-center">
+                                        <canvas id="pdfCanvas" class="border" style="max-width: 100%; height: auto;"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="song_name" class="form-label">Nome da Música</label>
+                                <input type="text" class="form-control" id="song_name" name="song_name" 
+                                       placeholder="Ex: Ave Maria, Salve Rainha...">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="artist" class="form-label">Artista/Compositor</label>
+                                <input type="text" class="form-control" id="artist" name="artist" 
+                                       placeholder="Ex: Schubert, Comunidade Católica...">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="category" class="form-label">Categoria (Parte da Missa)</label>
+                                <select class="form-select" id="category" name="category">
+                                    {% for category in categories %}
+                                        <option value="{{ category }}" 
+                                            {% if category == 'Entrada' %}selected{% endif %}>
+                                            {{ category }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="liturgical_time" class="form-label">Tempo Litúrgico (Opcional)</label>
+                                <select class="form-select" id="liturgical_time" name="liturgical_time">
+                                    <option value="">Selecione...</option>
+                                    {% for time in liturgical_times %}
+                                        <option value="{{ time }}">{{ time }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="musical_key" class="form-label">Tom Musical (Opcional)</label>
+                                <select class="form-select" id="musical_key" name="musical_key">
+                                    <option value="">Selecione...</option>
+                                    {% for key in musical_keys %}
+                                        <option value="{{ key }}">{{ key }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="youtube_link" class="form-label">Link do YouTube (Opcional)</label>
+                                <input type="url" class="form-control" id="youtube_link" name="youtube_link" 
+                                       placeholder="https://www.youtube.com/watch?v=...">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descrição (Opcional)</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                    placeholder="Adicione uma descrição para esta música (ex: compositor, estilo, ocasião especial...)"></textarea>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Enviar Música
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Upload Tips -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Dicas de Upload</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Apenas arquivos PDF são suportados</li>
+                        <li>Tamanho máximo do arquivo é 50MB</li>
+                        <li>Pré-visualização automática após selecionar o arquivo</li>
+                        <li>Arquivos duplicados serão automaticamente detectados</li>
+                        <li>Os arquivos são organizados por categoria em pastas separadas</li>
+                        <li>Adicione tom musical e link do YouTube para melhor organização</li>
+                        <li>Use tempos litúrgicos para organizar por épocas do ano</li>
+                        <li>Categorias seguem as partes da missa católica</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+// PDF.js configuration
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let pdfDoc = null;
+let pageNum = 1;
+let pageIsRendering = false;
+
+// Render the page
+function renderPage(num) {
+    pageIsRendering = true;
+    
+    pdfDoc.getPage(num).then(function(page) {
+        const canvas = document.getElementById('pdfCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const viewport = page.getViewport({ scale: 1.2 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        page.render(renderContext).promise.then(function() {
+            pageIsRendering = false;
+            document.getElementById('pageInfo').textContent = `${num} / ${pdfDoc.numPages}`;
+        });
+    });
+}
+
+// Go to previous page
+function prevPage() {
+    if (pageNum <= 1) return;
+    pageNum--;
+    renderPage(pageNum);
+}
+
+// Go to next page
+function nextPage() {
+    if (pageNum >= pdfDoc.numPages) return;
+    pageNum++;
+    renderPage(pageNum);
+}
+
+document.getElementById('file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    
+    // Hide preview first
+    document.getElementById('pdfPreviewContainer').style.display = 'none';
+    
+    if (file) {
+        if (file.type !== 'application/pdf') {
+            alert('Por favor, selecione um arquivo PDF.');
+            e.target.value = '';
+            return;
+        }
+        
+        if (file.size > 50 * 1024 * 1024) { // 50MB
+            alert('O arquivo deve ter menos de 50MB.');
+            e.target.value = '';
+            return;
+        }
+        
+        // Auto-preencher descrição com nome do arquivo
+        const descriptionField = document.getElementById('description');
+        if (!descriptionField.value) {
+            descriptionField.value = file.name.replace('.pdf', '');
+        }
+        
+        // Show PDF preview
+        document.getElementById('pdfFileName').textContent = file.name;
+        
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+            const typedarray = new Uint8Array(this.result);
+            
+            pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+                pdfDoc = pdf;
+                pageNum = 1;
+                renderPage(pageNum);
+                document.getElementById('pdfPreviewContainer').style.display = 'block';
+            }).catch(function(error) {
+                console.error('Erro ao carregar PDF:', error);
+                alert('Erro ao carregar o PDF para pré-visualização.');
+            });
+        };
+        fileReader.readAsArrayBuffer(file);
+    }
+});
+</script>
+{% endblock %} 

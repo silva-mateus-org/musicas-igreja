@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Listas de Fusão - Organizador de Música Litúrgica{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-list-alt"></i> Listas de Fusão</h1>
+                <div>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if lists %}
+        <div class="row">
+            {% for list in lists %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-list"></i> {{ list[1] }}
+                            </h5>
+                            
+                            <div class="mb-3">
+                                <span class="badge bg-primary">{{ list[4] }} arquivo(s)</span>
+                            </div>
+                            
+                            <p class="text-muted small mb-2">
+                                <strong>Criada:</strong> {{ list[2][:16] if list[2] else 'N/A' }}
+                            </p>
+                            
+                            <p class="text-muted small mb-3">
+                                <strong>Atualizada:</strong> {{ list[3][:16] if list[3] else 'N/A' }}
+                            </p>
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100" role="group">
+                                <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-edit"></i> Editar
+                                </a>
+                                {% if list[4] >= 2 %}
+                                    <button type="button" class="btn btn-outline-success btn-sm"
+                                            onclick="showMergeModal({{ list[0] }}, '{{ list[1] }}')">
+                                        <i class="fas fa-layer-group"></i> Mesclar
+                                    </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="deleteList({{ list[0] }}, '{{ list[1] }}')">
+                                    <i class="fas fa-trash"></i> Deletar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-list-alt fa-3x text-muted mb-3"></i>
+                    <h3 class="text-muted">Nenhuma lista de fusão encontrada</h3>
+                    <p class="text-muted">Crie listas selecionando múltiplos arquivos na página inicial.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home"></i> Ir para Início
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Merge Modal -->
+<div class="modal fade" id="mergeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="mergeForm" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mesclar Lista</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Mesclar arquivos da lista <strong id="mergeListName"></strong>?</p>
+                    
+                    <div class="mb-3">
+                        <label for="output_name" class="form-label">Nome do arquivo mesclado</label>
+                        <input type="text" class="form-control" id="output_name" name="output_name" 
+                               placeholder="Nome do arquivo (sem .pdf)" required>
+                        <div class="form-text">A extensão .pdf será adicionada automaticamente</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-layer-group"></i> Mesclar Arquivos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja deletar a lista <strong id="deleteListName"></strong>?</p>
+                <p class="text-muted">Esta ação não pode ser desfeita. Os arquivos originais não serão deletados.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Deletar Lista</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showMergeModal(listId, listName) {
+    document.getElementById('mergeListName').textContent = listName;
+    document.getElementById('output_name').value = listName;
+    document.getElementById('mergeForm').action = '/merge_from_list/' + listId;
+    new bootstrap.Modal(document.getElementById('mergeModal')).show();
+}
+
+function deleteList(listId, listName) {
+    document.getElementById('deleteListName').textContent = listName;
+    document.getElementById('deleteForm').action = '/delete_merge_list/' + listId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %} 

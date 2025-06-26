@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Lista - {{ merge_list[1] }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-edit"></i> Editar Lista: {{ merge_list[1] }}</h1>
+                <div>
+                    <a href="{{ url_for('merge_lists') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Lista de Arquivos -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Arquivos na Lista ({{ list_files|length }})</h5>
+                    {% if list_files|length >= 2 %}
+                        <button type="button" class="btn btn-success btn-sm" onclick="showMergeModal()">
+                            <i class="fas fa-layer-group"></i> Mesclar Agora
+                        </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if list_files %}
+                        <div id="sortableList" class="list-group">
+                            {% for file in list_files %}
+                                <div class="list-group-item" data-item-id="{{ file[0] }}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center">
+                                                <span class="handle me-3" style="cursor: move;">
+                                                    <i class="fas fa-grip-vertical text-muted"></i>
+                                                </span>
+                                                <div>
+                                                    <strong>{{ file[3] }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        {{ file[5] }} | {{ file[6] or 'N/A' }} páginas
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-secondary me-2">{{ file[1] }}</span>
+                                            <form method="POST" action="{{ url_for('remove_from_merge_list', item_id=file[0]) }}" 
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                        onclick="return confirm('Remover este arquivo da lista?')">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-info" onclick="saveOrder()">
+                                <i class="fas fa-save"></i> Salvar Ordem
+                            </button>
+                            <small class="text-muted ms-2">Arraste os arquivos para reordenar</small>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                            <p class="text-muted">Nenhum arquivo na lista</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Adicionar Arquivos -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Adicionar Arquivo</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_to_merge_list', list_id=merge_list[0]) }}">
+                        <div class="mb-3">
+                            <label for="file_id" class="form-label">Selecionar Arquivo</label>
+                            <select class="form-select" id="file_id" name="file_id" required>
+                                <option value="">Escolha um arquivo...</option>
+                                {% for file in all_files %}
+                                    <option value="{{ file[0] }}">{{ file[1] }} ({{ file[3] }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus"></i> Adicionar à Lista
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Informações da Lista -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Informações da Lista</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Nome:</strong> {{ merge_list[1] }}
+                    </p>
+                    <p class="small mb-2">
+                        <strong>Arquivos:</strong> {{ list_files|length }}
+                    </p>
+                    <p class="small mb-0">
+                        <strong>Status:</strong> 
+                        {% if list_files|length >= 2 %}
+                            <span class="text-success">Pronta para mesclar</span>
+                        {% elif list_files|length == 1 %}
+                            <span class="text-warning">Precisa de mais arquivos</span>
+                        {% else %}
+                            <span class="text-muted">Lista vazia</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Ações da Lista -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Ações</h6>
+                </div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-danger w-100 mb-2"
+                            onclick="deleteList({{ merge_list[0] }}, '{{ merge_list[1] }}')">
+                        <i class="fas fa-trash"></i> Deletar Lista
+                    </button>
+                    <a href="{{ url_for('merge_lists') }}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-list"></i> Ver Todas as Listas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Merge Modal -->
+<div class="modal fade" id="mergeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('merge_from_list', list_id=merge_list[0]) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mesclar Lista</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Mesclar {{ list_files|length }} arquivo(s) da lista <strong>{{ merge_list[1] }}</strong>?</p>
+                    
+                    <div class="mb-3">
+                        <label for="output_name" class="form-label">Nome do arquivo mesclado</label>
+                        <input type="text" class="form-control" id="output_name" name="output_name" 
+                               value="{{ merge_list[1] }}" required>
+                        <div class="form-text">A extensão .pdf será adicionada automaticamente</div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Os arquivos serão mesclados na ordem atual da lista.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-layer-group"></i> Mesclar Arquivos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja deletar a lista <strong id="deleteListName"></strong>?</p>
+                <p class="text-muted">Esta ação não pode ser desfeita. Os arquivos originais não serão deletados.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Deletar Lista</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveOrder() {
+    const items = document.querySelectorAll('#sortableList .list-group-item');
+    const order = Array.from(items).map(item => item.dataset.itemId);
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("reorder_merge_list", list_id=merge_list[0]) }}';
+    
+    order.forEach(itemId => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'item_order';
+        input.value = itemId;
+        form.appendChild(input);
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function showMergeModal() {
+    new bootstrap.Modal(document.getElementById('mergeModal')).show();
+}
+
+function deleteList(listId, listName) {
+    document.getElementById('deleteListName').textContent = listName;
+    document.getElementById('deleteForm').action = '/delete_merge_list/' + listId;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Funcionalidade de arrastar e soltar simples
+document.addEventListener('DOMContentLoaded', function() {
+    const sortableList = document.getElementById('sortableList');
+    if (sortableList) {
+        let draggedItem = null;
+        
+        sortableList.addEventListener('dragstart', function(e) {
+            draggedItem = e.target.closest('.list-group-item');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        
+        sortableList.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        });
+        
+        sortableList.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const targetItem = e.target.closest('.list-group-item');
+            if (targetItem && targetItem !== draggedItem) {
+                const rect = targetItem.getBoundingClientRect();
+                const nextItem = (e.clientY - rect.top) > (rect.height / 2) ? targetItem.nextSibling : targetItem;
+                sortableList.insertBefore(draggedItem, nextItem);
+            }
+        });
+        
+        // Tornar itens arrastáveis
+        const items = sortableList.querySelectorAll('.list-group-item');
+        items.forEach(item => {
+            item.draggable = true;
+        });
+    }
+});
+</script>
+{% endblock %} 
