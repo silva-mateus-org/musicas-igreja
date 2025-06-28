@@ -10,97 +10,221 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">
-                        <i class="fas fa-music"></i> {{ music[2] }}
+                        <i class="fas fa-music"></i> {{ music[1] }}
                     </h3>
                     <div class="btn-group">
-                        <a href="{{ url_for('view_file', file_id=music[0]) }}" class="btn btn-outline-primary btn-sm" target="_blank">
-                            <i class="fas fa-eye"></i> Visualizar PDF
-                        </a>
-                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="goBack()">
                             <i class="fas fa-arrow-left"></i> Voltar
-                        </a>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5><i class="fas fa-info-circle text-primary"></i> Informações Básicas</h5>
-                            <table class="table table-borderless">
-                                <tr>
-                                    <td><strong>Nome da Música:</strong></td>
-                                    <td>
-                                        {% if music[3] %}
-                                            <strong>{{ music[3] }}</strong>
-                                        {% else %}
-                                            <span class="text-muted">Não informado</span>
+                    <!-- Formulário de edição (inicialmente oculto) -->
+                    <form id="editForm" method="POST" action="{{ url_for('update_music', file_id=music[0]) }}" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-edit text-warning"></i> Editar Informações</h5>
+                                <div class="mb-3">
+                                    <label for="song_name" class="form-label">Nome da Música</label>
+                                    <input type="text" class="form-control" id="song_name" name="song_name" 
+                                           value="{{ music[3] or '' }}">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="single_artist" class="form-label">Artista/Compositor</label>
+                                    <div class="position-relative">
+                                        <input type="text" class="form-control" id="single_artist" name="artist" 
+                                               value="{{ music[4] or '' }}" placeholder="Digite ou selecione um artista..." autocomplete="off">
+                                        <div id="artist_suggestions" class="position-absolute w-100 bg-white border rounded shadow-sm" 
+                                             style="top: 100%; z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="new_artist_check" 
+                                                   onchange="toggleNewArtistDetails()">
+                                            <label class="form-check-label" for="new_artist_check">
+                                                Criar novo artista
+                                            </label>
+                                        </div>
+                                        <div id="new_artist_field" class="mt-2" style="display: none;">
+                                            <input type="text" class="form-control form-control-sm" name="new_artist" 
+                                                   placeholder="Nome do novo artista...">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Categorias</label>
+                                    <div class="border p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                                        {% for cat in categories %}
+                                            <div class="form-check">
+                                                <input class="form-check-input category-checkbox" type="checkbox" 
+                                                       id="cat_{{ loop.index }}" name="categories" 
+                                                       value="{{ cat }}" {% if cat == music[5] %}checked{% endif %}>
+                                                <label class="form-check-label" for="cat_{{ loop.index }}">
+                                                    {{ cat }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="new_category_input" 
+                                                   placeholder="Nova categoria...">
+                                            <button type="button" class="btn btn-outline-success" onclick="addNewCategory()">
+                                                <i class="fas fa-plus"></i> Adicionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="form-text">
+                                        <small>Selecione uma ou mais categorias para esta música</small>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="musical_key" class="form-label">Tom Musical</label>
+                                    <select class="form-select" id="musical_key" name="musical_key">
+                                        <option value="">Selecione...</option>
+                                        {% for key in musical_keys %}
+                                            <option value="{{ key }}" {% if key == music[7] %}selected{% endif %}>{{ key }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-cog text-secondary"></i> Detalhes Adicionais</h5>
+                                <div class="mb-3">
+                                    <label for="youtube_link" class="form-label">Link do YouTube</label>
+                                    <input type="url" class="form-control" id="youtube_link" name="youtube_link" 
+                                           value="{{ music[8] or '' }}" placeholder="https://www.youtube.com/watch?v=...">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Descrição</label>
+                                    <textarea class="form-control" id="description" name="description" rows="3">{{ music[12] or '' }}</textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tempos Litúrgicos</label>
+                                    <div class="border p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                                        {% for time in liturgical_times %}
+                                            <div class="form-check">
+                                                <input class="form-check-input liturgical-checkbox" type="checkbox" 
+                                                       id="time_{{ loop.index }}" name="liturgical_times" 
+                                                       value="{{ time }}" {% if time == music[6] %}checked{% endif %}>
+                                                <label class="form-check-label" for="time_{{ loop.index }}">
+                                                    {{ time }}
+                                                </label>
+                                            </div>
+                                        {% endfor %}
+                                        {% if not liturgical_times %}
+                                            <div class="text-muted small text-center">
+                                                Nenhum tempo litúrgico cadastrado
+                                            </div>
                                         {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Artista/Compositor:</strong></td>
-                                    <td>
-                                        {% if music[4] %}
-                                            {{ music[4] }}
-                                        {% else %}
-                                            <span class="text-muted">Não informado</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Arquivo:</strong></td>
-                                    <td>{{ music[2] }}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Categoria:</strong></td>
-                                    <td><span class="badge bg-primary">{{ music[5] }}</span></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Tempo Litúrgico:</strong></td>
-                                    <td>
-                                        {% if music[6] %}
-                                            <span class="badge bg-secondary">{{ music[6] }}</span>
-                                        {% else %}
-                                            <span class="text-muted">Não informado</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Tom Musical:</strong></td>
-                                    <td>
-                                        {% if music[7] %}
-                                            <span class="badge bg-success">{{ music[7] }}</span>
-                                        {% else %}
-                                            <span class="text-muted">Não informado</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            </table>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="new_liturgical_input" 
+                                                   placeholder="Novo tempo litúrgico...">
+                                            <button type="button" class="btn btn-outline-success" onclick="addNewLiturgicalTime()">
+                                                <i class="fas fa-plus"></i> Adicionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="form-text">
+                                        <small>Selecione um ou mais tempos litúrgicos para esta música</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <h5><i class="fas fa-chart-bar text-success"></i> Detalhes do Arquivo</h5>
-                            <table class="table table-borderless">
-                                <tr>
-                                    <td><strong>Tamanho:</strong></td>
-                                    <td>{{ "%.2f"|format(music[9]/1024/1024) }} MB</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Páginas:</strong></td>
-                                    <td>{{ music[11] if music[11] else 'N/A' }}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Data de Upload:</strong></td>
-                                    <td>{{ music[10][:19] if music[10] else 'N/A' }}</td>
-                                </tr>
-                            </table>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Salvar Alterações
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
                         </div>
-                    </div>
+                    </form>
+                    
+                    <!-- Visualização normal (inicialmente visível) -->
+                    <div id="viewMode">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-info-circle text-primary"></i> Informações Básicas</h5>
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Nome da Música:</strong></td>
+                                        <td>
+                                            {% if music[3] %}
+                                                <strong>{{ music[3] }}</strong>
+                                            {% else %}
+                                                <span class="text-muted">Não informado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Artista/Compositor:</strong></td>
+                                        <td>
+                                            {% if music[4] %}
+                                                {{ music[4] }}
+                                            {% else %}
+                                                <span class="text-muted">Não informado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Arquivo:</strong></td>
+                                        <td>{{ music[1] }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Categoria:</strong></td>
+                                        <td><span class="badge bg-primary">{{ music[5] }}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tempo Litúrgico:</strong></td>
+                                        <td>
+                                            {% if music[6] %}
+                                                <span class="badge bg-secondary">{{ music[6] }}</span>
+                                            {% else %}
+                                                <span class="text-muted">Não informado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tom Musical:</strong></td>
+                                        <td>
+                                            {% if music[7] %}
+                                                <span class="badge bg-success">{{ music[7] }}</span>
+                                            {% else %}
+                                                <span class="text-muted">Não informado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-chart-bar text-success"></i> Detalhes do Arquivo</h5>
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <td><strong>Tamanho:</strong></td>
+                                        <td>{{ "%.2f"|format(music[9]/1024/1024) }} MB</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Páginas:</strong></td>
+                                        <td>{{ music[11] if music[11] else 'N/A' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Data de Upload:</strong></td>
+                                        <td>{{ music[10][:19] if music[10] else 'N/A' }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
 
-                    {% if music[12] %}
-                    <div class="mt-4">
-                        <h5><i class="fas fa-align-left text-info"></i> Descrição</h5>
-                        <p class="lead">{{ music[12] }}</p>
+                        {% if music[12] %}
+                        <div class="mt-4">
+                            <h5><i class="fas fa-align-left text-info"></i> Descrição</h5>
+                            <p class="lead">{{ music[12] }}</p>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
 
@@ -167,10 +291,48 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('view_file', file_id=music[0]) }}" class="btn btn-primary" target="_blank">
+                        <button type="button" class="btn btn-outline-warning" id="editBtn" onclick="toggleEdit()">
+                            <i class="fas fa-edit"></i> Editar Informações
+                        </button>
+                        
+                        <a href="{{ url_for('view_file', file_id=music[0]) }}" class="btn btn-outline-primary" target="_blank">
                             <i class="fas fa-eye"></i> Visualizar PDF
                         </a>
-                        <a href="{{ music[13] }}" class="btn btn-outline-success" download>
+                        
+                        <!-- Adicionar à Lista -->
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-warning dropdown-toggle" 
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-plus"></i> Adicionar à Lista
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end w-100">
+                                <div class="px-3 py-2">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           placeholder="Buscar lista..." 
+                                           onkeyup="filterMusicDetailsList(this)">
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <div id="music-details-lists" style="max-height: 200px; overflow-y: auto;">
+                                    {% set music_lists_query = get_merge_lists() %}
+                                    {% for list in music_lists_query %}
+                                    <div class="dropdown-list-item" data-name="{{ list[1] | lower }}">
+                                        <form method="POST" action="{{ url_for('add_song_to_list', file_id=music[0], list_id=list[0]) }}" style="display: inline;">
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="fas fa-list text-primary"></i> {{ list[1] }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                    {% endfor %}
+                                    {% if not music_lists_query %}
+                                    <div class="px-3 py-2 text-muted text-center">
+                                        <small>Nenhuma lista criada ainda</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <a href="{{ url_for('download_file', file_id=music[0]) }}" class="btn btn-outline-success">
                             <i class="fas fa-download"></i> Baixar Arquivo
                         </a>
                         {% if music[8] %}
@@ -192,7 +354,7 @@
                         Outras músicas da categoria "{{ music[5] }}"
                         {% if music[6] %} e tempo litúrgico "{{ music[6] }}"{% endif %}
                     </p>
-                    <a href="{{ url_for('search', category=music[5], liturgical_time=music[6] if music[6] else '') }}" 
+                    <a href="{{ url_for('index') }}?filter_category={{ music[5] }}{% if music[6] %}&filter_liturgical={{ music[6] }}{% endif %}" 
                        class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-search"></i> Ver Relacionadas
                     </a>
@@ -208,6 +370,139 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <script>
+// Função para alternar entre modo de visualização/edição
+function toggleEdit() {
+    const editForm = document.getElementById('editForm');
+    const viewMode = document.getElementById('viewMode');
+    const editBtn = document.getElementById('editBtn');
+    
+    if (editForm.style.display === 'none') {
+        editForm.style.display = 'block';
+        viewMode.style.display = 'none';
+        editBtn.innerHTML = '<i class="fas fa-eye"></i> Visualizar';
+        editBtn.className = 'btn btn-outline-info btn-sm';
+    } else {
+        editForm.style.display = 'none';
+        viewMode.style.display = 'block';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> Editar';
+        editBtn.className = 'btn btn-outline-warning btn-sm';
+    }
+}
+
+function cancelEdit() {
+    // Resetar formulário aos valores originais
+    document.getElementById('editForm').reset();
+    
+    // Restaurar valores originais dos campos
+    document.getElementById('song_name').value = '{{ music[3] or "" }}';
+    document.getElementById('single_artist').value = '{{ music[4] or "" }}';
+    document.getElementById('musical_key').value = '{{ music[7] or "" }}';
+    document.getElementById('youtube_link').value = '{{ music[8] or "" }}';
+    document.getElementById('description').value = '{{ music[12] or "" }}';
+    
+    // Voltar ao modo visualização
+    toggleEdit();
+}
+
+function toggleNewArtistDetails() {
+    const field = document.getElementById('new_artist_field');
+    const isVisible = field.style.display !== 'none';
+    field.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+        field.querySelector('input').focus();
+    }
+}
+
+function addNewCategory() {
+    const input = document.getElementById('new_category_input');
+    const categoryName = input.value.trim();
+    
+    if (!categoryName) {
+        alert('Por favor, digite o nome da categoria');
+        return;
+    }
+    
+    // Verificar se já existe
+    const existingCategories = Array.from(document.querySelectorAll('.category-checkbox')).map(cb => cb.value);
+    if (existingCategories.includes(categoryName)) {
+        alert('Esta categoria já existe');
+        return;
+    }
+    
+    // Criar nova checkbox
+    const container = document.querySelector('.category-checkbox').closest('.border');
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-check';
+    
+    const checkboxId = 'cat_new_' + Date.now();
+    newDiv.innerHTML = `
+        <input class="form-check-input category-checkbox" type="checkbox" 
+               id="${checkboxId}" name="categories" value="${categoryName}" checked>
+        <label class="form-check-label" for="${checkboxId}">
+            ${categoryName} <small class="text-success">(nova)</small>
+        </label>
+    `;
+    
+    container.appendChild(newDiv);
+    input.value = '';
+    
+    // Adicionar campo hidden para indicar nova categoria
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'hidden';
+    hiddenInput.name = 'new_categories';
+    hiddenInput.value = categoryName;
+    document.getElementById('editForm').appendChild(hiddenInput);
+}
+
+function addNewLiturgicalTime() {
+    const input = document.getElementById('new_liturgical_input');
+    const liturgicalName = input.value.trim();
+    
+    if (!liturgicalName) {
+        alert('Por favor, digite o nome do tempo litúrgico');
+        return;
+    }
+    
+    // Verificar se já existe
+    const existingTimes = Array.from(document.querySelectorAll('.liturgical-checkbox')).map(cb => cb.value);
+    if (existingTimes.includes(liturgicalName)) {
+        alert('Este tempo litúrgico já existe');
+        return;
+    }
+    
+    // Criar nova checkbox
+    let container = document.querySelector('.liturgical-checkbox');
+    if (container) {
+        container = container.closest('.border');
+    } else {
+        // Se não há tempos litúrgicos, encontrar o container
+        container = document.querySelector('.liturgical-checkbox').closest('.border') || 
+                   document.querySelector('label:contains("Tempos Litúrgicos")').nextElementSibling;
+    }
+    
+    const newDiv = document.createElement('div');
+    newDiv.className = 'form-check';
+    
+    const checkboxId = 'time_new_' + Date.now();
+    newDiv.innerHTML = `
+        <input class="form-check-input liturgical-checkbox" type="checkbox" 
+               id="${checkboxId}" name="liturgical_times" value="${liturgicalName}" checked>
+        <label class="form-check-label" for="${checkboxId}">
+            ${liturgicalName} <small class="text-success">(novo)</small>
+        </label>
+    `;
+    
+    container.appendChild(newDiv);
+    input.value = '';
+    
+    // Adicionar campo hidden para indicar novo tempo litúrgico
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'hidden';
+    hiddenInput.name = 'new_liturgical_times';
+    hiddenInput.value = liturgicalName;
+    document.getElementById('editForm').appendChild(hiddenInput);
+}
+
 // PDF.js configuration
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -274,6 +569,274 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Erro ao carregar PDF:', error);
             document.getElementById('loadingPdf').innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Erro ao carregar PDF';
         });
+});
+
+// Function to filter lists in music details dropdown
+function filterMusicDetailsList(input) {
+    const dropdown = document.getElementById('music-details-lists');
+    const search = input.value.toLowerCase();
+
+    dropdown.querySelectorAll('.dropdown-list-item').forEach(item => {
+        const text = item.getAttribute('data-name');
+        if (text.includes(search)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Autocomplete para artistas
+let artistTimeout;
+document.getElementById('single_artist').addEventListener('input', function() {
+    clearTimeout(artistTimeout);
+    const query = this.value.trim();
+    const suggestionsDiv = document.getElementById('artist_suggestions');
+    
+    if (query.length < 1) {
+        suggestionsDiv.style.display = 'none';
+        return;
+    }
+    
+    artistTimeout = setTimeout(() => {
+        fetch(`/api/search_artists?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                suggestionsDiv.innerHTML = '';
+                
+                if (data.artists && data.artists.length > 0) {
+                    data.artists.forEach(artist => {
+                        const div = document.createElement('div');
+                        div.className = 'px-3 py-2 cursor-pointer';
+                        div.style.cursor = 'pointer';
+                        div.textContent = artist;
+                        div.onclick = () => {
+                            document.getElementById('single_artist').value = artist;
+                            suggestionsDiv.style.display = 'none';
+                        };
+                        div.onmouseover = () => div.style.backgroundColor = '#f8f9fa';
+                        div.onmouseout = () => div.style.backgroundColor = 'white';
+                        suggestionsDiv.appendChild(div);
+                    });
+                    suggestionsDiv.style.display = 'block';
+                } else {
+                    suggestionsDiv.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar artistas:', error);
+                suggestionsDiv.style.display = 'none';
+            });
+    }, 300);
+});
+
+// Esconder sugestões quando clicar fora
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#single_artist') && !e.target.closest('#artist_suggestions')) {
+        document.getElementById('artist_suggestions').style.display = 'none';
+    }
+});
+
+// ===== SISTEMA DE NAVEGAÇÃO INTELIGENTE =====
+
+// Salvar informações de onde o usuário veio ao carregar a página
+const navigationHistory = {
+    referrer: document.referrer,
+    backUrl: null,
+    hasChanges: false
+};
+
+// Determinar URL de volta baseada no referrer
+function determineBackUrl() {
+    const currentHost = window.location.host;
+    const referrerUrl = navigationHistory.referrer;
+    
+    if (referrerUrl && referrerUrl.includes(currentHost)) {
+        // Se veio de dentro do site, usar o referrer
+        const url = new URL(referrerUrl);
+        navigationHistory.backUrl = url.pathname + url.search;
+    } else {
+        // Se não há referrer válido, voltar para a página inicial
+        navigationHistory.backUrl = '{{ url_for("index") }}';
+    }
+}
+
+// Função de voltar inteligente
+function goBack() {
+    if (navigationHistory.hasChanges) {
+        showNavigationConfirmation();
+    } else {
+        executeGoBack();
+    }
+}
+
+function executeGoBack() {
+    if (navigationHistory.backUrl) {
+        window.location.href = navigationHistory.backUrl;
+    } else {
+        window.history.back();
+    }
+}
+
+// Modal de confirmação para mudanças não salvas
+function showNavigationConfirmation() {
+    const modalHtml = `
+        <div class="modal fade" id="navigationModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Alterações não salvas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Você tem alterações não salvas. O que deseja fazer?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" onclick="saveAndNavigate()">
+                            <i class="fas fa-save"></i> Salvar e Sair
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="discardAndNavigate()">
+                            <i class="fas fa-trash"></i> Descartar Alterações
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('navigationModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('navigationModal')).show();
+}
+
+function saveAndNavigate() {
+    // Submeter o formulário de edição
+    const editForm = document.getElementById('editForm');
+    if (editForm && editForm.style.display !== 'none') {
+        editForm.submit();
+    } else {
+        executeGoBack();
+    }
+}
+
+function discardAndNavigate() {
+    navigationHistory.hasChanges = false;
+    bootstrap.Modal.getInstance(document.getElementById('navigationModal')).hide();
+    executeGoBack();
+}
+
+// Detectar mudanças no formulário
+function trackFormChanges() {
+    const form = document.getElementById('editForm');
+    if (!form) return;
+    
+    const inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.addEventListener('change', () => {
+            navigationHistory.hasChanges = true;
+        });
+        input.addEventListener('input', () => {
+            navigationHistory.hasChanges = true;
+        });
+    });
+    
+    // Resetar flag quando salvar
+    form.addEventListener('submit', () => {
+        navigationHistory.hasChanges = false;
+    });
+}
+
+// Interceptar navegação do browser (botão voltar)
+window.addEventListener('beforeunload', function(e) {
+    if (navigationHistory.hasChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+});
+
+// Interceptar cliques em links
+document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    if (link && link.href && !link.target && navigationHistory.hasChanges) {
+        e.preventDefault();
+        navigationHistory.pendingUrl = link.href;
+        showNavigationConfirmation();
+    }
+});
+
+// Modificar funções para incluir navegação
+function saveAndNavigateToUrl() {
+    const editForm = document.getElementById('editForm');
+    if (editForm && editForm.style.display !== 'none') {
+        // Adicionar campo hidden com URL de destino
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'redirect_url';
+        hiddenInput.value = navigationHistory.pendingUrl || navigationHistory.backUrl;
+        editForm.appendChild(hiddenInput);
+        editForm.submit();
+    } else {
+        window.location.href = navigationHistory.pendingUrl || navigationHistory.backUrl;
+    }
+}
+
+function discardAndNavigateToUrl() {
+    navigationHistory.hasChanges = false;
+    bootstrap.Modal.getInstance(document.getElementById('navigationModal')).hide();
+    window.location.href = navigationHistory.pendingUrl || navigationHistory.backUrl;
+}
+
+// Modificar modal para URLs específicas
+function showNavigationConfirmation() {
+    const modalHtml = `
+        <div class="modal fade" id="navigationModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Alterações não salvas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Você tem alterações não salvas. O que deseja fazer?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" onclick="${navigationHistory.pendingUrl ? 'saveAndNavigateToUrl()' : 'saveAndNavigate()'}">
+                            <i class="fas fa-save"></i> Salvar e Sair
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="${navigationHistory.pendingUrl ? 'discardAndNavigateToUrl()' : 'discardAndNavigate()'}">
+                            <i class="fas fa-trash"></i> Descartar Alterações
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existingModal = document.getElementById('navigationModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('navigationModal')).show();
+}
+
+// Inicializar sistema de navegação
+document.addEventListener('DOMContentLoaded', function() {
+    determineBackUrl();
+    trackFormChanges();
 });
 </script>
 {% endblock %} 

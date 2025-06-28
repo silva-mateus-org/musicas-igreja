@@ -1,14 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}Listas de Fusão - Organizador de Música Litúrgica{% endblock %}
+{% block title %}Lista de Músicas - Organizador de Música Litúrgica{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="fas fa-list-alt"></i> Listas de Fusão</h1>
+                <h1><i class="fas fa-list-alt"></i> Lista de Músicas</h1>
                 <div>
+                    <!-- View Mode Toggle -->
+                    <div class="btn-group me-2" role="group">
+                        <a href="{{ url_for('merge_lists', view='card') }}" 
+                           class="btn btn-outline-secondary {% if request.args.get('view', 'list') == 'card' %}active{% endif %}">
+                            <i class="fas fa-th-large"></i> Cards
+                        </a>
+                        <a href="{{ url_for('merge_lists', view='list') }}" 
+                           class="btn btn-outline-secondary {% if request.args.get('view', 'list') == 'list' %}active{% endif %}">
+                            <i class="fas fa-list"></i> Lista
+                        </a>
+                    </div>
+                    
+                    <a href="{{ url_for('edit_merge_list', list_id=0) }}" class="btn btn-success me-2">
+                        <i class="fas fa-plus"></i> Criar Nova Lista
+                    </a>
+                    
                     <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left"></i> Voltar
                     </a>
@@ -17,58 +33,167 @@
         </div>
     </div>
 
-    {% if lists %}
-        <div class="row">
-            {% for list in lists %}
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-list"></i> {{ list[1] }}
-                            </h5>
-                            
-                            <div class="mb-3">
-                                <span class="badge bg-primary">{{ list[4] }} arquivo(s)</span>
+    <!-- Search Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('merge_lists') }}">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-8">
+                                <label for="search" class="form-label"><i class="fas fa-search"></i> Buscar Lista</label>
+                                <input type="text" class="form-control" id="search" name="search" 
+                                       placeholder="Digite o nome da lista..." 
+                                       value="{{ request.args.get('search', '') }}">
+                                <input type="hidden" name="view" value="{{ request.args.get('view', 'list') }}">
                             </div>
-                            
-                            <p class="text-muted small mb-2">
-                                <strong>Criada:</strong> {{ list[2][:16] if list[2] else 'N/A' }}
-                            </p>
-                            
-                            <p class="text-muted small mb-3">
-                                <strong>Atualizada:</strong> {{ list[3][:16] if list[3] else 'N/A' }}
-                            </p>
-                        </div>
-                        
-                        <div class="card-footer bg-transparent">
-                            <div class="btn-group w-100" role="group">
-                                <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" 
-                                   class="btn btn-outline-primary btn-sm">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
-                                {% if list[4] >= 2 %}
-                                    <button type="button" class="btn btn-outline-success btn-sm"
-                                            onclick="showMergeModal({{ list[0] }}, '{{ list[1] }}')">
-                                        <i class="fas fa-layer-group"></i> Mesclar
+                            <div class="col-md-4">
+                                <div class="btn-group w-100">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> Buscar
                                     </button>
-                                {% endif %}
-                                <button type="button" class="btn btn-outline-danger btn-sm"
-                                        onclick="deleteList({{ list[0] }}, '{{ list[1] }}')">
-                                    <i class="fas fa-trash"></i> Deletar
-                                </button>
+                                    {% if request.args.get('search') %}
+                                        <a href="{{ url_for('merge_lists', view=request.args.get('view', 'list')) }}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-times"></i> Limpar
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if lists %}
+        {% set view_mode = request.args.get('view', 'list') %}
+        {% set search_query = request.args.get('search', '') %}
+            {% if view_mode == 'list' %}
+                <!-- List View -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Lista de Músicas</h6>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nome da Lista</th>
+                                            <th>Quantidade</th>
+                                            <th>Criada</th>
+                                            <th>Atualizada</th>
+                                            <th style="width: 150px;">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for list in lists %}
+                                            {% if not search_query or search_query.lower() in list[1].lower() %}
+                                            <tr>
+                                                <td>
+                                                    <strong><i class="fas fa-music text-primary me-2"></i>{{ list[1] }}</strong>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary">{{ list[4] }} música(s)</span>
+                                                </td>
+                                                <td><small>{{ list[2][:16] if list[2] else 'N/A' }}</small></td>
+                                                <td><small>{{ list[3][:16] if list[3] else 'N/A' }}</small></td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" 
+                                                           class="btn btn-outline-primary btn-sm" title="Editar Lista">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                        <button type="button" class="btn btn-outline-info btn-sm" 
+                                                                onclick="duplicateList({{ list[0] }}, this.dataset.listName)" 
+                                                                data-list-name="{{ list[1] }}" title="Duplicar Lista">
+                                                            <i class="fas fa-copy"></i>
+                                                        </button>
+                                                        <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: inline;">
+                                                            <button type="submit" class="btn btn-outline-warning btn-sm" title="Baixar PDF Unificado">
+                                                                <i class="fas fa-download"></i>
+                                                            </button>
+                                                        </form>
+                                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                                onclick="deleteList({{ list[0] }}, '{{ list[1] }}')" title="Deletar Lista">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
+            {% else %}
+                <!-- Card View -->
+                <div class="row">
+                    {% for list in lists %}
+                        {% if not search_query or search_query.lower() in list[1].lower() %}
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-music text-primary"></i> {{ list[1] }}
+                                    </h5>
+                                    
+                                    <div class="mb-3">
+                                        <span class="badge bg-primary">{{ list[4] }} música(s)</span>
+                                    </div>
+                                    
+                                    <p class="text-muted small mb-2">
+                                        <i class="fas fa-calendar-plus"></i> <strong>Criada:</strong> {{ list[2][:16] if list[2] else 'N/A' }}
+                                    </p>
+                                    
+                                    <p class="text-muted small mb-3">
+                                        <i class="fas fa-calendar-check"></i> <strong>Atualizada:</strong> {{ list[3][:16] if list[3] else 'N/A' }}
+                                    </p>
+                                </div>
+                                
+                                <div class="card-footer bg-transparent">
+                                    <div class="btn-group w-100 mb-2" role="group">
+                                        <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" 
+                                           class="btn btn-outline-primary btn-sm" title="Editar Lista">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </a>
+                                        <button type="button" class="btn btn-outline-info btn-sm" 
+                                                onclick="duplicateList({{ list[0] }}, this.dataset.listName)" 
+                                                data-list-name="{{ list[1] }}" title="Duplicar Lista">
+                                            <i class="fas fa-copy"></i> Duplicar
+                                        </button>
+                                    </div>
+                                    <div class="btn-group w-100" role="group">
+                                        <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: inline;" class="flex-fill">
+                                            <button type="submit" class="btn btn-outline-warning btn-sm w-100" title="Baixar PDF Unificado">
+                                                <i class="fas fa-download"></i> Download
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-danger btn-sm flex-fill"
+                                                onclick="deleteList({{ list[0] }}, this.dataset.listName)" 
+                                                data-list-name="{{ list[1] }}" title="Deletar Lista">
+                                            <i class="fas fa-trash"></i> Deletar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
     {% else %}
         <div class="row">
             <div class="col-12">
                 <div class="text-center py-5">
                     <i class="fas fa-list-alt fa-3x text-muted mb-3"></i>
-                    <h3 class="text-muted">Nenhuma lista de fusão encontrada</h3>
-                    <p class="text-muted">Crie listas selecionando múltiplos arquivos na página inicial.</p>
+                    <h3 class="text-muted">Nenhuma lista de música encontrada</h3>
+                    <p class="text-muted">Crie listas selecionando múltiplas músicas na página inicial.</p>
                     <a href="{{ url_for('index') }}" class="btn btn-primary">
                         <i class="fas fa-home"></i> Ir para Início
                     </a>
@@ -76,36 +201,6 @@
             </div>
         </div>
     {% endif %}
-</div>
-
-<!-- Merge Modal -->
-<div class="modal fade" id="mergeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="mergeForm" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title">Mesclar Lista</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Mesclar arquivos da lista <strong id="mergeListName"></strong>?</p>
-                    
-                    <div class="mb-3">
-                        <label for="output_name" class="form-label">Nome do arquivo mesclado</label>
-                        <input type="text" class="form-control" id="output_name" name="output_name" 
-                               placeholder="Nome do arquivo (sem .pdf)" required>
-                        <div class="form-text">A extensão .pdf será adicionada automaticamente</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-layer-group"></i> Mesclar Arquivos
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -118,7 +213,7 @@
             </div>
             <div class="modal-body">
                 <p>Tem certeza que deseja deletar a lista <strong id="deleteListName"></strong>?</p>
-                <p class="text-muted">Esta ação não pode ser desfeita. Os arquivos originais não serão deletados.</p>
+                <p class="text-muted">Esta ação não pode ser desfeita. As músicas originais não serão deletadas.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -129,21 +224,58 @@
         </div>
     </div>
 </div>
+
+<!-- Duplicate List Modal -->
+<div class="modal fade" id="duplicateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Duplicar Lista</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Digite o novo nome para a lista duplicada:</p>
+                <form id="duplicateForm" method="POST">
+                    <div class="mb-3">
+                        <label for="newListName" class="form-label">Nome da Nova Lista</label>
+                        <input type="text" class="form-control" id="newListName" name="new_list_name" required>
+                    </div>
+                </form>
+                <p class="text-muted">A nova lista será criada com todas as músicas da lista original.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitDuplicate()">Duplicar Lista</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function showMergeModal(listId, listName) {
-    document.getElementById('mergeListName').textContent = listName;
-    document.getElementById('output_name').value = listName;
-    document.getElementById('mergeForm').action = '/merge_from_list/' + listId;
-    new bootstrap.Modal(document.getElementById('mergeModal')).show();
-}
-
 function deleteList(listId, listName) {
     document.getElementById('deleteListName').textContent = listName;
     document.getElementById('deleteForm').action = '/delete_merge_list/' + listId;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function duplicateList(listId, listName) {
+    document.getElementById('newListName').value = 'Cópia de ' + listName;
+    document.getElementById('duplicateForm').action = '/duplicate_merge_list/' + listId;
+    new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+}
+
+function submitDuplicate() {
+    const form = document.getElementById('duplicateForm');
+    const newName = document.getElementById('newListName').value.trim();
+    
+    if (!newName) {
+        alert('Por favor, digite um nome para a nova lista');
+        return;
+    }
+    
+    form.submit();
 }
 </script>
 {% endblock %} 

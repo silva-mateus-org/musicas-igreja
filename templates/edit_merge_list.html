@@ -1,39 +1,74 @@
 {% extends "base.html" %}
 
-{% block title %}Editar Lista - {{ merge_list[1] }}{% endblock %}
+{% block title %}{% if merge_list[0] == 0 %}Criar Nova Lista{% else %}Editar Lista - {{ merge_list[1] }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="fas fa-edit"></i> Editar Lista: {{ merge_list[1] }}</h1>
+                <h1><i class="fas fa-edit"></i> 
+                    {% if merge_list[0] == 0 %}
+                        Criar Nova Lista de Música
+                    {% else %}
+                        Editar Lista: {{ merge_list[1] }}
+                    {% endif %}
+                </h1>
                 <div>
-                    <a href="{{ url_for('merge_lists') }}" class="btn btn-outline-secondary">
+                    <div id="unsaved-changes" class="d-none me-2" style="display: inline-block;">
+                        <button type="button" class="btn btn-success me-1" onclick="saveChanges()">
+                            <i class="fas fa-save"></i> Salvar Alterações
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary me-2" onclick="cancelChanges()">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary" onclick="goBackFromList()">
                         <i class="fas fa-arrow-left"></i> Voltar
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Nome da Lista -->
+    {% if merge_list[0] == 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('create_merge_list') }}">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-8">
+                                <label for="list_name" class="form-label"><i class="fas fa-tag"></i> Nome da Lista</label>
+                                <input type="text" class="form-control" id="list_name" name="list_name" 
+                                       placeholder="Digite o nome da nova lista..." required>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fas fa-plus"></i> Criar Lista
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row">
-        <!-- Lista de Arquivos -->
+        <!-- Músicas na Lista -->
         <div class="col-lg-8">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Arquivos na Lista ({{ list_files|length }})</h5>
-                    {% if list_files|length >= 2 %}
-                        <button type="button" class="btn btn-success btn-sm" onclick="showMergeModal()">
-                            <i class="fas fa-layer-group"></i> Mesclar Agora
-                        </button>
-                    {% endif %}
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-music"></i> Músicas na Lista ({{ list_files|length }})</h5>
                 </div>
                 <div class="card-body">
                     {% if list_files %}
                         <div id="sortableList" class="list-group">
                             {% for file in list_files %}
-                                <div class="list-group-item" data-item-id="{{ file[0] }}">
+                                <div class="list-group-item sortable-item" data-item-id="{{ file[0] }}">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-center">
@@ -49,12 +84,39 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div>
-                                            <span class="badge bg-secondary me-2">{{ file[1] }}</span>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('music_details', file_id=file[2]) }}" 
+                                               class="btn btn-outline-info btn-sm action-btn" title="Ver Detalhes">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                            
+                                            <a href="{{ url_for('view_file', file_id=file[2]) }}" 
+                                               class="btn btn-outline-primary btn-sm action-btn" target="_blank" title="Visualizar PDF">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            
+                                            {% set youtube_link = '' %}
+                                            {% for all_file in all_files %}
+                                                {% if all_file[0] == file[2] and all_file|length > 8 and all_file[8] %}
+                                                    {% set youtube_link = all_file[8] %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            {% if youtube_link %}
+                                                <a href="{{ youtube_link }}" 
+                                                   class="btn btn-outline-danger btn-sm action-btn" target="_blank" title="Ouvir no YouTube">
+                                                    <i class="fab fa-youtube"></i>
+                                                </a>
+                                            {% else %}
+                                                <button class="btn btn-outline-danger btn-sm action-btn" disabled title="YouTube não disponível">
+                                                    <i class="fab fa-youtube"></i>
+                                                </button>
+                                            {% endif %}
+                                            
                                             <form method="POST" action="{{ url_for('remove_from_merge_list', item_id=file[0]) }}" 
                                                   style="display: inline;">
-                                                <button type="submit" class="btn btn-outline-danger btn-sm"
-                                                        onclick="return confirm('Remover este arquivo da lista?')">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm action-btn" title="Remover da lista"
+                                                        onclick="return confirm('Remover esta música da lista?')">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </form>
@@ -65,120 +127,233 @@
                         </div>
                         
                         <div class="mt-3">
-                            <button type="button" class="btn btn-info" onclick="saveOrder()">
-                                <i class="fas fa-save"></i> Salvar Ordem
-                            </button>
-                            <small class="text-muted ms-2">Arraste os arquivos para reordenar</small>
+                            <small class="text-muted">Arraste as músicas para reordenar</small>
                         </div>
                     {% else %}
                         <div class="text-center py-4">
-                            <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
-                            <p class="text-muted">Nenhum arquivo na lista</p>
+                            <i class="fas fa-music fa-2x text-muted mb-3"></i>
+                            <p class="text-muted">Nenhuma música na lista</p>
+                            <small class="text-muted">Use os filtros ao lado para buscar e adicionar músicas</small>
                         </div>
                     {% endif %}
                 </div>
             </div>
+
         </div>
 
-        <!-- Adicionar Arquivos -->
+        <!-- Informações da Lista e Ações -->
         <div class="col-lg-4">
+            {% if merge_list[0] != 0 %}
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Adicionar Arquivo</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('add_to_merge_list', list_id=merge_list[0]) }}">
-                        <div class="mb-3">
-                            <label for="file_id" class="form-label">Selecionar Arquivo</label>
-                            <select class="form-select" id="file_id" name="file_id" required>
-                                <option value="">Escolha um arquivo...</option>
-                                {% for file in all_files %}
-                                    <option value="{{ file[0] }}">{{ file[1] }} ({{ file[3] }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-plus"></i> Adicionar à Lista
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Informações da Lista -->
-            <div class="card mt-4">
-                <div class="card-header">
-                    <h6 class="mb-0">Informações da Lista</h6>
+                    <h6 class="mb-0"><i class="fas fa-info-circle"></i> Informações da Lista</h6>
                 </div>
                 <div class="card-body">
                     <p class="small mb-2">
                         <strong>Nome:</strong> {{ merge_list[1] }}
                     </p>
                     <p class="small mb-2">
-                        <strong>Arquivos:</strong> {{ list_files|length }}
+                        <strong>Músicas:</strong> {{ list_files|length }}
                     </p>
-                    <p class="small mb-0">
+                    <p class="small mb-3">
                         <strong>Status:</strong> 
                         {% if list_files|length >= 2 %}
-                            <span class="text-success">Pronta para mesclar</span>
+                            <span class="text-success">Pronta para download</span>
                         {% elif list_files|length == 1 %}
-                            <span class="text-warning">Precisa de mais arquivos</span>
+                            <span class="text-warning">Precisa de mais músicas</span>
                         {% else %}
                             <span class="text-muted">Lista vazia</span>
                         {% endif %}
                     </p>
+                    
+                    <!-- Botões de Ação -->
+                    <div class="d-grid gap-2">
+                        {% if list_files|length > 0 %}
+                            <button type="button" class="btn btn-info btn-sm" onclick="generateListReport({{ merge_list[0] }})" title="Gerar relatório desta lista">
+                                <i class="fas fa-file-export"></i> Gerar Relatório
+                            </button>
+                        {% endif %}
+                        
+                        {% if list_files|length >= 2 %}
+                            <form method="POST" action="{{ url_for('download_merged_list', list_id=merge_list[0]) }}">
+                                <button type="submit" class="btn btn-success btn-sm w-100" title="Baixar PDF unificado">
+                                    <i class="fas fa-download"></i> Baixar PDF Unificado
+                                </button>
+                            </form>
+                        {% endif %}
+                        
+                        <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#renameListModal" title="Renomear lista">
+                            <i class="fas fa-edit"></i> Renomear Lista
+                        </button>
+                        
+                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteList({{ merge_list[0] }}, '{{ merge_list[1] }}')" title="Deletar lista">
+                            <i class="fas fa-trash"></i> Deletar Lista
+                        </button>
+                    </div>
                 </div>
             </div>
+            {% endif %}
+        </div>
+    </div>
 
-            <!-- Ações da Lista -->
-            <div class="card mt-4">
+    <!-- Buscar e Adicionar Músicas -->
+    <div class="row mt-4">
+        <!-- Filtros de Busca -->
+        <div class="col-lg-4">
+            <div class="card">
                 <div class="card-header">
-                    <h6 class="mb-0">Ações</h6>
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> Filtros de Busca</h6>
                 </div>
                 <div class="card-body">
-                    <button type="button" class="btn btn-danger w-100 mb-2"
-                            onclick="deleteList({{ merge_list[0] }}, '{{ merge_list[1] }}')">
-                        <i class="fas fa-trash"></i> Deletar Lista
-                    </button>
-                    <a href="{{ url_for('merge_lists') }}" class="btn btn-outline-secondary w-100">
-                        <i class="fas fa-list"></i> Ver Todas as Listas
-                    </a>
+                    <!-- Busca por Texto -->
+                    <div class="mb-3">
+                        <label for="filter_text" class="form-label">Buscar por Texto</label>
+                        <input type="text" class="form-control form-control-sm" id="filter_text" 
+                               placeholder="Nome da música, artista ou arquivo..." 
+                               onkeyup="filterMusic()">
+                    </div>
+
+                    <!-- Filtro de Categorias -->
+                    <div class="mb-3">
+                        <label class="form-label">Categorias</label>
+                        <div class="mb-2">
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <button type="button" class="btn btn-outline-primary" onclick="selectAllCategories()">
+                                    <i class="fas fa-check-double"></i> Todas
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="unselectAllCategories()">
+                                    <i class="fas fa-times"></i> Nenhuma
+                                </button>
+                            </div>
+                        </div>
+                        <div class="border p-2 rounded" style="max-height: 150px; overflow-y: auto;">
+                            {% for category in categories %}
+                                <div class="form-check">
+                                    <input class="form-check-input category-filter-checkbox" type="checkbox" 
+                                           id="filter-cat-{{ loop.index }}" value="{{ category }}" 
+                                           onchange="filterMusic()">
+                                    <label class="form-check-label small" for="filter-cat-{{ loop.index }}">
+                                        {{ category }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Filtro de Tempos Litúrgicos -->
+                    <div class="mb-3">
+                        <label class="form-label">Tempos Litúrgicos</label>
+                        <div class="mb-2">
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <button type="button" class="btn btn-outline-primary" onclick="selectAllLiturgical()">
+                                    <i class="fas fa-check-double"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="unselectAllLiturgical()">
+                                    <i class="fas fa-times"></i> Nenhum
+                                </button>
+                            </div>
+                        </div>
+                        <div class="border p-2 rounded" style="max-height: 150px; overflow-y: auto;">
+                            {% for time in liturgical_times %}
+                                <div class="form-check">
+                                    <input class="form-check-input liturgical-filter-checkbox" type="checkbox" 
+                                           id="filter-time-{{ loop.index }}" value="{{ time }}" 
+                                           onchange="filterMusic()">
+                                    <label class="form-check-label small" for="filter-time-{{ loop.index }}">
+                                        {{ time }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                            {% if not liturgical_times %}
+                                <div class="text-muted small text-center">
+                                    Nenhum tempo cadastrado
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Merge Modal -->
-<div class="modal fade" id="mergeModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('merge_from_list', list_id=merge_list[0]) }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">Mesclar Lista</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <!-- Lista de Músicas Disponíveis -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-search"></i> Músicas Disponíveis</h6>
                 </div>
-                <div class="modal-body">
-                    <p>Mesclar {{ list_files|length }} arquivo(s) da lista <strong>{{ merge_list[1] }}</strong>?</p>
-                    
+                <div class="card-body">
                     <div class="mb-3">
-                        <label for="output_name" class="form-label">Nome do arquivo mesclado</label>
-                        <input type="text" class="form-control" id="output_name" name="output_name" 
-                               value="{{ merge_list[1] }}" required>
-                        <div class="form-text">A extensão .pdf será adicionada automaticamente</div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Clique no botão <i class="fas fa-plus text-success"></i> para adicionar uma música à lista
+                        </small>
                     </div>
-
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Os arquivos serão mesclados na ordem atual da lista.
+                    
+                    <div id="available-music" style="max-height: 500px; overflow-y: auto;">
+                        {% for file in all_files %}
+                            <div class="music-item mb-2 p-2 border rounded" 
+                                 data-category="{{ file[7][0] if file[7] else file[5] }}" 
+                                 data-liturgical="{{ file[8][0] if file[8] else (file[6] or '') }}"
+                                 data-search="{{ (file[1] + ' ' + (file[2] or '') + ' ' + (file[3] or '') + ' ' + (file[4] or ''))|lower }}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-pdf text-danger me-2"></i>
+                                            <div>
+                                                {% if file[3] %}
+                                                    <strong>{{ file[3] }}</strong>
+                                                {% else %}
+                                                    <strong>{{ file[1] }}</strong>
+                                                {% endif %}
+                                                {% if file[4] %}
+                                                    <br><small class="text-muted">por {{ file[4] }}</small>
+                                                {% endif %}
+                                                <br><small class="text-muted">{{ file[2] }}</small>
+                                                <br>
+                                                {% if file[7] %}
+                                                    {% for category in file[7] %}
+                                                        <span class="badge bg-primary badge-sm me-1 mb-1">{{ category }}</span>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="badge bg-secondary badge-sm">Sem categoria</span>
+                                                {% endif %}
+                                                {% if file[8] %}
+                                                    {% for time in file[8] %}
+                                                        <span class="badge bg-info badge-sm me-1 mb-1">{{ time }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('music_details', file_id=file[0]) }}" 
+                                           class="btn btn-outline-info btn-sm action-btn" title="Ver Detalhes">
+                                            <i class="fas fa-info-circle"></i>
+                                        </a>
+                                        
+                                        <a href="{{ url_for('view_file', file_id=file[0]) }}" 
+                                           class="btn btn-outline-primary btn-sm action-btn" target="_blank" title="Visualizar PDF">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        
+                                        <button type="button" class="btn btn-outline-danger btn-sm action-btn" 
+                                                onclick="openYouTube({{ file[0] }})" title="Ouvir no YouTube">
+                                            <i class="fab fa-youtube"></i>
+                                        </button>
+                                        
+                                        <form method="POST" action="{{ url_for('add_to_merge_list', list_id=merge_list[0]) }}" style="display: inline;">
+                                            <input type="hidden" name="file_id" value="{{ file[0] }}">
+                                            <button type="submit" class="btn btn-success btn-sm action-btn" title="Adicionar à lista">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-layer-group"></i> Mesclar Arquivos
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
@@ -193,43 +368,302 @@
             </div>
             <div class="modal-body">
                 <p>Tem certeza que deseja deletar a lista <strong id="deleteListName"></strong>?</p>
-                <p class="text-muted">Esta ação não pode ser desfeita. Os arquivos originais não serão deletados.</p>
+                <p class="text-muted">Esta ação não pode ser desfeita. As músicas originais não serão deletadas.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <form id="deleteForm" method="POST" style="display: inline;">
                     <button type="submit" class="btn btn-danger">Deletar Lista</button>
                 </form>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Rename List Modal -->
+{% if merge_list[0] != 0 %}
+<div class="modal fade" id="renameListModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Renomear Lista</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('rename_merge_list_route', list_id=merge_list[0]) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newListName" class="form-label">Novo nome da lista</label>
+                        <input type="text" class="form-control" id="newListName" name="new_name" 
+                               value="{{ merge_list[1] }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable-item {
+    transition: all 0.2s ease;
+    cursor: move;
+    position: relative;
+}
+
+.sortable-item:hover {
+    background-color: #f8f9fa;
+}
+
+.sortable-item.dragging {
+    background-color: #007bff !important;
+    color: white !important;
+    border-color: #007bff !important;
+    box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4);
+    opacity: 0.9;
+    transform: scale(1.05);
+    z-index: 1000;
+}
+
+.sortable-item.dragging .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.sortable-item.dragging .btn {
+    border-color: white !important;
+    color: white !important;
+}
+
+.sortable-item.drop-target::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border-radius: 2px;
+    animation: pulse 1s infinite;
+}
+
+.sortable-item.drop-target-after::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border-radius: 2px;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.handle {
+    color: #666;
+    transition: color 0.2s ease;
+}
+
+.sortable-item:hover .handle {
+    color: #007bff;
+}
+
+.changes-detected {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 1050;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function saveOrder() {
-    const items = document.querySelectorAll('#sortableList .list-group-item');
-    const order = Array.from(items).map(item => item.dataset.itemId);
-    
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{{ url_for("reorder_merge_list", list_id=merge_list[0]) }}';
-    
-    order.forEach(itemId => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'item_order';
-        input.value = itemId;
-        form.appendChild(input);
-    });
-    
-    document.body.appendChild(form);
-    form.submit();
+// Sistema de cache temporário para mudanças
+let originalListOrder = [];
+let currentListOrder = [];
+let hasUnsavedChanges = false;
+let pendingMusicToAdd = [];
+
+// Inicializar cache com estado atual
+function initializeCache() {
+    const items = document.querySelectorAll('#sortableList .sortable-item');
+    originalListOrder = Array.from(items).map(item => item.dataset.itemId);
+    currentListOrder = [...originalListOrder];
 }
 
-function showMergeModal() {
-    new bootstrap.Modal(document.getElementById('mergeModal')).show();
+// Detectar mudanças e mostrar botões
+function detectChanges() {
+    const hasOrderChanges = JSON.stringify(originalListOrder) !== JSON.stringify(currentListOrder);
+    const hasPendingMusic = pendingMusicToAdd.length > 0;
+    
+    hasUnsavedChanges = hasOrderChanges || hasPendingMusic;
+    
+    const unsavedDiv = document.getElementById('unsaved-changes');
+    if (hasUnsavedChanges) {
+        unsavedDiv.classList.remove('d-none');
+        unsavedDiv.style.display = 'inline-block';
+    } else {
+        unsavedDiv.classList.add('d-none');
+        unsavedDiv.style.display = 'none';
+    }
+}
+
+// Salvar todas as alterações
+function saveChanges() {
+    if (!hasUnsavedChanges) return;
+    
+    // Modal de confirmação
+    const modalHtml = `
+        <div class="modal fade" id="saveModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar Alterações</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Você tem as seguintes alterações para salvar:</p>
+                        <ul>
+                            ${JSON.stringify(originalListOrder) !== JSON.stringify(currentListOrder) ? '<li>Reordenação das músicas</li>' : ''}
+                            ${pendingMusicToAdd.length > 0 ? `<li>${pendingMusicToAdd.length} música(s) adicionada(s)</li>` : ''}
+                        </ul>
+                        <p>Deseja salvar essas alterações?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="confirmSave()">Salvar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('saveModal')).show();
+}
+
+// Confirmar e executar salvamento
+async function confirmSave() {
+    try {
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('saveModal')).hide();
+        
+        // Mostrar loading
+        const unsavedDiv = document.getElementById('unsaved-changes');
+        unsavedDiv.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Salvando...';
+        
+        // Salvar ordem se necessário
+        if (JSON.stringify(originalListOrder) !== JSON.stringify(currentListOrder)) {
+            const formData = new FormData();
+            currentListOrder.forEach(itemId => {
+                formData.append('item_order', itemId);
+            });
+            
+            const orderResponse = await fetch('{{ url_for("reorder_merge_list", list_id=merge_list[0]) }}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!orderResponse.ok) {
+                throw new Error('Erro ao salvar ordem');
+            }
+        }
+        
+        // Adicionar músicas pendentes se necessário
+        for (const musicId of pendingMusicToAdd) {
+            const formData = new FormData();
+            formData.append('file_id', musicId);
+            
+            const addResponse = await fetch('{{ url_for("add_to_merge_list", list_id=merge_list[0]) }}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!addResponse.ok) {
+                throw new Error('Erro ao adicionar música');
+            }
+        }
+        
+        // Sucesso - recarregar página
+        showToast('Alterações salvas com sucesso!', 'success');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        showToast('Erro ao salvar alterações: ' + error.message, 'error');
+        
+        // Restaurar botões
+        unsavedDiv.innerHTML = `
+            <button type="button" class="btn btn-success me-1" onclick="saveChanges()">
+                <i class="fas fa-save"></i> Salvar Alterações
+            </button>
+            <button type="button" class="btn btn-outline-secondary me-2" onclick="cancelChanges()">
+                <i class="fas fa-times"></i> Cancelar
+            </button>
+        `;
+    }
+}
+
+// Cancelar alterações
+function cancelChanges() {
+    const modalHtml = `
+        <div class="modal fade" id="cancelModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Cancelar Alterações</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja cancelar todas as alterações não salvas?</p>
+                        <p class="text-muted">Esta ação não pode ser desfeita.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" onclick="confirmCancel()">Sim, cancelar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Não cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('cancelModal')).show();
+}
+
+// Confirmar cancelamento
+function confirmCancel() {
+    bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
+    window.location.reload();
 }
 
 function deleteList(listId, listName) {
@@ -238,38 +672,484 @@ function deleteList(listId, listName) {
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
 
-// Funcionalidade de arrastar e soltar simples
-document.addEventListener('DOMContentLoaded', function() {
-    const sortableList = document.getElementById('sortableList');
-    if (sortableList) {
-        let draggedItem = null;
+function filterMusic() {
+    const selectedCategories = Array.from(document.querySelectorAll('.category-filter-checkbox:checked')).map(cb => cb.value);
+    const selectedLiturgical = Array.from(document.querySelectorAll('.liturgical-filter-checkbox:checked')).map(cb => cb.value);
+    const textFilter = document.getElementById('filter_text').value.toLowerCase().trim();
+    
+    const musicItems = document.querySelectorAll('.music-item');
+    let visibleCount = 0;
+    
+    musicItems.forEach(item => {
+        const category = item.dataset.category;
+        const liturgical = item.dataset.liturgical;
+        const searchText = item.dataset.search;
         
-        sortableList.addEventListener('dragstart', function(e) {
-            draggedItem = e.target.closest('.list-group-item');
-            e.dataTransfer.effectAllowed = 'move';
-        });
+        let show = true;
         
-        sortableList.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        });
-        
-        sortableList.addEventListener('drop', function(e) {
-            e.preventDefault();
-            const targetItem = e.target.closest('.list-group-item');
-            if (targetItem && targetItem !== draggedItem) {
-                const rect = targetItem.getBoundingClientRect();
-                const nextItem = (e.clientY - rect.top) > (rect.height / 2) ? targetItem.nextSibling : targetItem;
-                sortableList.insertBefore(draggedItem, nextItem);
+        // Filtro de categoria
+        if (selectedCategories.length > 0) {
+            // Se há categorias selecionadas, só mostrar:
+            // 1. Itens que têm categoria E a categoria está nas selecionadas
+            if (!category || !selectedCategories.includes(category)) {
+                show = false;
             }
+        }
+        // Se nenhuma categoria selecionada, mostrar todos (incluindo os sem categoria)
+        
+        // Filtro de tempo litúrgico
+        if (selectedLiturgical.length > 0) {
+            // Se há tempos selecionados, só mostrar:
+            // 1. Itens que têm tempo litúrgico E o tempo está nos selecionados
+            if (!liturgical || !selectedLiturgical.includes(liturgical)) {
+                show = false;
+            }
+        }
+        // Se nenhum tempo selecionado, mostrar todos (incluindo os sem tempo)
+        
+        // Filtro de texto
+        if (textFilter && !searchText.includes(textFilter)) {
+            show = false;
+        }
+        
+        if (show) {
+            item.style.display = 'block';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // Show message if no results
+    const container = document.getElementById('available-music');
+    let noResultsMsg = document.getElementById('no-results-message');
+    
+    if (visibleCount === 0) {
+        if (!noResultsMsg) {
+            noResultsMsg = document.createElement('div');
+            noResultsMsg.id = 'no-results-message';
+            noResultsMsg.className = 'text-center py-4 text-muted';
+            noResultsMsg.innerHTML = '<i class="fas fa-search fa-2x mb-2"></i><br>Nenhuma música encontrada com os filtros aplicados';
+            container.appendChild(noResultsMsg);
+        }
+        noResultsMsg.style.display = 'block';
+    } else {
+        if (noResultsMsg) {
+            noResultsMsg.style.display = 'none';
+        }
+    }
+}
+
+function selectAllCategories() {
+    const checkboxes = document.querySelectorAll('.category-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+    });
+    filterMusic();
+}
+
+function unselectAllCategories() {
+    const checkboxes = document.querySelectorAll('.category-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    filterMusic();
+}
+
+function selectAllLiturgical() {
+    const checkboxes = document.querySelectorAll('.liturgical-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+    });
+    filterMusic();
+}
+
+function unselectAllLiturgical() {
+    const checkboxes = document.querySelectorAll('.liturgical-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    filterMusic();
+}
+
+function openYouTube(fileId) {
+    // Fetch YouTube link for the file and open it
+    fetch(`/api/get_youtube_link/${fileId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.youtube_link) {
+                window.open(data.youtube_link, '_blank');
+            } else {
+                alert('Link do YouTube não disponível para esta música');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar link do YouTube:', error);
+            alert('Erro ao buscar link do YouTube');
+        });
+}
+
+function generateListReport(listId) {
+    // Encontrar o botão que foi clicado
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    
+    // Mostrar indicador de carregamento
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    fetch(`/api/generate_report/${listId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Copiar para o clipboard
+                navigator.clipboard.writeText(data.report).then(() => {
+                    // Mostrar sucesso temporário no botão
+                    button.innerHTML = '<i class="fas fa-check"></i>';
+                    button.className = 'btn btn-success btn-sm';
+                    
+                    // Mostrar toast de sucesso
+                    showToast('O Conteúdo da Lista foi copiado', 'success');
+                    
+                    // Restaurar botão após 2 segundos
+                    setTimeout(() => {
+                        button.innerHTML = originalContent;
+                        button.className = 'btn btn-info btn-sm';
+                        button.disabled = false;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Erro ao copiar para clipboard:', err);
+                    showToast('Erro ao copiar para o clipboard', 'error');
+                    button.innerHTML = originalContent;
+                    button.disabled = false;
+                });
+            } else {
+                showToast('Erro ao gerar relatório: ' + data.message, 'error');
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            showToast('Erro ao gerar relatório', 'error');
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        });
+}
+
+function showToast(message, type = 'success') {
+    // Remover toast anterior se existir
+    const existingToast = document.getElementById('toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // Criar toast
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.className = `toast-notification ${type}`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        font-weight: 500;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease-in-out;
+        min-width: 250px;
+    `;
+    
+    const icon = type === 'success' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-circle"></i>';
+    toast.innerHTML = `${icon} ${message}`;
+    
+    document.body.appendChild(toast);
+    
+    // Animar entrada
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0)';
+    }, 50);
+    
+    // Remover após 3 segundos
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Funcionalidade de arrastar e soltar melhorada
+function initializeDragAndDrop() {
+    const sortableList = document.getElementById('sortableList');
+    if (!sortableList) return;
+    
+    let draggedItem = null;
+    
+    sortableList.addEventListener('dragstart', function(e) {
+        draggedItem = e.target.closest('.sortable-item');
+        if (draggedItem) {
+            draggedItem.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    });
+    
+    sortableList.addEventListener('dragend', function(e) {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            
+            // Atualizar ordem no cache
+            updateCurrentOrder();
+            detectChanges();
+        }
+        
+        // Limpar indicadores visuais
+        document.querySelectorAll('.drop-target, .drop-target-after').forEach(item => {
+            item.classList.remove('drop-target', 'drop-target-after');
         });
         
-        // Tornar itens arrastáveis
-        const items = sortableList.querySelectorAll('.list-group-item');
-        items.forEach(item => {
-            item.draggable = true;
-        });
+        draggedItem = null;
+    });
+    
+    sortableList.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const targetItem = e.target.closest('.sortable-item');
+        if (targetItem && targetItem !== draggedItem) {
+            // Limpar indicadores anteriores
+            document.querySelectorAll('.drop-target, .drop-target-after').forEach(item => {
+                item.classList.remove('drop-target', 'drop-target-after');
+            });
+            
+            const rect = targetItem.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            
+            if (e.clientY < midpoint) {
+                targetItem.classList.add('drop-target');
+            } else {
+                targetItem.classList.add('drop-target-after');
+            }
+        }
+    });
+    
+    sortableList.addEventListener('drop', function(e) {
+        e.preventDefault();
+        
+        const targetItem = e.target.closest('.sortable-item');
+        if (targetItem && targetItem !== draggedItem && draggedItem) {
+            const rect = targetItem.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            
+            if (e.clientY < midpoint) {
+                // Inserir antes do target
+                targetItem.parentNode.insertBefore(draggedItem, targetItem);
+            } else {
+                // Inserir depois do target
+                targetItem.parentNode.insertBefore(draggedItem, targetItem.nextElementSibling);
+            }
+        }
+    });
+    
+    // Tornar itens arrastáveis
+    const items = sortableList.querySelectorAll('.sortable-item');
+    items.forEach(item => {
+        item.draggable = true;
+    });
+}
+
+// Atualizar ordem atual no cache
+function updateCurrentOrder() {
+    const items = document.querySelectorAll('#sortableList .sortable-item');
+    currentListOrder = Array.from(items).map(item => item.dataset.itemId);
+}
+
+// Interceptar adição de música para não fazer reload
+function interceptAddMusic() {
+    const musicContainer = document.getElementById('available-music');
+    if (!musicContainer) return;
+    
+    musicContainer.addEventListener('click', function(e) {
+        const addButton = e.target.closest('button[type="submit"]');
+        if (addButton && addButton.innerHTML.includes('fa-plus')) {
+            e.preventDefault();
+            
+            const form = addButton.closest('form');
+            const fileId = form.querySelector('input[name="file_id"]').value;
+            const musicItem = addButton.closest('.music-item');
+            
+            // Adicionar música ao cache temporário
+            if (!pendingMusicToAdd.includes(fileId)) {
+                pendingMusicToAdd.push(fileId);
+                
+                // Feedback visual
+                addButton.innerHTML = '<i class="fas fa-check"></i>';
+                addButton.classList.remove('btn-success');
+                addButton.classList.add('btn-secondary');
+                addButton.disabled = true;
+                
+                // Adicionar indicador visual
+                const indicator = document.createElement('div');
+                indicator.className = 'alert alert-info alert-dismissible fade show mt-2';
+                indicator.innerHTML = `
+                    <small><i class="fas fa-clock"></i> Música será adicionada quando salvar alterações</small>
+                    <button type="button" class="btn-close btn-sm" onclick="removePendingMusic('${fileId}', this)"></button>
+                `;
+                musicItem.appendChild(indicator);
+                
+                detectChanges();
+            }
+        }
+    });
+}
+
+// Remover música pendente
+function removePendingMusic(fileId, buttonElement) {
+    const index = pendingMusicToAdd.indexOf(fileId);
+    if (index > -1) {
+        pendingMusicToAdd.splice(index, 1);
+        
+        // Restaurar botão original
+        const musicItem = buttonElement.closest('.music-item');
+        const addButton = musicItem.querySelector('button[type="submit"]');
+        addButton.innerHTML = '<i class="fas fa-plus"></i>';
+        addButton.classList.remove('btn-secondary');
+        addButton.classList.add('btn-success');
+        addButton.disabled = false;
+        
+        // Remover indicador
+        buttonElement.closest('.alert').remove();
+        
+        detectChanges();
     }
+}
+
+// ===== SISTEMA DE NAVEGAÇÃO INTELIGENTE PARA LISTAS =====
+
+// Salvar informações de navegação para listas
+const listNavigationHistory = {
+    referrer: document.referrer,
+    backUrl: null
+};
+
+// Determinar URL de volta para listas
+function determineListBackUrl() {
+    const currentHost = window.location.host;
+    const referrerUrl = listNavigationHistory.referrer;
+    
+    if (referrerUrl && referrerUrl.includes(currentHost)) {
+        // Se veio de dentro do site, usar o referrer
+        const url = new URL(referrerUrl);
+        listNavigationHistory.backUrl = url.pathname + url.search;
+    } else {
+        // Se não há referrer válido, voltar para as listas
+        listNavigationHistory.backUrl = '{{ url_for("merge_lists") }}';
+    }
+}
+
+// Função de voltar inteligente para listas
+function goBackFromList() {
+    if (hasUnsavedChanges) {
+        showListNavigationConfirmation();
+    } else {
+        executeListGoBack();
+    }
+}
+
+function executeListGoBack() {
+    if (listNavigationHistory.backUrl) {
+        window.location.href = listNavigationHistory.backUrl;
+    } else {
+        window.location.href = '{{ url_for("merge_lists") }}';
+    }
+}
+
+// Modal de confirmação para mudanças não salvas em listas
+function showListNavigationConfirmation() {
+    const modalHtml = `
+        <div class="modal fade" id="listNavigationModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Alterações não salvas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Você tem alterações não salvas na lista. O que deseja fazer?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" onclick="saveAndNavigateFromList()">
+                            <i class="fas fa-save"></i> Salvar e Sair
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="discardAndNavigateFromList()">
+                            <i class="fas fa-trash"></i> Descartar Alterações
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('listNavigationModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('listNavigationModal')).show();
+}
+
+function saveAndNavigateFromList() {
+    // Salvar alterações e depois navegar
+    confirmSave();
+    // O confirmSave já tem lógica para recarregar, vamos modificar para navegar
+}
+
+function discardAndNavigateFromList() {
+    hasUnsavedChanges = false;
+    bootstrap.Modal.getInstance(document.getElementById('listNavigationModal')).hide();
+    executeListGoBack();
+}
+
+// Interceptar navegação em listas
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+});
+
+// Interceptar cliques em links quando há mudanças
+document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    if (link && link.href && !link.target && hasUnsavedChanges && 
+        !link.href.includes('#') && !link.closest('.modal')) {
+        e.preventDefault();
+        listNavigationHistory.pendingUrl = link.href;
+        showListNavigationConfirmation();
+    }
+});
+
+// Inicialização completa
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCache();
+    initializeDragAndDrop();
+    interceptAddMusic();
+    determineListBackUrl();
 });
 </script>
 {% endblock %} 
