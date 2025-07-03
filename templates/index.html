@@ -96,6 +96,18 @@
     background-color: #28a745 !important;
     color: white !important;
 }
+
+/* Description icon styles */
+.description-icon {
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.description-icon:hover {
+    color: #0056b3 !important;
+    transform: scale(1.2);
+}
 </style>
 <div class="container mt-4">
     <div class="row">
@@ -500,11 +512,19 @@
                                                        onchange="updateBulkSelection()">
                                             </td>
                                             <td>
-                                                <div>
-                                                    {% if file[3] %}
-                                                        <strong>{{ file[3] }}</strong>
-                                                    {% else %}
-                                                        <span class="text-muted">{{ file[2] }}</span>
+                                                <div class="d-flex align-items-center">
+                                                    <div>
+                                                        {% if file[3] %}
+                                                            <strong>{{ file[3] }}</strong>
+                                                        {% else %}
+                                                            <span class="text-muted">{{ file[2] }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if file[12] and file[12].strip() %}
+                                                        <i class="fas fa-info-circle text-info ms-2 description-icon" 
+                                                           title="{{ file[12] }}" 
+                                                           data-bs-toggle="tooltip" 
+                                                           data-bs-placement="right"></i>
                                                     {% endif %}
                                                 </div>
                                             </td>
@@ -646,11 +666,19 @@
                                     </div>
                                     
                                     <div class="info-section">
-                                        <div class="music-title">
-                                            {% if file[3] %}
-                                                {{ file[3] }}
-                                            {% else %}
-                                                {{ file[2] }}
+                                        <div class="music-title d-flex align-items-center">
+                                            <div>
+                                                {% if file[3] %}
+                                                    {{ file[3] }}
+                                                {% else %}
+                                                    {{ file[2] }}
+                                                {% endif %}
+                                            </div>
+                                            {% if file[12] and file[12].strip() %}
+                                                <i class="fas fa-info-circle text-info ms-2 description-icon" 
+                                                   title="{{ file[12] }}" 
+                                                   data-bs-toggle="tooltip" 
+                                                   data-bs-placement="right"></i>
                                             {% endif %}
                                         </div>
                                         
@@ -741,11 +769,19 @@
                             </div>
                             
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title text-truncate" title="{{ file[3] or file[2] }}">
-                                    {% if file[3] %}
-                                        {{ file[3][:25] }}{% if file[3]|length > 25 %}...{% endif %}
-                                    {% else %}
-                                        {{ file[1][:25] }}{% if file[1]|length > 25 %}...{% endif %}
+                                <h5 class="card-title text-truncate d-flex align-items-center" title="{{ file[3] or file[2] }}">
+                                    <div>
+                                        {% if file[3] %}
+                                            {{ file[3][:25] }}{% if file[3]|length > 25 %}...{% endif %}
+                                        {% else %}
+                                            {{ file[1][:25] }}{% if file[1]|length > 25 %}...{% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% if file[12] and file[12].strip() %}
+                                        <i class="fas fa-info-circle text-info ms-2 description-icon" 
+                                           title="{{ file[12] }}" 
+                                           data-bs-toggle="tooltip" 
+                                           data-bs-placement="right"></i>
                                     {% endif %}
                                 </h5>
                                 {% if file[13] %}
@@ -965,6 +1001,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (existingListSelect) {
         existingListSelect.addEventListener('change', updateBulkSelection);
     }
+    
+    // Initialize Bootstrap tooltips for description icons
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 
 function toggleSelectAll() {

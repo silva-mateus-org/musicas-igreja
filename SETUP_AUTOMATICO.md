@@ -42,8 +42,10 @@ Após a configuração, você pode acessar o sistema através de:
 |---------|--------|
 | `start_musicas_igreja.bat` | Inicia o sistema manualmente (com interface) |
 | `start_musicas_igreja_silent.bat` | Inicia o sistema silenciosamente (para auto-start) |
-| `setup_custom_url.ps1` | Configura o domínio personalizado |
-| `startup_log.txt` | Log das inicializações automáticas |
+| `configure_domain.bat` | Configura o domínio personalizado (batch simples) |
+| `test_setup.bat` | Testa configuração do sistema |
+| `ver_logs.bat` | Visualizador de logs diários |
+| `logs/YYYY-MM-DD_*.log` | Logs organizados por data |
 
 ## 🔧 Configuração Manual (Avançada)
 
@@ -104,7 +106,7 @@ powershell -ExecutionPolicy Bypass -File "setup_custom_url.ps1" -Remove
 **Solução**: 
 1. Verifique se o arquivo está na pasta de inicialização
 2. Teste executando `start_musicas_igreja_silent.bat` manualmente
-3. Verifique o log em `startup_log.txt`
+3. Execute `ver_logs.bat` para verificar logs diários
 
 ### Problema: "Domínio personalizado não funciona"
 **Solução**:
@@ -118,7 +120,18 @@ powershell -ExecutionPolicy Bypass -File "setup_custom_url.ps1" -Remove
 - [ ] Domínio personalizado `musicas-igreja.local:5000` funciona
 - [ ] Arquivo `start_musicas_igreja_silent.bat` foi copiado para pasta de inicialização
 - [ ] Sistema inicia automaticamente após reinicialização
-- [ ] Logs são gravados em `startup_log.txt`
+- [ ] Logs são gravados diariamente na pasta `logs/`
+- [ ] Script `ver_logs.bat` funciona para visualizar logs
+
+## 📝 Sistema de Logs Diários
+
+Os logs são organizados por data na pasta `logs/`:
+- `YYYY-MM-DD_musicas_igreja.log` - Auto-start silencioso
+- `YYYY-MM-DD_startup_manual.log` - Inicialização manual  
+- `YYYY-MM-DD_teste_sistema.log` - Testes do sistema
+- `YYYY-MM-DD_configurar_dominio.log` - Configuração de domínio
+
+**Para visualizar logs**: Execute `ver_logs.bat`
 
 ## 🎯 Uso Diário
 

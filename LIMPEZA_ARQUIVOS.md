@@ -2,7 +2,7 @@
 
 ## 📊 Resumo das Alterações
 
-### 🗑️ Arquivos Removidos (5 arquivos)
+### 🗑️ Arquivos Removidos (6 arquivos)
 
 | Arquivo | Motivo da Remoção |
 |---------|-------------------|
@@ -11,6 +11,7 @@
 | `BUGFIX_INDICES.md` | ❌ Correções antigas já aplicadas |
 | `consolidar_pdfs.py` | ❌ Script standalone não relacionado ao sistema web |
 | `QUICK_START.md` | ❌ Consolidado no README_IGREJA.md |
+| `startup_log.txt` | ❌ Substituído por sistema de logs diários |
 
 ### 📋 Arquivos Consolidados
 
@@ -25,6 +26,7 @@
 - `configure_domain.bat` - **Script alternativo** (apenas domínio)
 - `start_musicas_igreja_silent.bat` - **Para auto-start** (segundo plano)
 - `test_setup.bat` - **Para testes** (verificação do sistema)
+- `ver_logs.bat` - **Visualizador de logs** (logs diários organizados)
 
 #### 📚 Documentação
 - `README_IGREJA.md` - **Documentação principal** (específica para igreja)
@@ -40,11 +42,12 @@
 
 ### 🎯 Benefícios da Limpeza
 
-1. **📉 Redução de Arquivos**: 5 arquivos removidos
+1. **📉 Redução de Arquivos**: 6 arquivos removidos
 2. **🔗 Documentação Unificada**: Guias consolidados
 3. **🚫 Sem Redundâncias**: Eliminados scripts problemáticos
 4. **📋 Organização Clara**: Arquivos com funções específicas
 5. **🧹 Manutenção Simplificada**: Menos arquivos para gerenciar
+6. **📝 Logs Organizados**: Sistema de logs diários implementado
 
 ### 🗂️ Estrutura Final Organizada
 
@@ -59,7 +62,8 @@ musicas-igreja/
 │   ├── start_musicas_igreja.bat        # Script principal
 │   ├── configure_domain.bat           # Configurar domínio apenas
 │   ├── start_musicas_igreja_silent.bat # Auto-start silencioso
-│   └── test_setup.bat                 # Testes do sistema
+│   ├── test_setup.bat                 # Testes do sistema
+│   └── ver_logs.bat                   # Visualizador de logs
 │
 ├── 📚 DOCUMENTAÇÃO
 │   ├── README_IGREJA.md               # Guia principal
@@ -74,8 +78,12 @@ musicas-igreja/
 │   ├── uploads/                       # Upload temporário
 │   └── exemplos/                      # Exemplos e screenshots
 │
-└── 📝 LOGS E ARQUIVOS TEMPORÁRIOS
-    ├── startup_log.txt               # Log de inicialização
+└── 📝 LOGS E ARQUIVOS DE CONTROLE
+    ├── logs/                          # Logs diários organizados
+    │   ├── YYYY-MM-DD_musicas_igreja.log    # Auto-start
+    │   ├── YYYY-MM-DD_startup_manual.log    # Start manual
+    │   ├── YYYY-MM-DD_teste_sistema.log     # Testes
+    │   └── YYYY-MM-DD_configurar_dominio.log # Config domínio
     └── LIMPEZA_ARQUIVOS.md           # Este arquivo
 ```
 

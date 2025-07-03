@@ -20,6 +20,20 @@ Sistema web moderno para organizar, buscar e gerenciar partituras musicais da ig
 - **Busca Inteligente** - Pesquise em nomes, descrições e metadados
 - **Resultados Detalhados** - Veja tempo litúrgico e categoria em cada resultado
 
+### 🔄 **Substituição de PDF** ✨ NOVO!
+- **Preview Lado a Lado** - Compare o PDF atual com o novo antes de substituir
+- **Navegação por Páginas** - Visualize qualquer página de ambos os PDFs
+- **Preservação de Dados** - Mantém nome, artista, categoria e todos os metadados
+- **Segurança Total** - Confirmação obrigatória antes da substituição
+- **Logs Completos** - Registra todas as operações para auditoria
+
+### 📝 **Auto-Preenchimento Inteligente** ✨ NOVO!
+- **Nome da Música** - Extrai automaticamente do nome do arquivo PDF
+- **Limpeza Automática** - Remove extensões, números e formatações desnecessárias
+- **Capitalização** - Formata corretamente primeira letra de cada palavra
+- **Preservação** - Só preenche se o campo estiver vazio
+- **Economia de Tempo** - Reduz digitação manual durante upload
+
 ## 🚀 Como Usar
 
 ### 1. **Executar a Aplicação**
@@ -49,6 +63,23 @@ Acesse: http://localhost:5000
 - **Filtro por categoria**: Clique nos botões de categoria
 - **Filtro litúrgico**: Use os botões de tempo litúrgico
 - **Busca avançada**: Combine texto + filtros na página de busca
+
+### 5. **Substituir PDF de Música** ✨ NOVO!
+1. Clique em uma música para ver detalhes
+2. Clique no botão "Editar" (ícone de lápis)
+3. No campo "Substituir Arquivo PDF" (última opção), selecione o novo arquivo
+4. Visualize ambos os PDFs lado a lado no modal
+5. Use os controles de navegação para comparar páginas
+6. Confirme a substituição ou cancele se não estiver certo
+7. **Sem recarregamento:** Página atualiza automaticamente preservando suas edições
+
+### 6. **Upload com Auto-Preenchimento** ✨ NOVO!
+1. Vá para página de **"Upload"** → **"Upload Individual"**
+2. Selecione um arquivo PDF com nome bem formatado
+3. O campo **"Nome da Música"** será preenchido automaticamente
+4. Exemplo: `"Ave Maria - C - Schubert.pdf"` vira `"Ave Maria"`
+5. Complete as outras informações (artista, categoria, etc.)
+6. O sistema preserva suas seleções mesmo se remover outros arquivos
 
 ## 📁 Estrutura de Categorias
 
@@ -129,6 +160,17 @@ Novas tabelas adicionadas:
 - ✅ Reordenação por arrastar e soltar
 - ✅ Mesclagem direta das listas
 - ✅ Busca combinada (categoria + tempo litúrgico)
+- ✅ **Substituição de PDF com preview lado a lado** ✨ NOVO!
+- ✅ **Atualização dinâmica sem recarregamento** ✨ NOVO!
+- ✅ **Auto-preenchimento do nome da música** ✨ NOVO!
+- ✅ **Preservação do estado dos checkboxes** ✨ NOVO!
+- ✅ Sistema de toasts em vez de banners
+- ✅ Botões com ícones e tooltips na página de detalhes
+- ✅ Integração automática de escaneamento durante upload
+- ✅ Campo de substituição reorganizado (última opção)
+- ✅ Interface melhorada para edição de música
+- ✅ Botões padronizados em toda a aplicação
+- ✅ Correções de altura em formulários
 
 ## 📝 Próximos Passos
 

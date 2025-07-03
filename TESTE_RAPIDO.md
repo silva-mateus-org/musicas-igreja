@@ -70,13 +70,12 @@ ping musicas-igreja.local
 1. Verifique se o arquivo está em: `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
 2. Teste manualmente: `start_musicas_igreja_silent.bat`
 
-## 📝 Log de Inicialização
+## 📝 Sistema de Logs Diários
 
-O arquivo `startup_log.txt` registra:
-```
-[data hora] Auto-starting Musicas Igreja system...
-[data hora] Musicas Igreja started successfully
-```
+Execute `ver_logs.bat` para visualizar logs organizados por data:
+- `YYYY-MM-DD_musicas_igreja.log` - Auto-start
+- `YYYY-MM-DD_teste_sistema.log` - Testes
+- `YYYY-MM-DD_configurar_dominio.log` - Configuração
 
 ## 🎯 URLs Finais
 

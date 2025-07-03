@@ -54,6 +54,18 @@
     background-color: #28a745 !important;
     color: white !important;
 }
+
+/* Description icon styles */
+.description-icon {
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.description-icon:hover {
+    color: #0056b3 !important;
+    transform: scale(1.2);
+}
 </style>
 
 <div class="container mt-4">
@@ -203,11 +215,19 @@
                                                        onchange="updateBulkSelection()">
                                             </td>
                                             <td>
-                                                <div>
-                                                    {% if file[3] %}
-                                                        <strong>{{ file[3] }}</strong>
-                                                    {% else %}
-                                                        <span class="text-muted">{{ file[2] }}</span>
+                                                <div class="d-flex align-items-center">
+                                                    <div>
+                                                        {% if file[3] %}
+                                                            <strong>{{ file[3] }}</strong>
+                                                        {% else %}
+                                                            <span class="text-muted">{{ file[2] }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if file[12] and file[12].strip() %}
+                                                        <i class="fas fa-info-circle text-info ms-2 description-icon" 
+                                                           title="{{ file[12] }}" 
+                                                           data-bs-toggle="tooltip" 
+                                                           data-bs-placement="right"></i>
                                                     {% endif %}
                                                 </div>
                                             </td>
@@ -634,6 +654,14 @@ function deleteFile(fileId, fileName) {
     document.getElementById('deleteForm').action = '/delete/' + fileId;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
+
+// Initialize Bootstrap tooltips when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
 
 function filterLists() {
     const search = document.getElementById('list_search').value.toLowerCase();

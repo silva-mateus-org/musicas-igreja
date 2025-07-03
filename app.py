@@ -12,10 +12,60 @@ import mimetypes
 import re
 import tempfile
 import time
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import sys
 
 app = Flask(__name__)
 app.secret_key = 'pdf-organizer-secret-key-2024'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
+# Setup logging to daily log file
+def setup_logging():
+    """Configure logging to write to daily log files."""
+    # Ensure logs directory exists
+    os.makedirs('logs', exist_ok=True)
+    
+    # Generate daily log filename
+    today = datetime.now().strftime('%Y-%m-%d')
+    log_file = f'logs/{today}_sistema.log'
+    
+    # Configure logging format
+    formatter = logging.Formatter(
+        '[%(asctime)s] [FLASK-%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Create file handler
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    
+    # Configure Flask app logger
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    
+    # Also log to console for interactive mode
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+    app.logger.addHandler(console_handler)
+    
+    # Disable default Flask logging to avoid duplicates
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
+    
+    return log_file
+
+# Initialize logging
+current_log_file = setup_logging()
+
+# Log startup
+app.logger.info("="*50)
+app.logger.info("MUSICAS IGREJA - FLASK APPLICATION STARTING")
+app.logger.info("="*50)
+app.logger.info(f"Log file: {current_log_file}")
+app.logger.info(f"Debug mode: {app.debug}")
+app.logger.info(f"Max content length: {app.config['MAX_CONTENT_LENGTH'] / 1024 / 1024:.0f}MB")
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -1100,6 +1150,44 @@ def upload_file():
                                      (file_id, liturgical_id))
                 
                 conn.commit()
+                
+                # Executar escaneamento automático para o arquivo recém-enviado
+                try:
+                    app.logger.info(f"Executando escaneamento automático para arquivo ID: {file_id}")
+                    
+                    # Gerar nome formatado baseado nas informações do arquivo
+                    if song_name and artist:
+                        new_filename = generate_filename(song_name, artist, final_filename, musical_key)
+                        new_path = os.path.join(category_folder, new_filename)
+                        
+                        # Verificar se o novo nome é diferente do atual
+                        if new_filename != final_filename and not os.path.exists(new_path):
+                            # Renomear arquivo físico
+                            os.rename(final_path, new_path)
+                            
+                            # Atualizar no banco de dados
+                            cursor.execute('UPDATE pdf_files SET filename = ?, file_path = ? WHERE id = ?', 
+                                         (new_filename, new_path, file_id))
+                            final_filename = new_filename
+                            app.logger.info(f"Arquivo automaticamente renomeado: {final_filename}")
+                        
+                        # Formatar nome da música e artista
+                        formatted_song = format_camel_case(song_name)
+                        formatted_artist = format_camel_case(artist)
+                        
+                        # Atualizar formatação no banco se necessário
+                        if formatted_song != song_name or formatted_artist != artist:
+                            cursor.execute('UPDATE pdf_files SET song_name = ?, artist = ? WHERE id = ?', 
+                                         (formatted_song, formatted_artist, file_id))
+                            app.logger.info(f"Formatação automática aplicada para: {formatted_song} / {formatted_artist}")
+                    
+                    conn.commit()
+                    
+                except Exception as scan_error:
+                    app.logger.warning(f"Erro durante escaneamento automático: {str(scan_error)}")
+                    # Não falhar o upload por causa do escaneamento
+                    pass
+                
                 conn.close()
                 
                 flash(f'Arquivo enviado com sucesso: {final_filename}')
@@ -1574,7 +1662,9 @@ def add_song_to_list(file_id, list_id):
     ''', (list_id, file_id))
     
     if cursor.fetchone():
-        flash('Esta música já está na lista')
+        conn.commit()
+        conn.close()
+        return redirect(request.referrer or url_for('index', error='Esta música já está na lista'))
     else:
         # Obter próxima posição
         cursor.execute('SELECT MAX(order_position) FROM merge_list_items WHERE merge_list_id = ?', (list_id,))
@@ -1597,13 +1687,10 @@ def add_song_to_list(file_id, list_id):
         list_name = cursor.fetchone()[0]
         
         music_name = music[0] or music[1]
-        flash(f'"{music_name}" adicionada à lista "{list_name}"')
-    
-    conn.commit()
-    conn.close()
-    
-    # Retornar para a página anterior
-    return redirect(request.referrer or url_for('index'))
+        conn.commit()
+        conn.close()
+        
+        return redirect(request.referrer or url_for('index', success=f'"{music_name}" adicionada à lista "{list_name}"'))
 
 @app.route('/add_multiple_to_list/<int:list_id>', methods=['POST'])
 def add_multiple_to_list(list_id):
@@ -2389,9 +2476,7 @@ def update_music(file_id):
     if new_artist and not artist:
         if create_artist(new_artist):
             artist = new_artist
-            flash(f'Novo artista "{new_artist}" criado!')
         else:
-            flash(f'Artista "{new_artist}" já existe')
             artist = new_artist
     
     # Processar categorias múltiplas
@@ -2467,8 +2552,209 @@ def update_music(file_id):
     conn.commit()
     conn.close()
     
-    flash('Informações da música atualizadas com sucesso!')
-    return redirect(url_for('music_details', file_id=file_id))
+    return redirect(url_for('music_details', file_id=file_id, success='Informações da música atualizadas com sucesso!'))
+
+@app.route('/replace_pdf/<int:file_id>', methods=['POST'])
+def replace_pdf(file_id):
+    """Substituir arquivo PDF de uma música existente."""
+    try:
+        # Verificar se há arquivo na requisição
+        if 'replacement_pdf' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+        
+        file = request.files['replacement_pdf']
+        
+        # Validações básicas
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            return jsonify({'success': False, 'error': 'Arquivo deve ser PDF'}), 400
+        
+        # Verificar tamanho (50MB max)
+        file.seek(0, 2)  # Ir para o final do arquivo
+        file_size = file.tell()  # Obter tamanho
+        file.seek(0)  # Voltar para o início
+        
+        max_size = 50 * 1024 * 1024  # 50MB
+        if file_size > max_size:
+            return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 50MB'}), 400
+        
+        # Buscar informações da música atual
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT filename, file_path, song_name, artist, category, musical_key
+            FROM pdf_files WHERE id = ?
+        ''', (file_id,))
+        
+        music_info = cursor.fetchone()
+        if not music_info:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Música não encontrada'}), 404
+        
+        old_filename, old_file_path, song_name, artist, category, musical_key = music_info
+        
+        # Gerar novo nome do arquivo baseado nas informações existentes
+        secured_filename = secure_filename(file.filename)
+        
+        # Se tem nome da música e artista, usar padrão formatado
+        if song_name and artist:
+            new_filename = generate_filename(song_name, artist, secured_filename, musical_key)
+        else:
+            new_filename = secured_filename
+        
+        # Determinar pasta de destino
+        category_folder = os.path.join(ORGANIZED_FOLDER, category or 'Diversos')
+        os.makedirs(category_folder, exist_ok=True)
+        
+        # Gerar caminho único se arquivo já existir
+        new_file_path = os.path.join(category_folder, new_filename)
+        counter = 1
+        base_name = os.path.splitext(new_filename)[0]
+        
+        while os.path.exists(new_file_path) and new_file_path != old_file_path:
+            new_filename = f"{base_name}_{counter}.pdf"
+            new_file_path = os.path.join(category_folder, new_filename)
+            counter += 1
+        
+        # Remover arquivo antigo se existir
+        if os.path.exists(old_file_path):
+            try:
+                os.remove(old_file_path)
+                app.logger.info(f"Arquivo antigo removido: {old_file_path}")
+            except Exception as e:
+                app.logger.warning(f"Erro ao remover arquivo antigo: {str(e)}")
+        
+        # Salvar novo arquivo
+        file.save(new_file_path)
+        
+        # Obter informações do novo arquivo
+        pdf_info = get_pdf_info(new_file_path)
+        new_file_size = os.path.getsize(new_file_path)
+        new_file_hash = get_file_hash(new_file_path)
+        
+        # Atualizar banco de dados
+        cursor.execute('''
+            UPDATE pdf_files 
+            SET filename = ?, file_path = ?, file_size = ?, file_hash = ?, page_count = ?
+            WHERE id = ?
+        ''', (new_filename, new_file_path, new_file_size, new_file_hash, pdf_info['page_count'], file_id))
+        
+        conn.commit()
+        conn.close()
+        
+        app.logger.info(f"PDF substituído com sucesso para música ID {file_id}: {old_filename} -> {new_filename}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'PDF substituído com sucesso',
+            'new_filename': new_filename,
+            'new_size': new_file_size,
+            'new_pages': pdf_info['page_count']
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Erro ao substituir PDF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/duplicate_music/<int:file_id>', methods=['POST'])
+def duplicate_music(file_id):
+    """Duplicar uma música existente mantendo todas as informações mas criando uma nova entrada."""
+    try:
+        # Buscar informações da música original
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT filename, file_path, song_name, artist, category, 
+                   liturgical_time, musical_key, youtube_link, file_size, 
+                   file_hash, page_count, description
+            FROM pdf_files WHERE id = ?
+        ''', (file_id,))
+        
+        original_music = cursor.fetchone()
+        if not original_music:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Música não encontrada'}), 404
+        
+        (original_filename, original_file_path, song_name, artist, category, 
+         liturgical_time, musical_key, youtube_link, file_size, 
+         file_hash, page_count, description) = original_music
+        
+        # Verificar se o arquivo físico existe
+        if not os.path.exists(original_file_path):
+            conn.close()
+            return jsonify({'success': False, 'error': 'Arquivo PDF original não encontrado'}), 404
+        
+        # Gerar novo nome de arquivo para a cópia
+        base_name = os.path.splitext(original_filename)[0]
+        extension = os.path.splitext(original_filename)[1]
+        
+        # Adicionar sufixo " - Cópia" ao nome
+        if " - Cópia" not in base_name:
+            new_filename = f"{base_name} - Cópia{extension}"
+        else:
+            # Se já é uma cópia, adicionar número
+            counter = 2
+            while True:
+                new_filename = f"{base_name} {counter}{extension}"
+                # Verificar se este nome já existe no banco
+                cursor.execute('SELECT COUNT(*) FROM pdf_files WHERE filename = ?', (new_filename,))
+                if cursor.fetchone()[0] == 0:
+                    break
+                counter += 1
+        
+        # Determinar pasta de destino (mesma categoria)
+        category_folder = os.path.join(ORGANIZED_FOLDER, category or 'Diversos')
+        os.makedirs(category_folder, exist_ok=True)
+        new_file_path = os.path.join(category_folder, new_filename)
+        
+        # Garantir que o caminho não existe (mais uma verificação)
+        counter = 1
+        while os.path.exists(new_file_path):
+            base_filename = os.path.splitext(new_filename)[0]
+            new_filename = f"{base_filename}_{counter}{extension}"
+            new_file_path = os.path.join(category_folder, new_filename)
+            counter += 1
+        
+        # Copiar arquivo físico
+        import shutil
+        shutil.copy2(original_file_path, new_file_path)
+        
+        # Adicionar sufixo " (Cópia)" ao nome da música se existir
+        new_song_name = song_name
+        if song_name and " (Cópia)" not in song_name:
+            new_song_name = f"{song_name} (Cópia)"
+        
+        # Inserir nova entrada no banco de dados
+        cursor.execute('''
+            INSERT INTO pdf_files (
+                filename, file_path, song_name, artist, category, 
+                liturgical_time, musical_key, youtube_link, file_size, 
+                file_hash, upload_date, page_count, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+        ''', (new_filename, new_file_path, new_song_name, artist, category,
+              liturgical_time, musical_key, youtube_link, file_size,
+              file_hash, page_count, description))
+        
+        new_music_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        app.logger.info(f"Música duplicada com sucesso: ID {file_id} -> ID {new_music_id} ({original_filename} -> {new_filename})")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Música duplicada com sucesso',
+            'new_music_id': new_music_id,
+            'new_filename': new_filename,
+            'original_id': file_id
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Erro ao duplicar música: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
 
 @app.route('/search')
 def search():

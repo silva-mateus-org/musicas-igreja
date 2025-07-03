@@ -3,19 +3,114 @@
 {% block title %}{{ music[2] }} - Detalhes da Música{% endblock %}
 
 {% block content %}
+<style>
+/* Description icon styles */
+.description-icon {
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.description-icon:hover {
+    color: #0056b3 !important;
+    transform: scale(1.2);
+}
+
+/* Icon button styles with tooltips */
+.icon-btn {
+    padding: 0.375rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.icon-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Edit mode button positioning */
+.edit-header-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.edit-header-buttons .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* PDF replacement modal styles */
+#replacePdfModal .modal-dialog {
+    max-width: 1200px;
+}
+
+#replacePdfModal .card-header {
+    font-weight: 600;
+    border-bottom: 2px solid rgba(255,255,255,0.2);
+}
+
+#replacePdfModal canvas {
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background: white;
+}
+
+#replacePdfModal .btn-group-sm .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.pdf-comparison-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 4px solid #007bff;
+}
+
+/* Hover effects for PDF canvas navigation */
+#replacePdfModal .btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* Loading animation improvement */
+#newPdfLoading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+</style>
+
 <div class="container mt-4">
     <div class="row">
         <div class="col-lg-8">
             <!-- Informações principais -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">
-                        <i class="fas fa-music"></i> {{ music[1] }}
-                    </h3>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="goBack()">
-                            <i class="fas fa-arrow-left"></i> Voltar
+                    <h3 class="mb-0">{{ music[1] }}</h3>
+                    <div class="d-flex gap-2">
+                        <!-- Botão Voltar (sempre visível) -->
+                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="goBack()" 
+                                title="Voltar" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                            <i class="fas fa-arrow-left"></i>
                         </button>
+                        
+                        <!-- Botões de edição (visíveis apenas no modo edição) -->
+                        <div id="editHeaderButtons" class="edit-header-buttons" style="display: none;">
+                            <button type="submit" form="editForm" class="btn btn-success icon-btn" 
+                                    title="Salvar Alterações" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                                <i class="fas fa-save"></i>
+                            </button>
+                            <button type="button" class="btn btn-secondary icon-btn" onclick="cancelEdit()" 
+                                    title="Cancelar Edição" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                                <i class="fas fa-times"></i>
+                        </button>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -131,15 +226,29 @@
                                         <small>Selecione um ou mais tempos litúrgicos para esta música</small>
                                     </div>
                                 </div>
+                                
+                                <!-- Campo de Substituição de PDF - Última opção -->
+                                <div class="col-12 mt-4">
+                                    <hr class="my-3">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fas fa-exchange-alt text-warning me-2"></i>
+                                        <h5 class="mb-0 text-warning">Substituir Arquivo PDF</h5>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="replacement_pdf" class="form-label">
+                                            <strong>Selecionar Novo PDF</strong>
+                                        </label>
+                                        <input type="file" class="form-control" id="replacement_pdf" accept=".pdf" 
+                                               onchange="handlePdfReplacement(this)">
+                                        <div class="form-text">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle"></i>
+                                                Selecione um novo PDF para substituir o arquivo atual. Todas as informações serão preservadas.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save"></i> Salvar Alterações
-                            </button>
-                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
-                                <i class="fas fa-times"></i> Cancelar
-                            </button>
                         </div>
                     </form>
                     
@@ -152,11 +261,21 @@
                                     <tr>
                                         <td><strong>Nome da Música:</strong></td>
                                         <td>
+                                            <div class="d-flex align-items-center">
+                                                <div>
                                             {% if music[3] %}
                                                 <strong>{{ music[3] }}</strong>
                                             {% else %}
                                                 <span class="text-muted">Não informado</span>
                                             {% endif %}
+                                                </div>
+                                                {% if music[12] and music[12].strip() %}
+                                                    <i class="fas fa-info-circle text-info ms-2 description-icon" 
+                                                       title="{{ music[12] }}" 
+                                                       data-bs-toggle="tooltip" 
+                                                       data-bs-placement="right"></i>
+                                                {% endif %}
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr>
@@ -233,11 +352,13 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-file-pdf text-danger"></i> Pré-visualização do PDF</h5>
                     <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary" onclick="prevPageDetails()">
+                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="prevPageDetails()"
+                                title="Página Anterior" data-bs-toggle="tooltip" data-bs-placement="bottom">
                             <i class="fas fa-chevron-left"></i>
                         </button>
                         <span class="btn btn-outline-secondary" id="pageInfoDetails">Carregando...</span>
-                        <button type="button" class="btn btn-outline-secondary" onclick="nextPageDetails()">
+                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="nextPageDetails()"
+                                title="Próxima Página" data-bs-toggle="tooltip" data-bs-placement="bottom">
                             <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
@@ -291,53 +412,34 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-outline-warning" id="editBtn" onclick="toggleEdit()">
-                            <i class="fas fa-edit"></i> Editar Informações
+                        <button type="button" class="btn btn-outline-warning icon-btn d-flex align-items-center justify-content-center" 
+                                id="editBtn" onclick="toggleEdit()" title="Editar Informações" data-bs-toggle="tooltip" data-bs-placement="right">
+                            <i class="fas fa-edit me-2"></i> <span>Editar</span>
                         </button>
                         
-                        <a href="{{ url_for('view_file', file_id=music[0]) }}" class="btn btn-outline-primary" target="_blank">
-                            <i class="fas fa-eye"></i> Visualizar PDF
+                        <a href="{{ url_for('view_file', file_id=music[0]) }}" 
+                           class="btn btn-outline-primary icon-btn d-flex align-items-center justify-content-center" 
+                           target="_blank" title="Visualizar PDF" data-bs-toggle="tooltip" data-bs-placement="right">
+                            <i class="fas fa-eye me-2"></i> <span>Visualizar PDF</span>
                         </a>
                         
-                        <!-- Adicionar à Lista -->
-                        <div class="btn-group w-100" role="group">
-                            <button type="button" class="btn btn-warning dropdown-toggle" 
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-plus"></i> Adicionar à Lista
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end w-100">
-                                <div class="px-3 py-2">
-                                    <input type="text" class="form-control form-control-sm" 
-                                           placeholder="Buscar lista..." 
-                                           onkeyup="filterMusicDetailsList(this)">
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <div id="music-details-lists" style="max-height: 200px; overflow-y: auto;">
-                                    {% set music_lists_query = get_merge_lists() %}
-                                    {% for list in music_lists_query %}
-                                    <div class="dropdown-list-item" data-name="{{ list[1] | lower }}">
-                                        <form method="POST" action="{{ url_for('add_song_to_list', file_id=music[0], list_id=list[0]) }}" style="display: inline;">
-                                            <button type="submit" class="dropdown-item">
-                                                <i class="fas fa-list text-primary"></i> {{ list[1] }}
-                                            </button>
-                                        </form>
-                                    </div>
-                                    {% endfor %}
-                                    {% if not music_lists_query %}
-                                    <div class="px-3 py-2 text-muted text-center">
-                                        <small>Nenhuma lista criada ainda</small>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Adicionar à Lista com Modal -->
+                        <button type="button" class="btn btn-warning icon-btn d-flex align-items-center justify-content-center" 
+                                onclick="showAddToListModal({{ music[0] }})" title="Adicionar à Lista" data-bs-toggle="tooltip" data-bs-placement="right">
+                            <i class="fas fa-plus me-2"></i> <span>Adicionar à Lista</span>
+                        </button>
                         
-                        <a href="{{ url_for('download_file', file_id=music[0]) }}" class="btn btn-outline-success">
-                            <i class="fas fa-download"></i> Baixar Arquivo
+                        <a href="{{ url_for('download_file', file_id=music[0]) }}" 
+                           class="btn btn-outline-success icon-btn d-flex align-items-center justify-content-center" 
+                           title="Baixar Arquivo" data-bs-toggle="tooltip" data-bs-placement="right">
+                            <i class="fas fa-download me-2"></i> <span>Baixar Arquivo</span>
                         </a>
+                        
                         {% if music[8] %}
-                        <a href="{{ music[8] }}" target="_blank" class="btn btn-outline-danger">
-                            <i class="fab fa-youtube"></i> Abrir YouTube
+                        <a href="{{ music[8] }}" target="_blank" 
+                           class="btn btn-outline-danger icon-btn d-flex align-items-center justify-content-center" 
+                           title="Abrir no YouTube" data-bs-toggle="tooltip" data-bs-placement="right">
+                            <i class="fab fa-youtube me-2"></i> <span>Abrir YouTube</span>
                         </a>
                         {% endif %}
                     </div>
@@ -363,6 +465,123 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Substituição de PDF -->
+<div class="modal fade" id="replacePdfModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exchange-alt text-warning"></i> Substituir Arquivo PDF
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Atenção:</strong> Você está prestes a substituir o arquivo PDF atual. Esta ação não pode ser desfeita.
+                </div>
+                
+                <div class="row">
+                    <!-- PDF Atual -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-danger text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-pdf"></i> PDF Atual (será removido)
+                                </h6>
+                            </div>
+                            <div class="card-body p-2">
+                                <div class="mb-2">
+                                    <strong>Arquivo:</strong> {{ music[1] }}
+                                </div>
+                                <div class="text-center">
+                                    <canvas id="currentPdfCanvas" class="border" style="max-width: 100%; height: 300px;"></canvas>
+                                    <div id="currentPdfControls" class="mt-2">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="prevPageCurrent()">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
+                                            <span class="btn btn-outline-secondary" id="currentPageInfo">1 / 1</span>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="nextPageCurrent()">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- PDF Novo -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-pdf"></i> PDF Novo (substituirá o atual)
+                                </h6>
+                            </div>
+                            <div class="card-body p-2">
+                                <div class="mb-2">
+                                    <strong>Arquivo:</strong> <span id="newPdfName">-</span>
+                                </div>
+                                <div class="text-center">
+                                    <canvas id="newPdfCanvas" class="border" style="max-width: 100%; height: 300px;"></canvas>
+                                    <div id="newPdfControls" class="mt-2">
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="prevPageNew()">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
+                                            <span class="btn btn-outline-secondary" id="newPageInfo">1 / 1</span>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="nextPageNew()">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="newPdfLoading" class="text-muted">
+                                        <i class="fas fa-spinner fa-spin"></i> Carregando novo PDF...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informações do arquivo -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small>
+                                    <strong>Tamanho atual:</strong> {{ "%.2f"|format(music[9]/1024/1024) }} MB<br>
+                                    <strong>Páginas atuais:</strong> {{ music[11] if music[11] else 'N/A' }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small>
+                                    <strong>Novo tamanho:</strong> <span id="newPdfSize">-</span><br>
+                                    <strong>Novas páginas:</strong> <span id="newPdfPages">-</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmReplaceBtn" onclick="confirmPdfReplacement()">
+                    <i class="fas fa-exchange-alt"></i> Confirmar Substituição
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -370,22 +589,54 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <script>
+// Initialize Bootstrap tooltips when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
 // Função para alternar entre modo de visualização/edição
 function toggleEdit() {
     const editForm = document.getElementById('editForm');
     const viewMode = document.getElementById('viewMode');
     const editBtn = document.getElementById('editBtn');
+    const editHeaderButtons = document.getElementById('editHeaderButtons');
     
     if (editForm.style.display === 'none') {
+        // Entrar no modo edição
         editForm.style.display = 'block';
         viewMode.style.display = 'none';
-        editBtn.innerHTML = '<i class="fas fa-eye"></i> Visualizar';
-        editBtn.className = 'btn btn-outline-info btn-sm';
+        editBtn.innerHTML = '<i class="fas fa-eye me-2"></i> <span>Visualizar</span>';
+        editBtn.className = 'btn btn-outline-info icon-btn d-flex align-items-center justify-content-center';
+        editBtn.title = 'Voltar para Visualização';
+        editHeaderButtons.style.display = 'flex';
+        
+        // Recreate tooltips for updated buttons
+        setTimeout(() => {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }, 100);
+        
     } else {
+        // Voltar ao modo visualização
         editForm.style.display = 'none';
         viewMode.style.display = 'block';
-        editBtn.innerHTML = '<i class="fas fa-edit"></i> Editar';
-        editBtn.className = 'btn btn-outline-warning btn-sm';
+        editBtn.innerHTML = '<i class="fas fa-edit me-2"></i> <span>Editar</span>';
+        editBtn.className = 'btn btn-outline-warning icon-btn d-flex align-items-center justify-content-center';
+        editBtn.title = 'Editar Informações';
+        editHeaderButtons.style.display = 'none';
+        
+        // Recreate tooltips for updated buttons
+        setTimeout(() => {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }, 100);
     }
 }
 
@@ -402,6 +653,9 @@ function cancelEdit() {
     
     // Voltar ao modo visualização
     toggleEdit();
+    
+    // Reset navigation flags
+    navigationHistory.hasChanges = false;
 }
 
 function toggleNewArtistDetails() {
@@ -452,6 +706,8 @@ function addNewCategory() {
     hiddenInput.name = 'new_categories';
     hiddenInput.value = categoryName;
     document.getElementById('editForm').appendChild(hiddenInput);
+    
+    showToast('Nova categoria adicionada', 'success');
 }
 
 function addNewLiturgicalTime() {
@@ -501,6 +757,8 @@ function addNewLiturgicalTime() {
     hiddenInput.name = 'new_liturgical_times';
     hiddenInput.value = liturgicalName;
     document.getElementById('editForm').appendChild(hiddenInput);
+    
+    showToast('Novo tempo litúrgico adicionado', 'success');
 }
 
 // PDF.js configuration
@@ -509,6 +767,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 let pdfDocDetails = null;
 let pageNumDetails = 1;
 let pageIsRenderingDetails = false;
+
+// Variables for PDF replacement modal
+let currentPdfDoc = null;
+let newPdfDoc = null;
+let currentPageNum = 1;
+let newPageNum = 1;
+let newPdfFile = null;
 
 // Render the page for details view
 function renderPageDetails(num) {
@@ -570,21 +835,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loadingPdf').innerHTML = '<i class="fas fa-exclamation-triangle text-warning"></i> Erro ao carregar PDF';
         });
 });
-
-// Function to filter lists in music details dropdown
-function filterMusicDetailsList(input) {
-    const dropdown = document.getElementById('music-details-lists');
-    const search = input.value.toLowerCase();
-
-    dropdown.querySelectorAll('.dropdown-list-item').forEach(item => {
-        const text = item.getAttribute('data-name');
-        if (text.includes(search)) {
-            item.style.display = 'block';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
 
 // Autocomplete para artistas
 let artistTimeout;
@@ -754,7 +1004,7 @@ function trackFormChanges() {
     });
 }
 
-// Interceptar navegação do browser (botão voltar) - mais específico
+// Interceptar navegação do browser (botão voltar) 
 window.addEventListener('beforeunload', function(e) {
     if (navigationHistory.hasChanges) {
         const message = 'Você tem alterações não salvas que serão perdidas. Tem certeza que deseja sair?';
@@ -774,70 +1024,269 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Modificar funções para incluir navegação
-function saveAndNavigateToUrl() {
-    const editForm = document.getElementById('editForm');
-    if (editForm && editForm.style.display !== 'none') {
-        // Adicionar campo hidden com URL de destino
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'redirect_url';
-        hiddenInput.value = navigationHistory.pendingUrl || navigationHistory.backUrl;
-        editForm.appendChild(hiddenInput);
-        editForm.submit();
-    } else {
-        window.location.href = navigationHistory.pendingUrl || navigationHistory.backUrl;
-    }
-}
+// ===== SISTEMA DE SUBSTITUIÇÃO DE PDF =====
 
-function discardAndNavigateToUrl() {
-    navigationHistory.hasChanges = false;
-    bootstrap.Modal.getInstance(document.getElementById('navigationModal')).hide();
-    window.location.href = navigationHistory.pendingUrl || navigationHistory.backUrl;
-}
-
-// Modificar modal para URLs específicas
-function showNavigationConfirmation() {
-    const modalHtml = `
-        <div class="modal fade" id="navigationModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Alterações não salvas</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>Você tem alterações não salvas. O que deseja fazer?</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-success" onclick="${navigationHistory.pendingUrl ? 'saveAndNavigateToUrl()' : 'saveAndNavigate()'}">
-                            <i class="fas fa-save"></i> Salvar e Sair
-                        </button>
-                        <button type="button" class="btn btn-warning" onclick="${navigationHistory.pendingUrl ? 'discardAndNavigateToUrl()' : 'discardAndNavigate()'}">
-                            <i class="fas fa-trash"></i> Descartar Alterações
-                        </button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="fas fa-times"></i> Cancelar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+function handlePdfReplacement(input) {
+    if (!input.files || !input.files[0]) return;
     
-    const existingModal = document.getElementById('navigationModal');
-    if (existingModal) {
-        existingModal.remove();
+    const file = input.files[0];
+    
+    // Verificar se é PDF
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('Por favor, selecione um arquivo PDF válido', 'error');
+        input.value = '';
+        return;
     }
     
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    new bootstrap.Modal(document.getElementById('navigationModal')).show();
+    // Verificar tamanho (50MB max)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+        showToast('Arquivo muito grande. Tamanho máximo: 50MB', 'error');
+        input.value = '';
+        return;
+    }
+    
+    newPdfFile = file;
+    showReplacePdfModal();
 }
+
+function showReplacePdfModal() {
+    const modal = new bootstrap.Modal(document.getElementById('replacePdfModal'));
+    
+    // Reset
+    currentPageNum = 1;
+    newPageNum = 1;
+    
+    // Update new file info
+    document.getElementById('newPdfName').textContent = newPdfFile.name;
+    document.getElementById('newPdfSize').textContent = (newPdfFile.size / 1024 / 1024).toFixed(2) + ' MB';
+    
+    // Load current PDF
+    loadCurrentPdf();
+    
+    // Load new PDF
+    loadNewPdf();
+    
+    modal.show();
+}
+
+function loadCurrentPdf() {
+    const pdfUrl = '{{ url_for("view_file", file_id=music[0]) }}';
+    
+    fetch(pdfUrl)
+        .then(response => response.arrayBuffer())
+        .then(data => {
+            const typedarray = new Uint8Array(data);
+            return pdfjsLib.getDocument(typedarray).promise;
+        })
+        .then(function(pdf) {
+            currentPdfDoc = pdf;
+            currentPageNum = 1;
+            renderCurrentPage(currentPageNum);
+        })
+        .catch(function(error) {
+            console.error('Erro ao carregar PDF atual:', error);
+            showToast('Erro ao carregar PDF atual', 'error');
+        });
+}
+
+function loadNewPdf() {
+    document.getElementById('newPdfLoading').style.display = 'block';
+    
+    const fileReader = new FileReader();
+    fileReader.onload = function(e) {
+        const typedarray = new Uint8Array(e.target.result);
+        
+        pdfjsLib.getDocument(typedarray).promise
+            .then(function(pdf) {
+                newPdfDoc = pdf;
+                newPageNum = 1;
+                document.getElementById('newPdfPages').textContent = pdf.numPages;
+                renderNewPage(newPageNum);
+                document.getElementById('newPdfLoading').style.display = 'none';
+            })
+            .catch(function(error) {
+                console.error('Erro ao carregar novo PDF:', error);
+                showToast('Erro ao carregar novo PDF', 'error');
+                document.getElementById('newPdfLoading').style.display = 'none';
+            });
+    };
+    
+    fileReader.readAsArrayBuffer(newPdfFile);
+}
+
+function renderCurrentPage(num) {
+    if (!currentPdfDoc) return;
+    
+    currentPdfDoc.getPage(num).then(function(page) {
+        const canvas = document.getElementById('currentPdfCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const viewport = page.getViewport({ scale: 0.8 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        page.render(renderContext).promise.then(function() {
+            document.getElementById('currentPageInfo').textContent = `${num} / ${currentPdfDoc.numPages}`;
+        });
+    });
+}
+
+function renderNewPage(num) {
+    if (!newPdfDoc) return;
+    
+    newPdfDoc.getPage(num).then(function(page) {
+        const canvas = document.getElementById('newPdfCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const viewport = page.getViewport({ scale: 0.8 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        page.render(renderContext).promise.then(function() {
+            document.getElementById('newPageInfo').textContent = `${num} / ${newPdfDoc.numPages}`;
+        });
+    });
+}
+
+function prevPageCurrent() {
+    if (!currentPdfDoc || currentPageNum <= 1) return;
+    currentPageNum--;
+    renderCurrentPage(currentPageNum);
+}
+
+function nextPageCurrent() {
+    if (!currentPdfDoc || currentPageNum >= currentPdfDoc.numPages) return;
+    currentPageNum++;
+    renderCurrentPage(currentPageNum);
+}
+
+function prevPageNew() {
+    if (!newPdfDoc || newPageNum <= 1) return;
+    newPageNum--;
+    renderNewPage(newPageNum);
+}
+
+function nextPageNew() {
+    if (!newPdfDoc || newPageNum >= newPdfDoc.numPages) return;
+    newPageNum++;
+    renderNewPage(newPageNum);
+}
+
+function confirmPdfReplacement() {
+    if (!newPdfFile) {
+        showToast('Nenhum arquivo selecionado', 'error');
+        return;
+    }
+    
+    const confirmBtn = document.getElementById('confirmReplaceBtn');
+    const originalText = confirmBtn.innerHTML;
+    
+    // Show loading
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Substituindo...';
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('replacement_pdf', newPdfFile);
+    formData.append('music_id', '{{ music[0] }}');
+    
+    // Send to backend
+    fetch('/replace_pdf/{{ music[0] }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('PDF substituído com sucesso!', 'success');
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('replacePdfModal')).hide();
+            
+            // Reset file input
+            document.getElementById('replacement_pdf').value = '';
+            
+            // Update page elements dynamically instead of reloading
+            updatePageAfterReplacement(data);
+        } else {
+            showToast(data.error || 'Erro ao substituir PDF', 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        showToast('Erro de comunicação com o servidor', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+    });
+}
+
+function updatePageAfterReplacement(data) {
+    // Update filename in the page title
+    const titleElement = document.querySelector('h1');
+    if (titleElement) {
+        const currentTitle = titleElement.textContent;
+        const newTitle = currentTitle.replace(/- [^-]+$/, `- ${data.new_filename}`);
+        titleElement.textContent = newTitle;
+    }
+    
+    // Update file information in the sidebar
+    const fileInfoElements = document.querySelectorAll('.text-muted');
+    fileInfoElements.forEach(element => {
+        if (element.textContent.includes('MB')) {
+            element.textContent = `${(data.new_size / 1024 / 1024).toFixed(2)} MB`;
+        }
+        if (element.textContent.includes('página')) {
+            const pages = data.new_pages;
+            element.textContent = pages === 1 ? '1 página' : `${pages} páginas`;
+        }
+    });
+    
+    // Update PDF preview if visible
+    if (pdfDocDetails) {
+        // Reload the PDF preview with new file
+        loadPdfDetails();
+    }
+    
+    // Show success message with details
+    showToast(`PDF substituído! Novo arquivo: ${data.new_filename} (${(data.new_size / 1024 / 1024).toFixed(2)} MB, ${data.new_pages} páginas)`, 'success');
+}
+
+// ===== FUNÇÕES DE NAVEGAÇÃO E UTILIDADES =====
 
 // Inicializar sistema de navegação
 document.addEventListener('DOMContentLoaded', function() {
     determineBackUrl();
     trackFormChanges();
+    
+    // Verificar por flash messages na URL e convertê-las em toasts
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success')) {
+        showToast(decodeURIComponent(urlParams.get('success')), 'success');
+        // Limpar parâmetro da URL
+        urlParams.delete('success');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, document.title, newUrl);
+    }
+    if (urlParams.get('error')) {
+        showToast(decodeURIComponent(urlParams.get('error')), 'error');
+        // Limpar parâmetro da URL
+        urlParams.delete('error');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, document.title, newUrl);
+    }
 });
 </script>
 {% endblock %} 
