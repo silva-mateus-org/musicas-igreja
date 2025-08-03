@@ -62,7 +62,7 @@
         <div class="col-lg-8">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-music"></i> Músicas na Lista ({{ list_files|length }})</h5>
+                    <h6 class="mb-0"><i class="fas fa-music"></i> Músicas na Lista ({{ list_files|length }})</h6>
                 </div>
                 <div class="card-body">
                     {% if list_files %}
@@ -112,6 +112,11 @@
                                                     <i class="fab fa-youtube"></i>
                                                 </button>
                                             {% endif %}
+                                            
+                                            <a href="{{ url_for('download_file', file_id=file[2]) }}" 
+                                               class="btn btn-outline-warning btn-sm action-btn" title="Baixar PDF">
+                                                <i class="fas fa-download"></i>
+                                            </a>
                                             
                                             <form method="POST" action="{{ url_for('remove_from_merge_list', item_id=file[0]) }}" 
                                                   style="display: inline;">
@@ -172,27 +177,31 @@
                     </p>
                     
                     <!-- Botões de Ação -->
-                    <div class="d-grid gap-2">
+                    <div class="d-grid gap-2 sidebar-buttons">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editInfoModal" title="Editar informações">
+                            <i class="fas fa-edit me-2"></i> Editar Informações
+                        </button>
+                        
+                        <button type="button" class="btn btn-outline-secondary" onclick="duplicateListFromEdit({{ merge_list[0] }}, {{ merge_list[1]|tojson }})" title="Duplicar esta lista">
+                            <i class="fas fa-copy me-2"></i> Duplicar Lista
+                        </button>
+                        
                         {% if list_files|length > 0 %}
-                            <button type="button" class="btn btn-info btn-sm" onclick="generateListReport({{ merge_list[0] }})" title="Gerar relatório desta lista">
-                                <i class="fas fa-file-export"></i> Gerar Relatório
+                            <button type="button" class="btn btn-outline-info" onclick="generateListReport({{ merge_list[0] }})" title="Gerar relatório desta lista">
+                                <i class="fas fa-file-export me-2"></i> Gerar Relatório
                             </button>
                         {% endif %}
                         
                         {% if list_files|length >= 2 %}
                             <form method="POST" action="{{ url_for('download_merged_list', list_id=merge_list[0]) }}">
-                                <button type="submit" class="btn btn-success btn-sm w-100" title="Baixar PDF unificado">
-                                    <i class="fas fa-download"></i> Baixar PDF Unificado
+                                <button type="submit" class="btn btn-outline-warning w-100" title="Baixar PDF unificado">
+                                    <i class="fas fa-download me-2"></i> Baixar PDF Unificado
                                 </button>
                             </form>
                         {% endif %}
                         
-                        <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editInfoModal" title="Editar informações">
-                            <i class="fas fa-edit"></i> Editar Informações
-                        </button>
-                        
-                        <button type="button" class="btn btn-danger btn-sm" onclick="deleteList({{ merge_list[0] }}, '{{ merge_list[1] }}')" title="Deletar lista">
-                            <i class="fas fa-trash"></i> Deletar Lista
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteList({{ merge_list[0] }}, {{ merge_list[1]|tojson }})" title="Deletar lista">
+                            <i class="fas fa-trash me-2"></i> Deletar Lista
                         </button>
                     </div>
                 </div>
@@ -353,7 +362,7 @@
                                         {% endif %}
                                         
                                         <button type="button" class="btn btn-success btn-sm action-btn" 
-                                                onclick="showAddToListModal({{ file[0] }})" title="Adicionar à lista">
+                                                onclick="addToCurrentList({{ file[0] }})" title="Adicionar à lista atual">
                                             <i class="fas fa-plus"></i>
                                         </button>
                                     </div>
@@ -514,6 +523,63 @@
         transform: translateX(0);
         opacity: 1;
     }
+}
+
+/* Sidebar button styles */
+.sidebar-buttons .btn {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-width: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.sidebar-buttons .btn:hover {
+    background-color: white;
+    color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-buttons .btn-outline-primary:hover {
+    background-color: white;
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.sidebar-buttons .btn-outline-danger:hover {
+    background-color: white;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.sidebar-buttons .btn-outline-warning:hover {
+    background-color: white;
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+.sidebar-buttons .btn-outline-success:hover {
+    background-color: white;
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.sidebar-buttons .btn-outline-info:hover {
+    background-color: white;
+    color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.sidebar-buttons .btn-outline-secondary:hover {
+    background-color: white;
+    color: #6c757d;
+    border-color: #6c757d;
 }
 </style>
 {% endblock %}
@@ -817,27 +883,42 @@ function generateListReport(listId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Copiar para o clipboard
-                navigator.clipboard.writeText(data.report).then(() => {
-                    // Mostrar sucesso temporário no botão
+                // Tentar copiar para o clipboard com fallback
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(data.report).then(() => {
+                        // Mostrar sucesso temporário no botão
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.className = 'btn btn-success btn-sm';
+                        
+                        // Mostrar toast de sucesso
+                        showToast('O Conteúdo da Lista foi copiado', 'success');
+                        
+                        // Restaurar botão após 2 segundos
+                        setTimeout(() => {
+                            button.innerHTML = originalContent;
+                            button.className = 'btn btn-info btn-sm';
+                            button.disabled = false;
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Erro ao copiar para clipboard:', err);
+                        fallbackCopyText(data.report);
+                        showToast('Relatório copiado (fallback)', 'success');
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    });
+                } else {
+                    // Fallback para navegadores que não suportam clipboard API
+                    fallbackCopyText(data.report);
+                    showToast('Relatório copiado (fallback)', 'success');
                     button.innerHTML = '<i class="fas fa-check"></i>';
                     button.className = 'btn btn-success btn-sm';
                     
-                    // Mostrar toast de sucesso
-                    showToast('O Conteúdo da Lista foi copiado', 'success');
-                    
-                    // Restaurar botão após 2 segundos
                     setTimeout(() => {
                         button.innerHTML = originalContent;
                         button.className = 'btn btn-info btn-sm';
                         button.disabled = false;
                     }, 2000);
-                }).catch(err => {
-                    console.error('Erro ao copiar para clipboard:', err);
-                    showToast('Erro ao copiar para o clipboard', 'error');
-                    button.innerHTML = originalContent;
-                    button.disabled = false;
-                });
+                }
             } else {
                 showToast('Erro ao gerar relatório: ' + data.message, 'error');
                 button.innerHTML = originalContent;
@@ -850,6 +931,70 @@ function generateListReport(listId) {
             button.innerHTML = originalContent;
             button.disabled = false;
         });
+}
+
+// Função fallback para copiar texto
+function fallbackCopyText(text) {
+    // Criar elemento temporário
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.width = '2em';
+    textArea.style.height = '2em';
+    textArea.style.padding = '0';
+    textArea.style.border = 'none';
+    textArea.style.outline = 'none';
+    textArea.style.boxShadow = 'none';
+    textArea.style.background = 'transparent';
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        // Mostrar modal com o conteúdo para copiar manualmente
+        showCopyModal(text);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Modal para copiar manualmente
+function showCopyModal(text) {
+    const modalHtml = `
+        <div class="modal fade" id="copyModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Copiar Relatório</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Não foi possível copiar automaticamente. Selecione o texto abaixo e copie manualmente:</p>
+                        <textarea class="form-control" rows="10" readonly>${text}</textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('copyModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('copyModal'));
+    modal.show();
 }
 
 function showToast(message, type = 'success') {
@@ -1159,6 +1304,79 @@ document.addEventListener('click', function(e) {
         showListNavigationConfirmation();
     }
 });
+
+// Função para adicionar música diretamente à lista atual
+function addToCurrentList(fileId) {
+    const listId = {{ merge_list[0] }};
+    
+    // Criar form e submeter
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/add_song_to_list/${fileId}/${listId}`;
+    form.style.display = 'none';
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// Sobrescrever a função global showAddToListModal para adicionar diretamente na lista atual
+function showAddToListModal(fileId) {
+    // Em vez de abrir o modal, adicionar diretamente na lista atual
+    addToCurrentList(fileId);
+}
+
+// Função para duplicar lista da página de edição
+function duplicateListFromEdit(listId, listName) {
+    const modalHtml = `
+        <div class="modal fade" id="duplicateModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Duplicar Lista</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="duplicateForm" method="POST" action="/duplicate_merge_list/${listId}">
+                            <div class="mb-3">
+                                <label for="duplicateListName" class="form-label">Nome da nova lista</label>
+                                <input type="text" class="form-control" id="duplicateListName" name="new_list_name" 
+                                       value="${listName} (Cópia)" required>
+                                <div class="form-text">Será criada uma cópia da lista <strong>${listName}</strong></div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" onclick="submitDuplicateFormFromEdit()">Duplicar Lista</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('duplicateModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+}
+
+// Função para submeter formulário de duplicação da página de edição
+function submitDuplicateFormFromEdit() {
+    document.getElementById('duplicateForm').submit();
+}
+
+// Função para voltar à página anterior
+function goBack() {
+    if (hasUnsavedChanges) {
+        showListNavigationConfirmation();
+    } else {
+        window.history.back();
+    }
+}
 
 // Inicialização completa
 document.addEventListener('DOMContentLoaded', function() {

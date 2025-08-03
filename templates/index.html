@@ -97,6 +97,16 @@
     color: white !important;
 }
 
+.actions-dropdown-item.btn-secondary-style {
+    color: #6c757d !important;
+    background: transparent !important;
+    border: none !important;
+}
+.actions-dropdown-item.btn-secondary-style:hover {
+    background-color: #6c757d !important;
+    color: white !important;
+}
+
 /* Description icon styles */
 .description-icon {
     cursor: pointer;
@@ -113,7 +123,7 @@
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>Painel Principal</h1>
+                <h1><i class="fas fa-music"></i> Painel Principal</h1>
                 <div class="mobile-icon-only">
                     <!-- View Mode Toggle -->
                     <div class="btn-group me-2" role="group">
@@ -129,11 +139,15 @@
                         </a>
                     </div>
                     
-
-                    <a href="{{ url_for('upload_file') }}" class="btn btn-primary"
+                    <a href="{{ url_for('upload_file') }}" class="btn btn-success me-2"
                        title="Adicionar Nova Música">
                         <i class="fas fa-plus"></i> <span class="btn-text">Adicionar Música</span>
                     </a>
+                    
+                    <button type="button" class="btn btn-outline-secondary" onclick="goBack()"
+                       title="Voltar">
+                        <i class="fas fa-arrow-left"></i> <span class="btn-text">Voltar</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -183,6 +197,9 @@
                                                     <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" class="actions-dropdown-item btn-primary-style">
                                                         <i class="fas fa-edit"></i> Editar Lista
                                                     </a>
+                                                    <button type="button" class="actions-dropdown-item btn-secondary-style" onclick="duplicateListFromHome({{ list[0] }}, {{ list[1]|tojson }})">
+                                                        <i class="fas fa-copy"></i> Duplicar Lista
+                                                    </button>
                                                     <button type="button" class="actions-dropdown-item btn-info-style" onclick="generateListReportFromHome({{ list[0] }})">
                                                         <i class="fas fa-file-export"></i> Gerar Relatório
                                                     </button>
@@ -192,7 +209,7 @@
                                                         </button>
                                                     </form>
                                                     <button type="button" class="actions-dropdown-item btn-danger-style"
-                                                            onclick="deleteList({{ list[0] }}, '{{ list[1] }}')" title="Deletar Lista">
+                                                            onclick="deleteList({{ list[0] }}, {{ list[1]|tojson }})" title="Deletar Lista">
                                                         <i class="fas fa-trash"></i> Deletar Lista
                                                     </button>
                                                 </div>
@@ -204,6 +221,10 @@
                                                    class="btn btn-outline-primary action-btn" title="Editar Lista">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                <button type="button" class="btn btn-outline-secondary action-btn" 
+                                                        onclick="duplicateListFromHome({{ list[0] }}, '{{ list[1] }}')" title="Duplicar Lista">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-outline-info action-btn" 
                                                         onclick="generateListReportFromHome({{ list[0] }})" title="Gerar Relatório">
                                                     <i class="fas fa-file-export"></i>
@@ -248,6 +269,9 @@
                                             <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" class="actions-dropdown-item btn-primary-style">
                                                 <i class="fas fa-edit"></i> Editar Lista
                                             </a>
+                                            <button type="button" class="actions-dropdown-item btn-secondary-style" onclick="duplicateListFromHome({{ list[0] }}, '{{ list[1] }}')">
+                                                <i class="fas fa-copy"></i> Duplicar Lista
+                                            </button>
                                             <button type="button" class="actions-dropdown-item btn-info-style" onclick="generateListReportFromHome({{ list[0] }})">
                                                 <i class="fas fa-file-export"></i> Gerar Relatório
                                             </button>
@@ -271,96 +295,107 @@
         </div>
     {% endif %}
 
-    <!-- Filter Section -->
+    <!-- Filters Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> Filtros de Busca</h6>
+                </div>
                 <div class="card-body">
-                    <h6 class="card-title"><i class="fas fa-filter"></i> Filtros Dinâmicos</h6>
                     <div class="row g-3">
-                        <!-- Text Search -->
-                        <div class="col-md-4">
-                            <label for="filterText" class="form-label small">Buscar por Texto</label>
-                            <input type="text" class="form-control form-control-sm" id="filterText" 
+                        <!-- Search Text -->
+                        <div class="col-md-6">
+                            <label for="filterText" class="form-label">Buscar por Texto</label>
+                            <input type="text" class="form-control" id="filterText" 
                                    placeholder="Nome da música, artista ou arquivo..." 
+                                   value="{{ request.args.get('search', '') }}"
                                    onkeyup="applyFilters()">
                         </div>
                         
-                        <!-- Categories Filter -->
-                        <div class="col-md-4">
-                            <label class="form-label small">Categorias</label>
-                            <div class="mb-2">
-                                <div class="btn-group btn-group-sm w-100" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="selectAllCategories()">
-                                        <i class="fas fa-check-double"></i> Selecionar Tudo
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="unselectAllCategories()">
-                                        <i class="fas fa-times"></i> Desmarcar Tudo
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="border p-2 rounded" style="max-height: 120px; overflow-y: auto;">
-                                {% for category in categories %}
-                                    <div class="form-check">
-                                        <input class="form-check-input category-filter" type="checkbox" 
-                                               id="cat-{{ loop.index }}" value="{{ category }}" 
-                                               onchange="applyFilters()">
-                                        <label class="form-check-label small" for="cat-{{ loop.index }}">
-                                            {{ category }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        
-                        <!-- Liturgical Times Filter -->
-                        <div class="col-md-4">
-                            <label class="form-label small">Tempos Litúrgicos</label>
-                            <div class="mb-2">
-                                <div class="btn-group btn-group-sm w-100" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="selectAllLiturgical()">
-                                        <i class="fas fa-check-double"></i> Selecionar Tudo
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="unselectAllLiturgical()">
-                                        <i class="fas fa-times"></i> Desmarcar Tudo
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="border p-2 rounded" style="max-height: 120px; overflow-y: auto;">
-                                {% for time in liturgical_times %}
-                                    <div class="form-check">
-                                        <input class="form-check-input liturgical-filter" type="checkbox" 
-                                               id="time-{{ loop.index }}" value="{{ time }}" 
-                                               onchange="applyFilters()">
-                                        <label class="form-check-label small" for="time-{{ loop.index }}">
-                                            {{ time }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                                {% if not liturgical_times %}
-                                    <div class="text-muted small text-center">
-                                        Nenhum tempo cadastrado
-                                    </div>
-                                {% endif %}
+                        <!-- Results Info -->
+                        <div class="col-md-6">
+                            <label class="form-label">Resultados</label>
+                            <div class="form-control-plaintext">
+                                <small id="resultsInfo" class="text-muted">Carregando...</small>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Results Info & Pagination Controls -->
                     <div class="row mt-3">
+                        <!-- Categories Filter -->
                         <div class="col-md-6">
-                            <small class="text-muted">
-                                <span id="resultsInfo">Mostrando todas as músicas</span>
-                            </small>
+                            <label class="form-label">Categorias</label>
+                            <div class="mb-2">
+                                <div class="btn-group btn-group-sm w-100" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="selectAllCategories()">
+                                        <i class="fas fa-check-double"></i> Todas
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="unselectAllCategories()">
+                                        <i class="fas fa-times"></i> Nenhuma
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="border p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                <div class="row">
+                                    {% for category in categories %}
+                                        <div class="col-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input category-filter" type="checkbox" 
+                                                       id="filter-category-{{ loop.index }}" value="{{ category }}" 
+                                                       onchange="applyFilters()">
+                                                <label class="form-check-label small" for="filter-category-{{ loop.index }}">
+                                                    {{ category }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    {% if not categories %}
+                                        <div class="col-12">
+                                            <div class="text-muted small text-center">
+                                                Nenhuma categoria cadastrada
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
+                        
+                        <!-- Liturgical Times Filter -->
                         <div class="col-md-6">
-                            <div class="d-flex justify-content-end align-items-center">
-                                <label for="itemsPerPage" class="form-label small me-2 mb-0">Itens por página:</label>
-                                <select class="form-select form-select-sm" id="itemsPerPage" style="width: auto;" onchange="applyFilters()">
-                                    <option value="10">10</option>
-                                    <option value="25" selected>25</option>
-                                    <option value="50">50</option>
-                                </select>
+                            <label class="form-label">Tempos Litúrgicos</label>
+                            <div class="mb-2">
+                                <div class="btn-group btn-group-sm w-100" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="selectAllLiturgical()">
+                                        <i class="fas fa-check-double"></i> Todos
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="unselectAllLiturgical()">
+                                        <i class="fas fa-times"></i> Nenhum
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="border p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                <div class="row">
+                                    {% for time in liturgical_times %}
+                                        <div class="col-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input liturgical-filter" type="checkbox" 
+                                                       id="filter-liturgical-{{ loop.index }}" value="{{ time }}" 
+                                                       onchange="applyFilters()">
+                                                <label class="form-check-label small" for="filter-liturgical-{{ loop.index }}">
+                                                    {{ time }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                    {% if not liturgical_times %}
+                                        <div class="col-12">
+                                            <div class="text-muted small text-center">
+                                                Nenhum tempo litúrgico cadastrado
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -368,6 +403,8 @@
             </div>
         </div>
     </div>
+
+
     
     <!-- Bulk Selection Panel -->
     <div id="bulkSelectPanel" class="row mb-4" style="display: none;">
@@ -455,19 +492,35 @@
         </div>
     </div>
     
-    <!-- Pagination -->
-    <div class="row mb-3">
+    <!-- Controls Section (Top) -->
+    <div class="row mb-3" id="topControlsSection">
         <div class="col-12">
-            <nav aria-label="Navegação das músicas" id="paginationNav" style="display: none;">
-                <ul class="pagination justify-content-center" id="paginationList">
-                    <!-- Pagination buttons will be generated by JavaScript -->
-                </ul>
-            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <!-- Items per Page -->
+                <div class="d-flex align-items-center">
+                    <label for="itemsPerPageTop" class="form-label me-2 mb-0">Exibir:</label>
+                    <select class="form-select form-select-sm" id="itemsPerPageTop" onchange="syncItemsPerPage(this); applyFilters()" style="width: auto;">
+                        <option value="10">10 itens</option>
+                        <option value="25" selected>25 itens</option>
+                        <option value="50">50 itens</option>
+                        <option value="100">100 itens</option>
+                    </select>
+                    <span class="text-muted ms-2">por página</span>
+                </div>
+                
+                <!-- Pagination Top -->
+                <nav aria-label="Navegação das músicas (topo)" id="paginationNavTop" style="display: none;">
+                    <ul class="pagination pagination-sm mb-0" id="paginationListTop">
+                        <!-- Pagination buttons will be generated by JavaScript -->
+                    </ul>
+                </nav>
+            </div>
         </div>
     </div>
 
     <!-- Files Display -->
     {% if files %}
+        {% set search_query = request.args.get('search', '') %}
         {% if view_mode == 'list' %}
             <!-- List View -->
             <div class="row">
@@ -597,11 +650,11 @@
                                                         <a href="{{ url_for('download_file', file_id=file[0]) }}" class="actions-dropdown-item btn-warning-style">
                                                             <i class="fas fa-download"></i> Baixar PDF
                                                         </a>
-                                                        {% if merge_lists %}
-                                                            <button type="button" class="actions-dropdown-item btn-success-style" style="border: none; background: none; width: 100%; text-align: left;" onclick="showAddToListModal({{ file[0] }})">
-                                                                <i class="fas fa-plus"></i> Adicionar à Lista
-                                                            </button>
-                                                        {% endif %}
+                                                                                                {% if merge_lists %}
+                                            <button type="button" class="actions-dropdown-item btn-success-style" style="border: none; background: none; width: 100%; text-align: left;" onclick="showAddToListModal({{ file[0] }})">
+                                                <i class="fas fa-plus"></i> Adicionar à Lista
+                                            </button>
+                                        {% endif %}
                                                         <a href="#" onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" class="actions-dropdown-item btn-danger-style">
                                                             <i class="fas fa-trash"></i> Deletar
                                                         </a>
@@ -643,6 +696,7 @@
                                                        class="btn btn-outline-warning action-btn" title="Baixar PDF">
                                                         <i class="fas fa-download"></i>
                                                     </a>
+                                                    
                                                     <button type="button" class="btn btn-outline-danger action-btn"
                                                             onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" title="Deletar">
                                                         <i class="fas fa-trash"></i>
@@ -742,6 +796,7 @@
                                                 <a href="{{ url_for('download_file', file_id=file[0]) }}" class="actions-dropdown-item btn-warning-style">
                                                     <i class="fas fa-download"></i> Baixar PDF
                                                 </a>
+
                                                 <a href="#" onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" class="actions-dropdown-item btn-danger-style">
                                                     <i class="fas fa-trash"></i> Deletar
                                                 </a>
@@ -887,15 +942,18 @@
                                     <i class="fas fa-download"></i>
                                 </a>
                                 
-                                <!-- Add to List Dropdown for Card View - Substituir pelo modal -->
-                                {% if merge_lists %}
-                                <div class="btn-group w-100" role="group">
-                                    <button type="button" class="btn btn-outline-success btn-sm" 
-                                            onclick="showAddToListModal({{ file[0] }})">
-                                        <i class="fas fa-plus"></i> Adicionar à Lista
-                                    </button>
-                                </div>
-                                {% endif %}
+
+                            </div>
+                            
+                            <!-- Add to List Dropdown for Card View - Substituir pelo modal -->
+                            {% if merge_lists %}
+                            <div class="btn-group w-100 mt-2" role="group">
+                                <button type="button" class="btn btn-outline-success btn-sm" 
+                                        onclick="showAddToListModal({{ file[0] }})">
+                                    <i class="fas fa-plus"></i> Adicionar à Lista
+                                </button>
+                            </div>
+                            {% endif %}
                             </div>
                         </div>
                     </div>
@@ -917,6 +975,32 @@
             </div>
         </div>
     {% endif %}
+
+    <!-- Controls Section (Bottom) -->
+    <div class="row mt-4" id="bottomControlsSection">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <!-- Items per Page -->
+                <div class="d-flex align-items-center">
+                    <label for="itemsPerPageBottom" class="form-label me-2 mb-0">Exibir:</label>
+                    <select class="form-select form-select-sm" id="itemsPerPageBottom" onchange="syncItemsPerPage(this); applyFilters()" style="width: auto;">
+                        <option value="10">10 itens</option>
+                        <option value="25" selected>25 itens</option>
+                        <option value="50">50 itens</option>
+                        <option value="100">100 itens</option>
+                    </select>
+                    <span class="text-muted ms-2">por página</span>
+                </div>
+                
+                <!-- Pagination Bottom -->
+                <nav aria-label="Navegação das músicas (inferior)" id="paginationNavBottom" style="display: none;">
+                    <ul class="pagination pagination-sm mb-0" id="paginationListBottom">
+                        <!-- Pagination buttons will be generated by JavaScript -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -1254,14 +1338,36 @@ function removeAccents(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+// Função para sincronizar os seletores de itens por página
+function syncItemsPerPage(changedElement) {
+    const value = changedElement.value;
+    
+    // Atualizar todos os seletores para o mesmo valor
+    const selectors = ['itemsPerPageTop', 'itemsPerPageBottom'];
+    selectors.forEach(selectorId => {
+        const element = document.getElementById(selectorId);
+        if (element && element !== changedElement) {
+            element.value = value;
+        }
+    });
+}
+
 function applyFilters() {
     // Obter valores dos filtros
     const textFilter = removeAccents(document.getElementById('filterText').value.toLowerCase().trim());
     const selectedCategories = Array.from(document.querySelectorAll('.category-filter:checked')).map(cb => cb.value);
     const selectedLiturgical = Array.from(document.querySelectorAll('.liturgical-filter:checked')).map(cb => cb.value);
     
-    // Atualizar itens per página
-    itemsPerPage = parseInt(document.getElementById('itemsPerPage').value);
+    // Atualizar itens per página do primeiro seletor encontrado
+    const topSelector = document.getElementById('itemsPerPageTop');
+    const bottomSelector = document.getElementById('itemsPerPageBottom');
+    if (topSelector) {
+        itemsPerPage = parseInt(topSelector.value);
+    } else if (bottomSelector) {
+        itemsPerPage = parseInt(bottomSelector.value);
+    } else {
+        itemsPerPage = 25; // fallback
+    }
     currentPage = 1;
     
     // Filtrar itens
@@ -1336,17 +1442,30 @@ function updateItemsVisibility() {
 
 function updatePagination() {
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-    const paginationNav = document.getElementById('paginationNav');
-    const paginationList = document.getElementById('paginationList');
+    
+    // Elementos de paginação (superior e inferior)
+    const paginationElements = [
+        { nav: document.getElementById('paginationNavTop'), list: document.getElementById('paginationListTop') },
+        { nav: document.getElementById('paginationNavBottom'), list: document.getElementById('paginationListBottom') }
+    ];
     
     if (totalPages <= 1) {
-        paginationNav.style.display = 'none';
+        paginationElements.forEach(elem => {
+            if (elem.nav) elem.nav.style.display = 'none';
+        });
         return;
     }
     
-    paginationNav.style.display = 'block';
-    paginationList.innerHTML = '';
-    
+    paginationElements.forEach(elem => {
+        if (elem.nav && elem.list) {
+            elem.nav.style.display = 'block';
+            elem.list.innerHTML = '';
+            buildPaginationButtons(elem.list, totalPages);
+        }
+    });
+}
+
+function buildPaginationButtons(paginationList, totalPages) {
     // Botão anterior
     const prevLi = document.createElement('li');
     prevLi.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
@@ -1712,27 +1831,42 @@ function generateListReportFromHome(listId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Copiar para o clipboard
-                navigator.clipboard.writeText(data.report).then(() => {
-                    // Mostrar sucesso temporário no botão
+                // Tentar copiar para o clipboard com fallback
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(data.report).then(() => {
+                        // Mostrar sucesso temporário no botão
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.className = 'btn btn-success btn-sm action-btn';
+                        
+                        // Mostrar toast de sucesso
+                        showToast('Relatório copiado para a área de transferência!', 'success');
+                        
+                        // Restaurar botão após 2 segundos
+                        setTimeout(() => {
+                            button.innerHTML = originalContent;
+                            button.className = 'btn btn-outline-info btn-sm action-btn';
+                            button.disabled = false;
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Erro ao copiar para clipboard:', err);
+                        fallbackCopyText(data.report);
+                        showToast('Relatório copiado (fallback)', 'success');
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    });
+                } else {
+                    // Fallback para navegadores que não suportam clipboard API
+                    fallbackCopyText(data.report);
+                    showToast('Relatório copiado (fallback)', 'success');
                     button.innerHTML = '<i class="fas fa-check"></i>';
                     button.className = 'btn btn-success btn-sm action-btn';
                     
-                    // Mostrar toast de sucesso
-                    showToast('Relatório copiado para a área de transferência!', 'success');
-                    
-                    // Restaurar botão após 2 segundos
                     setTimeout(() => {
                         button.innerHTML = originalContent;
                         button.className = 'btn btn-outline-info btn-sm action-btn';
                         button.disabled = false;
                     }, 2000);
-                }).catch(err => {
-                    console.error('Erro ao copiar para clipboard:', err);
-                    showToast('Erro ao copiar para o clipboard', 'error');
-                    button.innerHTML = originalContent;
-                    button.disabled = false;
-                });
+                }
             } else {
                 showToast('Erro ao gerar relatório: ' + data.message, 'error');
                 button.innerHTML = originalContent;
@@ -1745,6 +1879,70 @@ function generateListReportFromHome(listId) {
             button.innerHTML = originalContent;
             button.disabled = false;
         });
+}
+
+// Função fallback para copiar texto
+function fallbackCopyText(text) {
+    // Criar elemento temporário
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.width = '2em';
+    textArea.style.height = '2em';
+    textArea.style.padding = '0';
+    textArea.style.border = 'none';
+    textArea.style.outline = 'none';
+    textArea.style.boxShadow = 'none';
+    textArea.style.background = 'transparent';
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        // Mostrar modal com o conteúdo para copiar manualmente
+        showCopyModal(text);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Modal para copiar manualmente
+function showCopyModal(text) {
+    const modalHtml = `
+        <div class="modal fade" id="copyModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Copiar Relatório</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Não foi possível copiar automaticamente. Selecione o texto abaixo e copie manualmente:</p>
+                        <textarea class="form-control" rows="10" readonly>${text}</textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('copyModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('copyModal'));
+    modal.show();
 }
 
 // Função para deletar lista
@@ -1827,5 +2025,56 @@ function showToast(message, type = 'success') {
         }, 300);
     }, 3000);
 }
+
+// Função para duplicar lista da página inicial
+function duplicateListFromHome(listId, listName) {
+    const modalHtml = `
+        <div class="modal fade" id="duplicateModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Duplicar Lista</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="duplicateForm" method="POST" action="/duplicate_merge_list/${listId}">
+                            <div class="mb-3">
+                                <label for="duplicateListName" class="form-label">Nome da nova lista</label>
+                                <input type="text" class="form-control" id="duplicateListName" name="new_list_name" 
+                                       value="${listName} (Cópia)" required>
+                                <div class="form-text">Será criada uma cópia da lista <strong>${listName}</strong></div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" onclick="submitDuplicateForm()">Duplicar Lista</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('duplicateModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('duplicateModal')).show();
+}
+
+// Função para submeter formulário de duplicação
+function submitDuplicateForm() {
+    document.getElementById('duplicateForm').submit();
+}
+
+// Função para voltar à página anterior
+function goBack() {
+    window.history.back();
+}
+
+
 </script>
 {% endblock %}  

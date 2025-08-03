@@ -84,41 +84,129 @@
     transform: translate(-50%, -50%);
     z-index: 10;
 }
+
+/* Unified button styles for all buttons in the page */
+.btn {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-width: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Small buttons maintain smaller padding */
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 0.875rem;
+}
+
+/* Button group buttons maintain smaller padding */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Hover effects for all outline buttons */
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-outline-primary:hover {
+    background-color: white;
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-outline-danger:hover {
+    background-color: white;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-warning:hover {
+    background-color: white;
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+.btn-outline-success:hover {
+    background-color: white;
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-info:hover {
+    background-color: white;
+    color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.btn-outline-secondary:hover {
+    background-color: white;
+    color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Filled buttons hover effects */
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-success:hover {
+    background-color: #1e7e34;
+    border-color: #1e7e34;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #c82333;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+    border-color: #545b62;
+}
+
+/* Sidebar buttons maintain flex-start justification */
+.sidebar-buttons .btn {
+    justify-content: flex-start;
+}
 </style>
 
 <div class="container mt-4">
     <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-music"></i> Detalhes da Música</h1>
+                <div class="mobile-icon-only">
+                    <button type="button" class="btn btn-outline-secondary" onclick="goBack()" 
+                            title="Voltar">
+                        <i class="fas fa-arrow-left"></i> <span class="btn-text">Voltar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
         <div class="col-lg-8">
             <!-- Informações principais -->
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">{{ music[1] }}</h3>
-                    <div class="d-flex gap-2">
-                        <!-- Botão Voltar (sempre visível) -->
-                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="goBack()" 
-                                title="Voltar" data-bs-toggle="tooltip" data-bs-placement="bottom">
-                            <i class="fas fa-arrow-left"></i>
-                        </button>
-                        
-                        <!-- Botões de edição (visíveis apenas no modo edição) -->
-                        <div id="editHeaderButtons" class="edit-header-buttons" style="display: none;">
-                            <button type="submit" form="editForm" class="btn btn-success icon-btn" 
-                                    title="Salvar Alterações" data-bs-toggle="tooltip" data-bs-placement="bottom">
-                                <i class="fas fa-save"></i>
-                            </button>
-                            <button type="button" class="btn btn-secondary icon-btn" onclick="cancelEdit()" 
-                                    title="Cancelar Edição" data-bs-toggle="tooltip" data-bs-placement="bottom">
-                                <i class="fas fa-times"></i>
-                        </button>
-                        </div>
-                    </div>
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-pdf text-danger"></i> {{ music[1] }}</h5>
                 </div>
                 <div class="card-body">
                     <!-- Formulário de edição (inicialmente oculto) -->
                     <form id="editForm" method="POST" action="{{ url_for('update_music', file_id=music[0]) }}" style="display: none;">
                         <div class="row">
                             <div class="col-md-6">
-                                <h5><i class="fas fa-edit text-warning"></i> Editar Informações</h5>
+                                <h6><i class="fas fa-edit text-warning"></i> Editar Informações</h6>
                                 <div class="mb-3">
                                     <label for="song_name" class="form-label">Nome da Música</label>
                                     <input type="text" class="form-control" id="song_name" name="song_name" 
@@ -184,7 +272,7 @@
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <h5><i class="fas fa-cog text-secondary"></i> Detalhes Adicionais</h5>
+                                <h6><i class="fas fa-cog text-secondary"></i> Detalhes Adicionais</h6>
                                 <div class="mb-3">
                                     <label for="youtube_link" class="form-label">Link do YouTube</label>
                                     <input type="url" class="form-control" id="youtube_link" name="youtube_link" 
@@ -232,7 +320,7 @@
                                     <hr class="my-3">
                                     <div class="d-flex align-items-center mb-3">
                                         <i class="fas fa-exchange-alt text-warning me-2"></i>
-                                        <h5 class="mb-0 text-warning">Substituir Arquivo PDF</h5>
+                                        <h6 class="mb-0 text-warning">Substituir Arquivo PDF</h6>
                                     </div>
                                     <div class="mb-3">
                                         <label for="replacement_pdf" class="form-label">
@@ -256,7 +344,7 @@
                     <div id="viewMode">
                         <div class="row">
                             <div class="col-md-6">
-                                <h5><i class="fas fa-info-circle text-primary"></i> Informações Básicas</h5>
+                                <h6><i class="fas fa-info-circle text-primary"></i> Informações Básicas</h6>
                                 <table class="table table-borderless">
                                     <tr>
                                         <td><strong>Nome da Música:</strong></td>
@@ -319,7 +407,7 @@
                                 </table>
                             </div>
                             <div class="col-md-6">
-                                <h5><i class="fas fa-chart-bar text-success"></i> Detalhes do Arquivo</h5>
+                                <h6><i class="fas fa-chart-bar text-success"></i> Detalhes do Arquivo</h6>
                                 <table class="table table-borderless">
                                     <tr>
                                         <td><strong>Tamanho:</strong></td>
@@ -339,10 +427,22 @@
 
                         {% if music[12] %}
                         <div class="mt-4">
-                            <h5><i class="fas fa-align-left text-info"></i> Descrição</h5>
+                            <h6><i class="fas fa-align-left text-info"></i> Descrição</h6>
                             <p class="lead">{{ music[12] }}</p>
                         </div>
                         {% endif %}
+                        
+                        <!-- Botões de edição (visíveis apenas no modo edição) -->
+                        <div id="editActionButtons" class="mt-4 d-flex gap-2" style="display: none !important;">
+                            <button type="submit" form="editForm" class="btn btn-success" 
+                                    title="Salvar Alterações">
+                                <i class="fas fa-save me-2"></i> Salvar Alterações
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="cancelEdit()" 
+                                    title="Cancelar Edição">
+                                <i class="fas fa-times me-2"></i> Cancelar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -350,15 +450,15 @@
             <!-- PDF Preview -->
             <div class="card mt-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-file-pdf text-danger"></i> Pré-visualização do PDF</h5>
+                    <h6 class="mb-0"><i class="fas fa-file-pdf text-danger"></i> Pré-visualização do PDF</h6>
                     <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="prevPageDetails()"
-                                title="Página Anterior" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                        <button type="button" class="btn btn-outline-secondary" onclick="prevPageDetails()"
+                                title="Página Anterior">
                             <i class="fas fa-chevron-left"></i>
                         </button>
                         <span class="btn btn-outline-secondary" id="pageInfoDetails">Carregando...</span>
-                        <button type="button" class="btn btn-outline-secondary icon-btn" onclick="nextPageDetails()"
-                                title="Próxima Página" data-bs-toggle="tooltip" data-bs-placement="bottom">
+                        <button type="button" class="btn btn-outline-secondary" onclick="nextPageDetails()"
+                                title="Próxima Página">
                             <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
@@ -377,7 +477,7 @@
             {% if music[8] %}
             <div class="card mt-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fab fa-youtube text-danger"></i> Vídeo no YouTube</h5>
+                    <h6 class="mb-0"><i class="fab fa-youtube text-danger"></i> Vídeo no YouTube</h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -391,8 +491,8 @@
                         </div>
                         <div class="col-md-4">
                             <p><strong>Link:</strong></p>
-                            <a href="{{ music[8] }}" target="_blank" class="btn btn-danger btn-sm">
-                                <i class="fab fa-youtube"></i> Abrir no YouTube
+                            <a href="{{ music[8] }}" target="_blank" class="btn btn-outline-danger btn-sm">
+                                <i class="fab fa-youtube me-2"></i> Abrir no YouTube
                             </a>
                             <p class="text-muted mt-2 small">
                                 Clique para abrir o vídeo em uma nova aba ou assista aqui mesmo.
@@ -408,40 +508,46 @@
         <div class="col-lg-4">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-tools"></i> Ações</h5>
+                    <h6 class="mb-0"><i class="fas fa-cog"></i> Ações</h6>
                 </div>
                 <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-outline-warning icon-btn d-flex align-items-center justify-content-center" 
-                                id="editBtn" onclick="toggleEdit()" title="Editar Informações" data-bs-toggle="tooltip" data-bs-placement="right">
-                            <i class="fas fa-edit me-2"></i> <span>Editar</span>
+                    <div class="d-grid gap-2 sidebar-buttons">
+                        <button type="button" class="btn btn-outline-primary" 
+                                id="editBtn" onclick="toggleEdit()" title="Editar Informações">
+                            <i class="fas fa-edit me-2"></i> Editar Informações
                         </button>
                         
                         <a href="{{ url_for('view_file', file_id=music[0]) }}" 
-                           class="btn btn-outline-primary icon-btn d-flex align-items-center justify-content-center" 
-                           target="_blank" title="Visualizar PDF" data-bs-toggle="tooltip" data-bs-placement="right">
-                            <i class="fas fa-eye me-2"></i> <span>Visualizar PDF</span>
-                        </a>
-                        
-                        <!-- Adicionar à Lista com Modal -->
-                        <button type="button" class="btn btn-warning icon-btn d-flex align-items-center justify-content-center" 
-                                onclick="showAddToListModal({{ music[0] }})" title="Adicionar à Lista" data-bs-toggle="tooltip" data-bs-placement="right">
-                            <i class="fas fa-plus me-2"></i> <span>Adicionar à Lista</span>
-                        </button>
-                        
-                        <a href="{{ url_for('download_file', file_id=music[0]) }}" 
-                           class="btn btn-outline-success icon-btn d-flex align-items-center justify-content-center" 
-                           title="Baixar Arquivo" data-bs-toggle="tooltip" data-bs-placement="right">
-                            <i class="fas fa-download me-2"></i> <span>Baixar Arquivo</span>
+                           class="btn btn-outline-primary" 
+                           target="_blank" title="Visualizar PDF">
+                            <i class="fas fa-eye me-2"></i> Visualizar PDF
                         </a>
                         
                         {% if music[8] %}
                         <a href="{{ music[8] }}" target="_blank" 
-                           class="btn btn-outline-danger icon-btn d-flex align-items-center justify-content-center" 
-                           title="Abrir no YouTube" data-bs-toggle="tooltip" data-bs-placement="right">
-                            <i class="fab fa-youtube me-2"></i> <span>Abrir YouTube</span>
+                           class="btn btn-outline-danger" 
+                           title="Abrir no YouTube">
+                            <i class="fab fa-youtube me-2"></i> Abrir YouTube
                         </a>
                         {% endif %}
+                        
+                        <a href="{{ url_for('download_file', file_id=music[0]) }}" 
+                           class="btn btn-outline-warning" 
+                           title="Baixar Arquivo">
+                            <i class="fas fa-download me-2"></i> Baixar Arquivo
+                        </a>
+                        
+                        <!-- Adicionar à Lista com Modal -->
+                        <button type="button" class="btn btn-outline-success" 
+                                onclick="showAddToListModal({{ music[0] }})" title="Adicionar à Lista">
+                            <i class="fas fa-plus me-2"></i> Adicionar à Lista
+                        </button>
+                        
+                        <button type="button" class="btn btn-outline-danger" 
+                                onclick="deleteMusicFromDetails({{ music[0] }})" 
+                                title="Deletar Música">
+                            <i class="fas fa-trash me-2"></i> Deletar Música
+                        </button>
                     </div>
                 </div>
             </div>
@@ -449,7 +555,7 @@
             <!-- Músicas relacionadas -->
             <div class="card mt-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-list"></i> Músicas Relacionadas</h5>
+                    <h6 class="mb-0"><i class="fas fa-list"></i> Músicas Relacionadas</h6>
                 </div>
                 <div class="card-body">
                     <p class="text-muted small">
@@ -582,6 +688,28 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Exclusão de Música -->
+<div class="modal fade" id="deleteMusicModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja deletar a música <strong>{{ (music[3] or music[1])|e }}</strong>?</p>
+                <p class="text-muted">Esta ação não pode ser desfeita e o arquivo será permanentemente removido.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteMusic({{ music[0] }})">
+                    <i class="fas fa-trash"></i> Deletar Música
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -602,41 +730,25 @@ function toggleEdit() {
     const editForm = document.getElementById('editForm');
     const viewMode = document.getElementById('viewMode');
     const editBtn = document.getElementById('editBtn');
-    const editHeaderButtons = document.getElementById('editHeaderButtons');
+    const editActionButtons = document.getElementById('editActionButtons');
     
     if (editForm.style.display === 'none') {
         // Entrar no modo edição
         editForm.style.display = 'block';
         viewMode.style.display = 'none';
-        editBtn.innerHTML = '<i class="fas fa-eye me-2"></i> <span>Visualizar</span>';
-        editBtn.className = 'btn btn-outline-info icon-btn d-flex align-items-center justify-content-center';
+        editBtn.innerHTML = '<i class="fas fa-eye me-2"></i> Voltar à Visualização';
+        editBtn.className = 'btn btn-outline-info';
         editBtn.title = 'Voltar para Visualização';
-        editHeaderButtons.style.display = 'flex';
-        
-        // Recreate tooltips for updated buttons
-        setTimeout(() => {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        }, 100);
+        editActionButtons.style.display = 'flex';
         
     } else {
         // Voltar ao modo visualização
         editForm.style.display = 'none';
         viewMode.style.display = 'block';
-        editBtn.innerHTML = '<i class="fas fa-edit me-2"></i> <span>Editar</span>';
-        editBtn.className = 'btn btn-outline-warning icon-btn d-flex align-items-center justify-content-center';
+        editBtn.innerHTML = '<i class="fas fa-edit me-2"></i> Editar Informações';
+        editBtn.className = 'btn btn-outline-primary';
         editBtn.title = 'Editar Informações';
-        editHeaderButtons.style.display = 'none';
-        
-        // Recreate tooltips for updated buttons
-        setTimeout(() => {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        }, 100);
+        editActionButtons.style.display = 'none';
     }
 }
 
@@ -1206,7 +1318,12 @@ function confirmPdfReplacement() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showToast('PDF substituído com sucesso!', 'success');
@@ -1254,14 +1371,66 @@ function updatePageAfterReplacement(data) {
         }
     });
     
-    // Update PDF preview if visible
-    if (pdfDocDetails) {
-        // Reload the PDF preview with new file
-        loadPdfDetails();
-    }
+    // Update PDF preview if visible - reload the page to show new PDF
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
     
     // Show success message with details
     showToast(`PDF substituído! Novo arquivo: ${data.new_filename} (${(data.new_size / 1024 / 1024).toFixed(2)} MB, ${data.new_pages} páginas)`, 'success');
+}
+
+// ===== FUNÇÃO SHOWTOAST =====
+
+function showToast(message, type = 'success') {
+    // Remover toast anterior se existir
+    const existingToast = document.getElementById('toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // Criar toast
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.className = `toast-notification ${type}`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        font-weight: 500;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease-in-out;
+        min-width: 250px;
+    `;
+    
+    const icon = type === 'success' ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-exclamation-circle"></i>';
+    toast.innerHTML = `${icon} ${message}`;
+    
+    document.body.appendChild(toast);
+    
+    // Animar entrada
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0)';
+    }, 50);
+    
+    // Remover após 3 segundos
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 3000);
 }
 
 // ===== FUNÇÕES DE NAVEGAÇÃO E UTILIDADES =====
@@ -1288,5 +1457,57 @@ document.addEventListener('DOMContentLoaded', function() {
         window.history.replaceState({}, document.title, newUrl);
     }
 });
+
+// Função para deletar música da página de detalhes
+function deleteMusicFromDetails(fileId) {
+    // Obter nome da música da página
+    const musicName = '{{ (music[3] or music[1])|e|replace("'", "\\'") }}';
+    
+    // Criar modal de confirmação
+    const modalHtml = `
+        <div class="modal fade" id="deleteMusicModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar Exclusão</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja deletar a música <strong>${musicName}</strong>?</p>
+                        <p class="text-muted">Esta ação não pode ser desfeita e o arquivo será permanentemente removido.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" onclick="confirmDeleteMusic(${fileId})">
+                            <i class="fas fa-trash"></i> Deletar Música
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('deleteMusicModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('deleteMusicModal'));
+    modal.show();
+}
+
+// Confirmar exclusão da música
+function confirmDeleteMusic(fileId) {
+    // Criar form e submeter
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/delete/${fileId}`;
+    form.style.display = 'none';
+    
+    document.body.appendChild(form);
+    form.submit();
+}
 </script>
 {% endblock %} 

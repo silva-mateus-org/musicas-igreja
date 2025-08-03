@@ -165,10 +165,13 @@
                                                             <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" class="actions-dropdown-item btn-primary-style">
                                                                 <i class="fas fa-edit"></i> Editar Lista
                                                             </a>
-                                                            <button type="button" class="actions-dropdown-item btn-info-style" 
+                                                            <button type="button" class="actions-dropdown-item btn-secondary-style" 
                                                                     onclick="duplicateList({{ list[0] }}, '{{ list[1] }}')" 
                                                                     data-list-name="{{ list[1] }}">
                                                                 <i class="fas fa-copy"></i> Duplicar Lista
+                                                            </button>
+                                                            <button type="button" class="actions-dropdown-item btn-info-style" onclick="generateListReport({{ list[0] }})">
+                                                                <i class="fas fa-file-export"></i> Gerar Relatório
                                                             </button>
                                                             <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: contents;">
                                                                 <button type="submit" class="actions-dropdown-item btn-warning-style">
@@ -188,10 +191,14 @@
                                                            class="btn btn-outline-primary action-btn" title="Editar Lista">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
-                                                        <button type="button" class="btn btn-outline-info action-btn" 
+                                                        <button type="button" class="btn btn-outline-secondary action-btn" 
                                                                 onclick="duplicateList({{ list[0] }}, '{{ list[1] }}')" 
                                                                 data-list-name="{{ list[1] }}" title="Duplicar Lista">
                                                             <i class="fas fa-copy"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-outline-info action-btn" 
+                                                                onclick="generateListReport({{ list[0] }})" title="Gerar Relatório">
+                                                            <i class="fas fa-file-export"></i>
                                                         </button>
                                                         <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: inline;">
                                                             <button type="submit" class="btn btn-outline-warning action-btn" title="Baixar PDF Unificado">
@@ -235,10 +242,13 @@
                                                         <a href="{{ url_for('edit_merge_list', list_id=list[0]) }}" class="actions-dropdown-item btn-primary-style">
                                                             <i class="fas fa-edit"></i> Editar Lista
                                                         </a>
-                                                        <button type="button" class="actions-dropdown-item btn-info-style" 
+                                                        <button type="button" class="actions-dropdown-item btn-secondary-style" 
                                                                 onclick="duplicateList({{ list[0] }}, '{{ list[1] }}')" 
                                                                 data-list-name="{{ list[1] }}">
                                                             <i class="fas fa-copy"></i> Duplicar Lista
+                                                        </button>
+                                                        <button type="button" class="actions-dropdown-item btn-info-style" onclick="generateListReport({{ list[0] }})">
+                                                            <i class="fas fa-file-export"></i> Gerar Relatório
                                                         </button>
                                                         <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: contents;">
                                                             <button type="submit" class="actions-dropdown-item btn-warning-style">
@@ -292,10 +302,14 @@
                                            class="btn btn-outline-primary btn-sm action-btn" title="Editar Lista">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button type="button" class="btn btn-outline-info btn-sm action-btn" 
+                                        <button type="button" class="btn btn-outline-secondary btn-sm action-btn" 
                                                 onclick="duplicateList({{ list[0] }}, '{{ list[1] }}')" 
                                                 data-list-name="{{ list[1] }}" title="Duplicar Lista">
                                             <i class="fas fa-copy"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm action-btn" 
+                                                onclick="generateListReport({{ list[0] }})" title="Gerar Relatório">
+                                            <i class="fas fa-file-export"></i>
                                         </button>
                                         <form method="POST" action="{{ url_for('download_merged_list', list_id=list[0]) }}" style="display: inline;" class="flex-fill">
                                             <button type="submit" class="btn btn-outline-warning btn-sm action-btn w-100" title="Baixar PDF Unificado">
@@ -448,6 +462,134 @@ function showToast(message, type = 'success') {
             }
         }, 300);
     }, 3000);
+}
+
+// Função para gerar relatório de lista
+function generateListReport(listId) {
+    // Encontrar o botão que foi clicado
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    
+    // Mostrar indicador de carregamento
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    fetch(`/api/generate_report/${listId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Tentar copiar para o clipboard com fallback
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(data.report).then(() => {
+                        // Mostrar sucesso temporário no botão
+                        button.innerHTML = '<i class="fas fa-check"></i>';
+                        button.className = button.className.replace('btn-outline-secondary', 'btn-success');
+                        
+                        // Mostrar toast de sucesso
+                        showToast('Relatório copiado para a área de transferência!', 'success');
+                        
+                        // Restaurar botão após 2 segundos
+                        setTimeout(() => {
+                            button.innerHTML = originalContent;
+                            button.className = button.className.replace('btn-success', 'btn-outline-secondary');
+                            button.disabled = false;
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('Erro ao copiar para clipboard:', err);
+                        fallbackCopyText(data.report);
+                        showToast('Relatório copiado (fallback)', 'success');
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    });
+                } else {
+                    // Fallback para navegadores que não suportam clipboard API
+                    fallbackCopyText(data.report);
+                    showToast('Relatório copiado (fallback)', 'success');
+                    button.innerHTML = '<i class="fas fa-check"></i>';
+                    button.className = button.className.replace('btn-outline-secondary', 'btn-success');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalContent;
+                        button.className = button.className.replace('btn-success', 'btn-outline-secondary');
+                        button.disabled = false;
+                    }, 2000);
+                }
+            } else {
+                showToast('Erro ao gerar relatório: ' + data.message, 'error');
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            showToast('Erro ao gerar relatório', 'error');
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        });
+}
+
+// Função fallback para copiar texto
+function fallbackCopyText(text) {
+    // Criar elemento temporário
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.width = '2em';
+    textArea.style.height = '2em';
+    textArea.style.padding = '0';
+    textArea.style.border = 'none';
+    textArea.style.outline = 'none';
+    textArea.style.boxShadow = 'none';
+    textArea.style.background = 'transparent';
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        // Mostrar modal com o conteúdo para copiar manualmente
+        showCopyModal(text);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Modal para copiar manualmente
+function showCopyModal(text) {
+    const modalHtml = `
+        <div class="modal fade" id="copyModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Copiar Relatório</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Não foi possível copiar automaticamente. Selecione o texto abaixo e copie manualmente:</p>
+                        <textarea class="form-control" rows="10" readonly>${text}</textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('copyModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('copyModal'));
+    modal.show();
 }
 </script>
 {% endblock %} 

@@ -55,6 +55,16 @@
     color: white !important;
 }
 
+.actions-dropdown-item.btn-secondary-style {
+    color: #6c757d !important;
+    background: transparent !important;
+    border: none !important;
+}
+.actions-dropdown-item.btn-secondary-style:hover {
+    background-color: #6c757d !important;
+    color: white !important;
+}
+
 /* Description icon styles */
 .description-icon {
     cursor: pointer;
@@ -290,6 +300,7 @@
                                                                 <i class="fas fa-plus"></i> Adicionar à Lista
                                                             </button>
                                                         {% endif %}
+
                                                         <a href="#" onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" class="actions-dropdown-item btn-danger-style">
                                                             <i class="fas fa-trash"></i> Deletar
                                                         </a>
@@ -331,6 +342,7 @@
                                                        class="btn btn-outline-warning action-btn" title="Baixar PDF">
                                                         <i class="fas fa-download"></i>
                                                     </a>
+
                                                     <button type="button" class="btn btn-outline-danger action-btn"
                                                             onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" title="Deletar">
                                                         <i class="fas fa-trash"></i>
@@ -407,9 +419,9 @@
                                                         <i class="fas fa-plus"></i> Adicionar à Lista
                                                     </button>
                                                 {% endif %}
-                                                <a href="{{ url_for('download_file', file_id=file[0]) }}" class="actions-dropdown-item btn-warning-style">
-                                                    <i class="fas fa-download"></i> Baixar PDF
-                                                </a>
+                                                                                            <a href="{{ url_for('download_file', file_id=file[0]) }}" class="actions-dropdown-item btn-warning-style">
+                                                <i class="fas fa-download"></i> Baixar PDF
+                                            </a>
                                                 <a href="#" onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" class="actions-dropdown-item btn-danger-style">
                                                     <i class="fas fa-trash"></i> Deletar
                                                 </a>
@@ -528,6 +540,8 @@
                                    class="btn btn-outline-warning btn-sm action-btn" title="Baixar PDF">
                                     <i class="fas fa-download"></i>
                                 </a>
+                                
+
                                 
                                 <button type="button" class="btn btn-outline-danger btn-sm action-btn"
                                         onclick="deleteFile({{ file[0] }}, '{{ file[1] }}')" title="Deletar">
@@ -737,5 +751,12 @@ function showToast(message, type = 'success') {
         }, 300);
     }, 3000);
 }
+
+// Função para voltar à página anterior
+function goBack() {
+    window.history.back();
+}
+
+
 </script>
 {% endblock %} 

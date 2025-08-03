@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
@@ -15,20 +15,32 @@ import time
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
+import bcrypt
+from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = 'pdf-organizer-secret-key-2024'
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
+# Configurações de produção com variáveis de ambiente
+app.secret_key = os.environ.get('SECRET_KEY', 'musicas-igreja-secret-key-2024-security-enhanced')
+MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 52428800))  # 50MB padrão
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # 8 hours session timeout
+
+# Configuration - Suporte a variáveis de ambiente para Docker (definir antes do logging)
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+ORGANIZED_FOLDER = os.environ.get('ORGANIZED_FOLDER', 'organized')
+DATABASE = os.environ.get('DATABASE_PATH', 'pdf_organizer.db')
+LOG_FOLDER = os.environ.get('LOG_FOLDER', 'logs')
 
 # Setup logging to daily log file
 def setup_logging():
     """Configure logging to write to daily log files."""
     # Ensure logs directory exists
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs(LOG_FOLDER, exist_ok=True)
     
     # Generate daily log filename
     today = datetime.now().strftime('%Y-%m-%d')
-    log_file = f'logs/{today}_sistema.log'
+    log_file = f'{LOG_FOLDER}/{today}_sistema.log'
     
     # Configure logging format
     formatter = logging.Formatter(
@@ -67,54 +79,193 @@ app.logger.info(f"Log file: {current_log_file}")
 app.logger.info(f"Debug mode: {app.debug}")
 app.logger.info(f"Max content length: {app.config['MAX_CONTENT_LENGTH'] / 1024 / 1024:.0f}MB")
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-ORGANIZED_FOLDER = 'organized'
-DATABASE = 'pdf_organizer.db'
-
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(ORGANIZED_FOLDER, exist_ok=True)
 
+# ==========================================
+# SISTEMA DE AUTENTICAÇÃO SEGURO
+# ==========================================
+
 def hash_password(password):
-    """Gerar hash MD5 da senha."""
-    return hashlib.md5(password.encode()).hexdigest()
+    """Gerar hash seguro da senha usando bcrypt."""
+    if isinstance(password, str):
+        password = password.encode('utf-8')
+    return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password, hashed):
+    """Verificar senha contra hash usando bcrypt."""
+    if isinstance(password, str):
+        password = password.encode('utf-8')
+    if isinstance(hashed, str):
+        hashed = hashed.encode('utf-8')
+    return bcrypt.checkpw(password, hashed)
+
+def is_user_logged():
+    """Verificar se algum usuário está logado."""
+    return 'user_id' in session and 'username' in session
 
 def is_admin_logged():
-    """Verificar se o admin está logado."""
-    return session.get('admin_logged', False)
+    """Verificar se o usuário logado é admin."""
+    return is_user_logged() and session.get('user_role') == 'admin'
+
+def get_current_user():
+    """Obter dados do usuário logado."""
+    if not is_user_logged():
+        return None
+    
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, username, email, role, created_at, last_login FROM users WHERE id = ?', 
+                   (session['user_id'],))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if user:
+        return {
+            'id': user[0],
+            'username': user[1], 
+            'email': user[2],
+            'role': user[3],
+            'created_at': user[4],
+            'last_login': user[5]
+        }
+    return None
+
+def create_user(username, password, email, role='user'):
+    """Criar novo usuário."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    # Verificar se usuário já existe
+    cursor.execute('SELECT COUNT(*) FROM users WHERE username = ? OR email = ?', (username, email))
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return False, "Usuário ou email já existe"
+    
+    try:
+        password_hash = hash_password(password)
+        cursor.execute('''
+            INSERT INTO users (username, password_hash, email, role, created_at, last_login)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (username, password_hash, email, role, datetime.now(), None))
+        
+        user_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        app.logger.info(f"Usuário criado: {username} ({role})")
+        return True, f"Usuário {username} criado com sucesso"
+        
+    except Exception as e:
+        conn.close()
+        app.logger.error(f"Erro ao criar usuário {username}: {str(e)}")
+        return False, f"Erro ao criar usuário: {str(e)}"
+
+def authenticate_user(username, password):
+    """Autenticar usuário e iniciar sessão."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id, username, password_hash, email, role FROM users WHERE username = ?', (username,))
+    user = cursor.fetchone()
+    
+    if user and verify_password(password, user[2]):
+        # Atualizar último login
+        cursor.execute('UPDATE users SET last_login = ? WHERE id = ?', (datetime.now(), user[0]))
+        conn.commit()
+        conn.close()
+        
+        # Iniciar sessão
+        session.permanent = True
+        session['user_id'] = user[0]
+        session['username'] = user[1]
+        session['user_email'] = user[3]
+        session['user_role'] = user[4]
+        
+        app.logger.info(f"Login realizado: {username} ({user[4]})")
+        return True, f"Bem-vindo, {user[1]}!"
+    
+    conn.close()
+    app.logger.warning(f"Tentativa de login falhada: {username}")
+    return False, "Usuário ou senha incorretos"
+
+def logout_user():
+    """Fazer logout do usuário."""
+    username = session.get('username', 'Desconhecido')
+    session.clear()
+    app.logger.info(f"Logout realizado: {username}")
+    return True
+
+def require_auth(f):
+    """Decorator para rotas que requerem autenticação."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_user_logged():
+            flash('Você precisa estar logado para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_admin(f):
+    """Decorator para rotas que requerem privilégios de admin."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_admin_logged():
+            flash('Você precisa ser administrador para acessar esta página.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def users_exist():
+    """Verificar se existem usuários no sistema."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM users')
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count > 0
+
+# ==========================================
+# COMPATIBILIDADE COM SISTEMA ANTIGO
+# ==========================================
 
 def admin_password_exists():
-    """Verificar se senha de admin já foi criada."""
+    """Verificar se existe algum admin no sistema (compatibilidade)."""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM admin_settings WHERE key = ?', ('admin_password',))
-    exists = cursor.fetchone()[0] > 0
+    cursor.execute('SELECT COUNT(*) FROM users WHERE role = ?', ('admin',))
+    count = cursor.fetchone()[0]
     conn.close()
-    return exists
+    return count > 0
 
 def verify_admin_password(password):
-    """Verificar senha do admin."""
+    """Verificar senha do admin (compatibilidade com sistema antigo)."""
+    # Primeiro tenta o sistema novo
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
+    cursor.execute('SELECT password_hash FROM users WHERE role = ? LIMIT 1', ('admin',))
+    result = cursor.fetchone()
+    
+    if result:
+        conn.close()
+        return verify_password(password, result[0])
+    
+    # Se não encontrou admin novo, verifica sistema antigo
     cursor.execute('SELECT value FROM admin_settings WHERE key = ?', ('admin_password',))
     result = cursor.fetchone()
     conn.close()
     
     if result:
-        stored_hash = result[0]
-        return hash_password(password) == stored_hash
+        # Sistema antigo usava MD5
+        old_hash = hashlib.md5(password.encode()).hexdigest()
+        return old_hash == result[0]
+    
     return False
 
 def create_admin_password(password):
-    """Criar senha do admin."""
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    password_hash = hash_password(password)
-    cursor.execute('INSERT OR REPLACE INTO admin_settings (key, value) VALUES (?, ?)', 
-                   ('admin_password', password_hash))
-    conn.commit()
-    conn.close()
+    """Criar admin principal (compatibilidade melhorada)."""
+    return create_user('admin', password, 'admin@musicas-igreja.local', 'admin')
 
 def sanitize_filename(text):
     """Sanitizar texto para uso em nomes de arquivos."""
@@ -622,7 +773,7 @@ def clean_orphaned_list_items():
 
 def clean_database_and_files():
     """APENAS PARA ADMIN: Limpar completamente banco e arquivos."""
-    if not is_admin_logged():
+    if not is_user_logged() or not is_admin_logged():
         return False, "Esta função requer acesso de administrador"
     
     try:
@@ -719,6 +870,19 @@ def init_db():
             key TEXT UNIQUE NOT NULL,
             value TEXT NOT NULL,
             created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
         )
     ''')
     
@@ -861,6 +1025,7 @@ def get_file_hash(file_path):
     return hash_md5.hexdigest()
 
 @app.route('/')
+@require_auth
 def index():
     """Página inicial mostrando todos os arquivos PDF."""
     view_mode = request.args.get('view', 'list')  # Padrão alterado para 'list'
@@ -929,6 +1094,7 @@ def index():
                          view_mode=view_mode)
 
 @app.route('/upload', methods=['GET', 'POST'])
+@require_auth
 def upload_file():
     """Upload PDF files with metadata including categories and liturgical times."""
     if request.method == 'POST':
@@ -1199,6 +1365,7 @@ def upload_file():
                          musical_keys=get_musical_keys(), artists=get_artists())
 
 @app.route('/merge', methods=['GET', 'POST'])
+@require_auth
 def merge_pdfs():
     """Merge multiple PDF files into one."""
     if request.method == 'POST':
@@ -1265,6 +1432,7 @@ def merge_pdfs():
     return render_template('merge.html')
 
 @app.route('/merge_lists')
+@require_auth
 def merge_lists():
     """Gerenciar listas de fusão."""
     conn = sqlite3.connect(DATABASE)
@@ -1284,6 +1452,7 @@ def merge_lists():
     return render_template('merge_lists.html', lists=lists)
 
 @app.route('/create_merge_list', methods=['POST'])
+@require_auth
 def create_merge_list():
     """Criar nova lista de fusão."""
     list_name = request.form.get('list_name', '').strip()
@@ -1314,6 +1483,7 @@ def create_merge_list():
     return redirect(url_for('edit_merge_list', list_id=list_id))
 
 @app.route('/edit_merge_list/<int:list_id>')
+@require_auth
 def edit_merge_list(list_id):
     """Editar lista de fusão ou criar nova lista se list_id=0."""
     conn = sqlite3.connect(DATABASE)
@@ -1539,6 +1709,7 @@ def merge_from_list(list_id):
         return redirect(url_for('edit_merge_list', list_id=list_id))
 
 @app.route('/delete_merge_list/<int:list_id>', methods=['POST'])
+@require_auth
 def delete_merge_list(list_id):
     """Deletar lista de fusão e todos os seus itens."""
     conn = sqlite3.connect(DATABASE)
@@ -2018,11 +2189,9 @@ def api_check_duplicate():
         return jsonify({'error': f'Erro ao processar arquivo: {str(e)}'}), 500
 
 @app.route('/admin/scan_files')
+@require_admin
 def admin_scan_files():
     """Rota administrativa para escanear e corrigir arquivos."""
-    if not is_admin_logged():
-        flash('Esta funcionalidade só está disponível para administradores')
-        return redirect(url_for('index'))
     
     changes = scan_and_fix_files()
     
@@ -2072,11 +2241,9 @@ def admin_scan_files():
     return redirect(redirect_url)
 
 @app.route('/admin/clean_orphaned_items')
+@require_admin
 def admin_clean_orphaned_items():
     """Rota administrativa para limpar itens órfãos de listas."""
-    if not is_admin_logged():
-        flash('Esta funcionalidade só está disponível para administradores')
-        return redirect(url_for('index'))
     
     orphaned_count = clean_orphaned_list_items()
     
@@ -2088,11 +2255,9 @@ def admin_clean_orphaned_items():
     return redirect(url_for('index'))
 
 @app.route('/admin/debug_files')
+@require_admin
 def admin_debug_files():
     """Rota para debug detalhado dos arquivos e banco de dados."""
-    if not is_admin_logged():
-        flash('Esta funcionalidade só está disponível para administradores')
-        return redirect(url_for('index'))
     
     print("\n" + "="*80)
     print("INÍCIO DO DEBUG DETALHADO")
@@ -2169,11 +2334,9 @@ def admin_debug_files():
     return redirect(url_for('index'))
 
 @app.route('/admin/clean_database', methods=['GET', 'POST'])
+@require_admin
 def admin_clean_database():
     """Rota administrativa para limpar banco e arquivos (APENAS DEV)."""
-    if not is_admin_logged():
-        flash('Esta funcionalidade só está disponível para administradores')
-        return redirect(url_for('index'))
     
     if request.method == 'POST':
         confirmation = request.form.get('confirmation', '')
@@ -2212,74 +2375,491 @@ def admin_create_entries():
     else:
         return jsonify({'success': False, 'message': f'{entry_type} "{name}" já existe'})
 
-@app.route('/admin/login')
-def admin_login():
-    """Página de login do admin."""
-    if is_admin_logged():
+# ==========================================
+# ROTAS DE AUTENTICAÇÃO MELHORADAS
+# ==========================================
+
+@app.route('/login')
+def login():
+    """Página de login principal."""
+    if is_user_logged():
         return redirect(url_for('index'))
     
-    if not admin_password_exists():
-        return redirect(url_for('admin_create_password'))
+    # Se não há usuários, redirecionar para setup inicial
+    if not users_exist():
+        return redirect(url_for('setup'))
     
-    return render_template('admin_login.html')
+    return render_template('login.html')
 
-@app.route('/admin/create-password')
-def admin_create_password():
-    """Página para criar senha do admin na primeira vez."""
-    if admin_password_exists():
-        return redirect(url_for('admin_login'))
+@app.route('/login', methods=['POST'])
+def login_post():
+    """Processar login de usuário."""
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
     
-    return render_template('admin_create_password.html')
-
-@app.route('/admin/authenticate', methods=['POST'])
-def admin_authenticate():
-    """Processar login do admin."""
-    password = request.form.get('password')
+    if not username or not password:
+        flash('Usuário e senha são obrigatórios', 'warning')
+        return redirect(url_for('login'))
     
-    if not password:
-        flash('Senha é obrigatória')
-        return redirect(url_for('admin_login'))
+    success, message = authenticate_user(username, password)
     
-    if verify_admin_password(password):
-        session['admin_logged'] = True
-        flash('Login realizado com sucesso!')
+    if success:
+        flash(message, 'success')
+        next_page = request.args.get('next')
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for('index'))
     else:
-        flash('Senha incorreta')
-        return redirect(url_for('admin_login'))
+        flash(message, 'error')
+        return redirect(url_for('login'))
 
-@app.route('/admin/create-password-action', methods=['POST'])
-def admin_create_password_action():
-    """Processar criação de senha do admin."""
-    password = request.form.get('password')
-    confirm_password = request.form.get('confirm_password')
+@app.route('/logout')
+def logout():
+    """Logout do usuário."""
+    logout_user()
+    flash('Logout realizado com sucesso!', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/setup')
+def setup():
+    """Página de configuração inicial - criar primeiro admin."""
+    if users_exist():
+        return redirect(url_for('login'))
     
-    if not password or not confirm_password:
-        flash('Todos os campos são obrigatórios')
-        return redirect(url_for('admin_create_password'))
+    return render_template('setup.html')
+
+@app.route('/setup', methods=['POST'])
+def setup_post():
+    """Processar configuração inicial."""
+    if users_exist():
+        flash('Sistema já foi configurado!', 'warning')
+        return redirect(url_for('login'))
+    
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    # Validações
+    if not username or not email or not password or not confirm_password:
+        flash('Todos os campos são obrigatórios', 'warning')
+        return redirect(url_for('setup'))
+    
+    if len(username) < 3:
+        flash('Nome de usuário deve ter pelo menos 3 caracteres', 'warning')
+        return redirect(url_for('setup'))
     
     if len(password) < 6:
-        flash('A senha deve ter pelo menos 6 caracteres')
-        return redirect(url_for('admin_create_password'))
+        flash('A senha deve ter pelo menos 6 caracteres', 'warning')
+        return redirect(url_for('setup'))
     
     if password != confirm_password:
-        flash('As senhas não coincidem')
-        return redirect(url_for('admin_create_password'))
+        flash('As senhas não coincidem', 'warning')
+        return redirect(url_for('setup'))
+    
+    # Criar primeiro admin
+    success, message = create_user(username, password, email, 'admin')
+    
+    if success:
+        # Fazer login automático
+        authenticate_user(username, password)
+        flash('Administrador criado com sucesso! Você está logado.', 'success')
+        return redirect(url_for('index'))
+    else:
+        flash(f'Erro ao criar administrador: {message}', 'error')
+        return redirect(url_for('setup'))
+
+@app.route('/admin/users')
+@require_admin
+def admin_users():
+    """Página de gerenciamento de usuários."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, username, email, role, created_at, last_login, is_active 
+        FROM users ORDER BY created_at DESC
+    ''')
+    users = cursor.fetchall()
+    conn.close()
+    
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/users/create', methods=['POST'])
+@require_admin
+def admin_create_user():
+    """Criar novo usuário via admin."""
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    role = request.form.get('role', 'user')
+    
+    if not username or not email or not password:
+        flash('Todos os campos são obrigatórios', 'warning')
+        return redirect(url_for('admin_users'))
+    
+    if role not in ['user', 'admin']:
+        flash('Função inválida', 'error')
+        return redirect(url_for('admin_users'))
+    
+    success, message = create_user(username, password, email, role)
+    
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'error')
+    
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/users/<int:user_id>/toggle', methods=['POST'])
+@require_admin
+def admin_toggle_user(user_id):
+    """Ativar/desativar usuário."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    # Não permitir desativar o próprio usuário
+    if user_id == session['user_id']:
+        flash('Você não pode desativar sua própria conta', 'warning')
+        return redirect(url_for('admin_users'))
     
     try:
-        create_admin_password(password)
-        session['admin_logged'] = True
-        flash('Senha criada com sucesso! Você agora está logado como administrador.')
-        return redirect(url_for('index'))
+        cursor.execute('SELECT is_active FROM users WHERE id = ?', (user_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            flash('Usuário não encontrado', 'error')
+            return redirect(url_for('admin_users'))
+        
+        new_status = 0 if result[0] else 1
+        cursor.execute('UPDATE users SET is_active = ? WHERE id = ?', (new_status, user_id))
+        conn.commit()
+        
+        status_text = 'ativado' if new_status else 'desativado'
+        flash(f'Usuário {status_text} com sucesso', 'success')
+        
     except Exception as e:
-        flash(f'Erro ao criar senha: {str(e)}')
-        return redirect(url_for('admin_create_password'))
+        flash(f'Erro ao alterar usuário: {str(e)}', 'error')
+    finally:
+        conn.close()
+    
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@require_admin
+def admin_delete_user(user_id):
+    """Deletar usuário."""
+    # Não permitir deletar o próprio usuário
+    if user_id == session['user_id']:
+        flash('Você não pode deletar sua própria conta', 'warning')
+        return redirect(url_for('admin_users'))
+    
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            flash('Usuário não encontrado', 'error')
+            return redirect(url_for('admin_users'))
+        
+        username = result[0]
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        
+        app.logger.info(f"Usuário deletado: {username} (por {session['username']})")
+        flash(f'Usuário {username} deletado com sucesso', 'success')
+        
+    except Exception as e:
+        flash(f'Erro ao deletar usuário: {str(e)}', 'error')
+    finally:
+        conn.close()
+    
+    return redirect(url_for('admin_users'))
+
+@app.route('/profile')
+@require_auth
+def user_profile():
+    """Página de perfil do usuário logado."""
+    user = get_current_user()
+    if not user:
+        flash('Erro ao carregar perfil do usuário', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('user_profile.html', user=user)
+
+@app.route('/profile/edit')
+@require_auth
+def edit_profile():
+    """Editar perfil do usuário logado."""
+    user = get_current_user()
+    if not user:
+        flash('Erro ao carregar perfil do usuário', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('edit_profile.html', user=user, edit_user=user)
+
+@app.route('/profile/edit', methods=['POST'])
+@require_auth
+def edit_profile_post():
+    """Processar edição de perfil do usuário logado."""
+    return update_user_profile(session['user_id'])
+
+@app.route('/admin/users/<int:user_id>/edit')
+@require_admin
+def admin_edit_user(user_id):
+    """Admin editar qualquer usuário."""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, username, email, role, created_at, last_login, is_active FROM users WHERE id = ?', (user_id,))
+    edit_user_data = cursor.fetchone()
+    conn.close()
+    
+    if not edit_user_data:
+        flash('Usuário não encontrado', 'error')
+        return redirect(url_for('admin_users'))
+    
+    edit_user = {
+        'id': edit_user_data[0],
+        'username': edit_user_data[1],
+        'email': edit_user_data[2],
+        'role': edit_user_data[3],
+        'created_at': edit_user_data[4],
+        'last_login': edit_user_data[5],
+        'is_active': edit_user_data[6]
+    }
+    
+    current_user = get_current_user()
+    return render_template('edit_profile.html', user=current_user, edit_user=edit_user, is_admin_editing=True)
+
+@app.route('/admin/users/<int:user_id>/edit', methods=['POST'])
+@require_admin
+def admin_edit_user_post(user_id):
+    """Processar edição de usuário pelo admin."""
+    return update_user_profile(user_id, is_admin=True)
+
+@app.route('/profile/change-password', methods=['POST'])
+@require_auth
+def change_password():
+    """Alterar senha do usuário."""
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    # Validações
+    if not current_password or not new_password or not confirm_password:
+        flash('Todos os campos são obrigatórios', 'warning')
+        return redirect(url_for('edit_profile'))
+    
+    if len(new_password) < 6:
+        flash('A nova senha deve ter pelo menos 6 caracteres', 'warning')
+        return redirect(url_for('edit_profile'))
+    
+    if new_password != confirm_password:
+        flash('A confirmação da senha não confere', 'warning')
+        return redirect(url_for('edit_profile'))
+    
+    # Verificar senha atual
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT password_hash FROM users WHERE id = ?', (session['user_id'],))
+    result = cursor.fetchone()
+    
+    if not result or not verify_password(current_password, result[0]):
+        flash('Senha atual incorreta', 'error')
+        conn.close()
+        return redirect(url_for('edit_profile'))
+    
+    # Atualizar senha
+    try:
+        new_password_hash = hash_password(new_password)
+        cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', 
+                      (new_password_hash, session['user_id']))
+        conn.commit()
+        
+        app.logger.info(f"Senha alterada: {session['username']}")
+        flash('Senha alterada com sucesso!', 'success')
+        
+    except Exception as e:
+        flash(f'Erro ao alterar senha: {str(e)}', 'error')
+        app.logger.error(f"Erro ao alterar senha do usuário {session['username']}: {str(e)}")
+    finally:
+        conn.close()
+    
+    return redirect(url_for('edit_profile'))
+
+@app.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@require_admin
+def admin_reset_password(user_id):
+    """Admin resetar senha de qualquer usuário."""
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    if not new_password or not confirm_password:
+        flash('Nova senha e confirmação são obrigatórias', 'warning')
+        return redirect(url_for('admin_edit_user', user_id=user_id))
+    
+    if len(new_password) < 6:
+        flash('A nova senha deve ter pelo menos 6 caracteres', 'warning')
+        return redirect(url_for('admin_edit_user', user_id=user_id))
+    
+    if new_password != confirm_password:
+        flash('A confirmação da senha não confere', 'warning')
+        return redirect(url_for('admin_edit_user', user_id=user_id))
+    
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    try:
+        # Obter username para log
+        cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+        username_result = cursor.fetchone()
+        
+        if not username_result:
+            flash('Usuário não encontrado', 'error')
+            return redirect(url_for('admin_users'))
+        
+        username = username_result[0]
+        
+        # Atualizar senha
+        new_password_hash = hash_password(new_password)
+        cursor.execute('UPDATE users SET password_hash = ? WHERE id = ?', 
+                      (new_password_hash, user_id))
+        conn.commit()
+        
+        app.logger.info(f"Senha resetada pelo admin: {username} (por {session['username']})")
+        flash(f'Senha do usuário {username} alterada com sucesso!', 'success')
+        
+    except Exception as e:
+        flash(f'Erro ao alterar senha: {str(e)}', 'error')
+        app.logger.error(f"Erro ao resetar senha do usuário {user_id}: {str(e)}")
+    finally:
+        conn.close()
+    
+    return redirect(url_for('admin_edit_user', user_id=user_id))
+
+def update_user_profile(user_id, is_admin=False):
+    """Função auxiliar para atualizar perfil de usuário."""
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    role = request.form.get('role', 'user') if is_admin else None
+    
+    # Validações
+    if not username or not email:
+        flash('Nome de usuário e email são obrigatórios', 'warning')
+        return redirect(url_for('admin_edit_user', user_id=user_id) if is_admin else url_for('edit_profile'))
+    
+    if len(username) < 3:
+        flash('Nome de usuário deve ter pelo menos 3 caracteres', 'warning')
+        return redirect(url_for('admin_edit_user', user_id=user_id) if is_admin else url_for('edit_profile'))
+    
+    if is_admin and role not in ['user', 'admin']:
+        flash('Função inválida', 'error')
+        return redirect(url_for('admin_edit_user', user_id=user_id))
+    
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar se username/email já existem (exceto para o próprio usuário)
+        cursor.execute('SELECT COUNT(*) FROM users WHERE (username = ? OR email = ?) AND id != ?', 
+                      (username, email, user_id))
+        if cursor.fetchone()[0] > 0:
+            flash('Nome de usuário ou email já existem', 'error')
+            return redirect(url_for('admin_edit_user', user_id=user_id) if is_admin else url_for('edit_profile'))
+        
+        # Obter dados atuais para log
+        cursor.execute('SELECT username, role FROM users WHERE id = ?', (user_id,))
+        current_data = cursor.fetchone()
+        
+        if not current_data:
+            flash('Usuário não encontrado', 'error')
+            return redirect(url_for('admin_users') if is_admin else url_for('index'))
+        
+        current_username, current_role = current_data
+        
+        # Atualizar dados
+        if is_admin:
+            cursor.execute('''
+                UPDATE users SET username = ?, email = ?, role = ? 
+                WHERE id = ?
+            ''', (username, email, role, user_id))
+        else:
+            cursor.execute('''
+                UPDATE users SET username = ?, email = ? 
+                WHERE id = ?
+            ''', (username, email, user_id))
+        
+        conn.commit()
+        
+        # Atualizar sessão se for o próprio usuário
+        if user_id == session.get('user_id'):
+            session['username'] = username
+            session['user_email'] = email
+            if is_admin and role:
+                session['user_role'] = role
+        
+        # Log da operação
+        if is_admin:
+            app.logger.info(f"Usuário editado pelo admin: {current_username} → {username} (por {session['username']})")
+            if current_role != role:
+                app.logger.info(f"Função alterada: {current_username} de {current_role} para {role}")
+        else:
+            app.logger.info(f"Perfil editado: {current_username} → {username}")
+        
+        flash('Perfil atualizado com sucesso!', 'success')
+        
+    except Exception as e:
+        flash(f'Erro ao atualizar perfil: {str(e)}', 'error')
+        app.logger.error(f"Erro ao atualizar usuário {user_id}: {str(e)}")
+    finally:
+        conn.close()
+    
+    return redirect(url_for('admin_edit_user', user_id=user_id) if is_admin else url_for('user_profile'))
+
+# ==========================================
+# COMPATIBILIDADE COM SISTEMA ANTIGO
+# ==========================================
+
+@app.route('/admin/login')
+def admin_login():
+    """Página de login do admin (compatibilidade)."""
+    return redirect(url_for('login'))
 
 @app.route('/admin/logout')
 def admin_logout():
-    """Logout do admin."""
-    session.pop('admin_logged', None)
-    return redirect(url_for('index') + '?admin_logout=success')
+    """Logout do admin (compatibilidade)."""
+    return redirect(url_for('logout'))
+
+@app.route('/admin/create-password')
+def admin_create_password():
+    """Redirecionar para setup (compatibilidade)."""
+    return redirect(url_for('setup'))
+
+@app.route('/admin/authenticate', methods=['POST'])
+def admin_authenticate():
+    """Autenticação via sistema antigo (compatibilidade)."""
+    password = request.form.get('password')
+    
+    if not password:
+        flash('Senha é obrigatória', 'warning')
+        return redirect(url_for('login'))
+    
+    # Tentar autenticar com usuário admin
+    success, message = authenticate_user('admin', password)
+    
+    if success:
+        flash('Login realizado com sucesso!', 'success')
+        return redirect(url_for('index'))
+    else:
+        flash('Senha incorreta', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/admin/create-password-action', methods=['POST'])
+def admin_create_password_action():
+    """Redirecionar para setup (compatibilidade)."""
+    return redirect(url_for('setup'))
 
 def get_merge_lists():
     """Obter todas as listas de fusão para usar nos templates."""
@@ -2295,6 +2875,8 @@ def inject_globals():
     """Injetar variáveis globais nos templates."""
     return {
         'is_admin_logged': is_admin_logged(),
+        'is_user_logged': is_user_logged(),
+        'current_user': get_current_user(),
         'get_merge_lists': get_merge_lists
     }
 
@@ -2437,6 +3019,7 @@ def admin_modal_auth():
         return jsonify({'success': False, 'message': 'Senha incorreta'})
 
 @app.route('/delete/<int:file_id>', methods=['POST'])
+@require_auth
 def delete_file(file_id):
     """Deletar arquivo PDF."""
     conn = sqlite3.connect(DATABASE)
@@ -2463,6 +3046,7 @@ def delete_file(file_id):
     return redirect(url_for('index'))
 
 @app.route('/update_music/<int:file_id>', methods=['POST'])
+@require_auth
 def update_music(file_id):
     """Atualizar informações da música."""
     song_name = request.form.get('song_name', '').strip()
@@ -2557,6 +3141,10 @@ def update_music(file_id):
 @app.route('/replace_pdf/<int:file_id>', methods=['POST'])
 def replace_pdf(file_id):
     """Substituir arquivo PDF de uma música existente."""
+    conn = None
+    old_file_path = None
+    new_file_path = None
+    
     try:
         # Verificar se há arquivo na requisição
         if 'replacement_pdf' not in request.files:
@@ -2577,8 +3165,8 @@ def replace_pdf(file_id):
         if file_size > max_size:
             return jsonify({'success': False, 'error': 'Arquivo muito grande. Tamanho máximo: 50MB'}), 400
         
-        # Buscar informações da música atual
-        conn = sqlite3.connect(DATABASE)
+        # ETAPA 1: Buscar informações da música (conexão rápida)
+        conn = sqlite3.connect(DATABASE, timeout=30)  # 30 segundos de timeout
         cursor = conn.cursor()
         cursor.execute('''
             SELECT filename, file_path, song_name, artist, category, musical_key
@@ -2587,12 +3175,13 @@ def replace_pdf(file_id):
         
         music_info = cursor.fetchone()
         if not music_info:
-            conn.close()
             return jsonify({'success': False, 'error': 'Música não encontrada'}), 404
         
         old_filename, old_file_path, song_name, artist, category, musical_key = music_info
+        conn.close()  # Fechar conexão imediatamente
+        conn = None
         
-        # Gerar novo nome do arquivo baseado nas informações existentes
+        # ETAPA 2: Preparar novo arquivo (operações sem DB)
         secured_filename = secure_filename(file.filename)
         
         # Se tem nome da música e artista, usar padrão formatado
@@ -2615,31 +3204,37 @@ def replace_pdf(file_id):
             new_file_path = os.path.join(category_folder, new_filename)
             counter += 1
         
-        # Remover arquivo antigo se existir
-        if os.path.exists(old_file_path):
-            try:
-                os.remove(old_file_path)
-                app.logger.info(f"Arquivo antigo removido: {old_file_path}")
-            except Exception as e:
-                app.logger.warning(f"Erro ao remover arquivo antigo: {str(e)}")
-        
-        # Salvar novo arquivo
+        # ETAPA 3: Salvar novo arquivo e calcular informações (sem DB)
         file.save(new_file_path)
+        app.logger.info(f"Novo arquivo salvo: {new_file_path}")
         
         # Obter informações do novo arquivo
         pdf_info = get_pdf_info(new_file_path)
         new_file_size = os.path.getsize(new_file_path)
         new_file_hash = get_file_hash(new_file_path)
         
-        # Atualizar banco de dados
+        # ETAPA 4: Atualizar banco de dados (conexão rápida)
+        conn = sqlite3.connect(DATABASE, timeout=30)
+        cursor = conn.cursor()
+        
+        # Usar transação explícita para garantir atomicidade
+        cursor.execute('BEGIN IMMEDIATE')
+        
         cursor.execute('''
             UPDATE pdf_files 
             SET filename = ?, file_path = ?, file_size = ?, file_hash = ?, page_count = ?
             WHERE id = ?
         ''', (new_filename, new_file_path, new_file_size, new_file_hash, pdf_info['page_count'], file_id))
         
-        conn.commit()
-        conn.close()
+        cursor.execute('COMMIT')
+        
+        # ETAPA 5: Remover arquivo antigo (após sucesso no DB)
+        if old_file_path and os.path.exists(old_file_path) and old_file_path != new_file_path:
+            try:
+                os.remove(old_file_path)
+                app.logger.info(f"Arquivo antigo removido: {old_file_path}")
+            except Exception as e:
+                app.logger.warning(f"Erro ao remover arquivo antigo: {str(e)}")
         
         app.logger.info(f"PDF substituído com sucesso para música ID {file_id}: {old_filename} -> {new_filename}")
         
@@ -2651,112 +3246,46 @@ def replace_pdf(file_id):
             'new_pages': pdf_info['page_count']
         })
         
+    except sqlite3.OperationalError as e:
+        app.logger.error(f"Erro de banco SQLite ao substituir PDF: {str(e)}")
+        
+        # Se o arquivo novo foi criado mas falhou no DB, tentar remover
+        if new_file_path and os.path.exists(new_file_path):
+            try:
+                os.remove(new_file_path)
+                app.logger.info(f"Arquivo novo removido após erro no DB: {new_file_path}")
+            except Exception:
+                pass
+                
+        return jsonify({'success': False, 'error': f'Erro no banco de dados: {str(e)}'}), 500
+        
     except Exception as e:
         app.logger.error(f"Erro ao substituir PDF: {str(e)}")
         import traceback
         traceback.print_exc()
+        
+        # Se o arquivo novo foi criado mas algo falhou, tentar remover
+        if new_file_path and os.path.exists(new_file_path):
+            try:
+                os.remove(new_file_path)
+                app.logger.info(f"Arquivo novo removido após erro: {new_file_path}")
+            except Exception:
+                pass
+                
         return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
+        
+    finally:
+        # Garantir que a conexão seja sempre fechada
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
-@app.route('/duplicate_music/<int:file_id>', methods=['POST'])
-def duplicate_music(file_id):
-    """Duplicar uma música existente mantendo todas as informações mas criando uma nova entrada."""
-    try:
-        # Buscar informações da música original
-        conn = sqlite3.connect(DATABASE)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT filename, file_path, song_name, artist, category, 
-                   liturgical_time, musical_key, youtube_link, file_size, 
-                   file_hash, page_count, description
-            FROM pdf_files WHERE id = ?
-        ''', (file_id,))
-        
-        original_music = cursor.fetchone()
-        if not original_music:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Música não encontrada'}), 404
-        
-        (original_filename, original_file_path, song_name, artist, category, 
-         liturgical_time, musical_key, youtube_link, file_size, 
-         file_hash, page_count, description) = original_music
-        
-        # Verificar se o arquivo físico existe
-        if not os.path.exists(original_file_path):
-            conn.close()
-            return jsonify({'success': False, 'error': 'Arquivo PDF original não encontrado'}), 404
-        
-        # Gerar novo nome de arquivo para a cópia
-        base_name = os.path.splitext(original_filename)[0]
-        extension = os.path.splitext(original_filename)[1]
-        
-        # Adicionar sufixo " - Cópia" ao nome
-        if " - Cópia" not in base_name:
-            new_filename = f"{base_name} - Cópia{extension}"
-        else:
-            # Se já é uma cópia, adicionar número
-            counter = 2
-            while True:
-                new_filename = f"{base_name} {counter}{extension}"
-                # Verificar se este nome já existe no banco
-                cursor.execute('SELECT COUNT(*) FROM pdf_files WHERE filename = ?', (new_filename,))
-                if cursor.fetchone()[0] == 0:
-                    break
-                counter += 1
-        
-        # Determinar pasta de destino (mesma categoria)
-        category_folder = os.path.join(ORGANIZED_FOLDER, category or 'Diversos')
-        os.makedirs(category_folder, exist_ok=True)
-        new_file_path = os.path.join(category_folder, new_filename)
-        
-        # Garantir que o caminho não existe (mais uma verificação)
-        counter = 1
-        while os.path.exists(new_file_path):
-            base_filename = os.path.splitext(new_filename)[0]
-            new_filename = f"{base_filename}_{counter}{extension}"
-            new_file_path = os.path.join(category_folder, new_filename)
-            counter += 1
-        
-        # Copiar arquivo físico
-        import shutil
-        shutil.copy2(original_file_path, new_file_path)
-        
-        # Adicionar sufixo " (Cópia)" ao nome da música se existir
-        new_song_name = song_name
-        if song_name and " (Cópia)" not in song_name:
-            new_song_name = f"{song_name} (Cópia)"
-        
-        # Inserir nova entrada no banco de dados
-        cursor.execute('''
-            INSERT INTO pdf_files (
-                filename, file_path, song_name, artist, category, 
-                liturgical_time, musical_key, youtube_link, file_size, 
-                file_hash, upload_date, page_count, description
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
-        ''', (new_filename, new_file_path, new_song_name, artist, category,
-              liturgical_time, musical_key, youtube_link, file_size,
-              file_hash, page_count, description))
-        
-        new_music_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        app.logger.info(f"Música duplicada com sucesso: ID {file_id} -> ID {new_music_id} ({original_filename} -> {new_filename})")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Música duplicada com sucesso',
-            'new_music_id': new_music_id,
-            'new_filename': new_filename,
-            'original_id': file_id
-        })
-        
-    except Exception as e:
-        app.logger.error(f"Erro ao duplicar música: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
+
 
 @app.route('/search')
+@require_auth
 def search():
     """Buscar arquivos PDF com paginação."""
     query = request.args.get('q', '')
@@ -2896,6 +3425,7 @@ def search():
                          pagination=pagination)
 
 @app.route('/view/<int:file_id>')
+@require_auth
 def view_file(file_id):
     """Servir arquivo PDF para visualização."""
     conn = sqlite3.connect(DATABASE)
@@ -2911,6 +3441,7 @@ def view_file(file_id):
     return redirect(url_for('index'))
 
 @app.route('/details/<int:file_id>')
+@require_auth
 def music_details(file_id):
     """Mostrar detalhes completos da música."""
     conn = sqlite3.connect(DATABASE)
@@ -2931,6 +3462,7 @@ def music_details(file_id):
                          liturgical_times=get_liturgical_times(), musical_keys=get_musical_keys(), artists=get_artists())
 
 @app.route('/download/<int:file_id>')
+@require_auth
 def download_file(file_id):
     """Download específico de arquivo PDF."""
     conn = sqlite3.connect(DATABASE)
@@ -3028,6 +3560,7 @@ def api_generate_report(list_id=None):
         }), 500
 
 @app.route('/dashboard')
+@require_auth
 def dashboard():
     """Dashboard com relatórios e estatísticas das músicas e listas."""
     conn = sqlite3.connect(DATABASE)
@@ -3752,8 +4285,64 @@ def api_dashboard_top_artists():
     conn.close()
     return jsonify(results)
 
+# ==========================================
+# HEALTH CHECK ENDPOINT (Para Docker)
+# ==========================================
+
+@app.route('/health')
+def health_check():
+    """Endpoint de health check para Docker e monitoramento."""
+    try:
+        # Verificar conectividade do banco de dados
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1')
+        conn.close()
+        
+        # Verificar se os diretórios essenciais existem
+        dirs_ok = all(os.path.exists(d) for d in [UPLOAD_FOLDER, ORGANIZED_FOLDER, LOG_FOLDER])
+        
+        if dirs_ok:
+            return jsonify({
+                'status': 'healthy',
+                'timestamp': datetime.now().isoformat(),
+                'database': 'connected',
+                'directories': 'ok',
+                'version': '1.0.0'
+            }), 200
+        else:
+            return jsonify({
+                'status': 'unhealthy',
+                'timestamp': datetime.now().isoformat(),
+                'error': 'Missing required directories'
+            }), 503
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 503
+
 if __name__ == '__main__':
+    setup_logging()
     init_db()
+    
+    # Informações de configuração para Docker/Produção
+    app.logger.info("="*50)
+    app.logger.info("🎵 MÚSICAS IGREJA - Iniciando aplicação...")
+    app.logger.info("="*50)
+    app.logger.info(f"Ambiente: {os.environ.get('FLASK_ENV', 'development')}")
+    app.logger.info(f"Banco de dados: {DATABASE}")
+    app.logger.info(f"Upload folder: {UPLOAD_FOLDER}")
+    app.logger.info(f"Organized folder: {ORGANIZED_FOLDER}")
+    app.logger.info(f"Log folder: {LOG_FOLDER}")
+    
+    # Configuração flexível para Docker e desenvolvimento
+    host = '0.0.0.0'  # Permite acesso externo
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
     print("="*60)
     print("🎵 SISTEMA MÚSICAS IGREJA - SERVIDOR INICIADO 🎵")
     print("="*60)
