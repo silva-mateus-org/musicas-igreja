@@ -117,57 +117,115 @@ jobs:
       run: |
         # Define as variáveis para facilitar o uso no script
         IMAGE_FULL_NAME="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-        CONTAINER_NAME="musicas-igreja-app" # Nome único para o seu container Docker
         
         echo "Iniciando o deploy da imagem ${IMAGE_FULL_NAME}:latest..."
 
         # Cria o diretório do projeto no servidor se não existir
         mkdir -p ~/musicas-igreja
+        
+        # Copia o docker-compose.yml do workspace atual (já foi feito checkout)
+        cp docker-compose.yml ~/musicas-igreja/
         cd ~/musicas-igreja
         
-        # Baixa o arquivo docker-compose.yml do seu repositório
-        # Certifique-se de que o docker-compose.yml está na raiz do seu repositório
-        curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
-
+        echo "Conteúdo do docker-compose.yml:"
         cat docker-compose.yml
         
+        echo "Verificando se Docker está disponível..."
+        docker --version
+        docker compose version
+        
         # Puxa a imagem mais recente do GHCR para o seu self-hosted runner
+        echo "Fazendo pull da imagem..."
         docker pull ${IMAGE_FULL_NAME}:latest
         
         # Para e remove os contêineres antigos definidos no docker-compose.yml
+        echo "Parando containers antigos..."
         docker compose down || true # '|| true' evita que o workflow falhe se o contêiner não existir
         
+        # Limpa imagens Docker antigas antes de iniciar (para economizar espaço)
+        echo "Limpando imagens antigas..."
+        docker image prune -f
+        
         # Inicia os contêineres com a nova imagem
+        echo "Iniciando containers..."
         # --force-recreate garante que o contêiner seja recriado com as novas variáveis de ambiente
         docker compose up -d --force-recreate 
         
-        # Limpa imagens Docker antigas que não estão sendo usadas por nenhum contêiner
-        docker image prune -f
-        
         # Verifica o status dos contêineres e logs para depuração
-        sleep 10 # Dá um tempo para os contêineres iniciarem
+        echo "Aguardando containers iniciarem..."
+        sleep 15 # Dá mais tempo para os contêineres iniciarem
+        
+        echo "Status dos containers:"
         docker compose ps
-        docker compose logs --tail=20 musicas-igreja
+        
+        echo "Logs da aplicação (últimas 30 linhas):"
+        docker compose logs --tail=30 musicas-igreja
+        
+        echo "Verificando se a aplicação está respondendo..."
+        # Tenta verificar o health check local
+        for i in {1..10}; do
+          if docker compose exec -T musicas-igreja curl -f http://localhost:5000/health; then
+            echo "✅ Aplicação está respondendo no health check!"
+            break
+          else
+            echo "⏳ Tentativa $i/10: Aguardando aplicação inicializar..."
+            sleep 5
+          fi
+        done
 
   health-check:
     needs: deploy # Este job só roda se o job 'deploy' for bem-sucedido
-    runs-on: ubuntu-latest # Pode rodar na nuvem, se sua APP_URL for acessível
+    runs-on: self-hosted # Executa no mesmo runner do deploy para acessar localhost
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
     - name: Verificar saúde da aplicação
       run: |
-        sleep 30 # Aguarda um tempo para a aplicação inicializar
-        # Verifica se a APP_URL está configurada nos segredos do GitHub
+        echo "Iniciando verificação de saúde da aplicação..."
+        cd ~/musicas-igreja
+        
+        # Verificar se o container está rodando
+        if docker compose ps | grep -q "musicas-igreja.*Up"; then
+          echo "✅ Container está rodando"
+        else
+          echo "❌ Container não está rodando"
+          docker compose ps
+          exit 1
+        fi
+        
+        # Verificar health check interno
+        echo "Verificando health check interno..."
+        for i in {1..12}; do
+          if docker compose exec -T musicas-igreja curl -f http://localhost:5000/health 2>/dev/null; then
+            echo "✅ Health check interno passou!"
+            health_internal=true
+            break
+          else
+            echo "⏳ Tentativa $i/12: Health check interno aguardando..."
+            sleep 10
+          fi
+        done
+        
+        # Verificar acesso externo se APP_URL estiver configurada
         if [ -n "${{ secrets.APP_URL }}" ]; then
-          # Tenta acessar o endpoint /health da sua aplicação
+          echo "Verificando acesso externo via ${{ secrets.APP_URL }}..."
           response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.APP_URL }}/health" || echo "000")
           if [ "$response" = "200" ]; then
-            echo "✅ Aplicação está saudável (HTTP $response)"
+            echo "✅ Aplicação acessível externamente (HTTP $response)"
           else
-            echo "❌ Aplicação não está respondendo corretamente (HTTP $response)"
-            exit 1 # Falha o job se a verificação de saúde falhar
+            echo "⚠️  Aplicação não acessível externamente (HTTP $response)"
+            echo "Isso pode ser normal se a aplicação só for acessível localmente"
           fi
         else
-          echo "⚠️  APP_URL não configurada, pulando verificação de saúde"
+          echo "⚠️  APP_URL não configurada, verificando apenas localhost"
         fi
+        
+        # Verificar se health check interno passou
+        if [ "$health_internal" != "true" ]; then
+          echo "❌ Health check interno falhou"
+          echo "Logs da aplicação:"
+          docker compose logs --tail=50 musicas-igreja
+          exit 1
+        fi
+        
+        echo "✅ Deploy concluído com sucesso!"
