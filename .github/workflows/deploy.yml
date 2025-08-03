@@ -1,10 +1,12 @@
+# Nome do workflow que aparecerá no GitHub Actions
 name: Deploy Músicas Igreja
 
+# Eventos que irão disparar este workflow
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches:
+      - main # Dispara quando há um push para a branch 'main'
+      - master # Se você usa 'master' também
 
 env:
   REGISTRY: ghcr.io
@@ -12,7 +14,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Este job roda nos servidores do GitHub (nuvem)
     
     steps:
     - name: Checkout código
@@ -45,28 +47,30 @@ jobs:
         python -c "import app; print('✅ Aplicação importada com sucesso')"
 
   build:
-    needs: test
-    runs-on: ubuntu-latest
+    needs: test # Este job só roda se o job 'test' for bem-sucedido
+    runs-on: ubuntu-latest # Este job roda nos servidores do GitHub (nuvem)
     permissions:
       contents: read
-      packages: write
+      packages: write # Permissão necessária para empurrar imagens para o GHCR
 
     steps:
-    - name: Checkout código
-      uses: actions/checkout@v4
-
     - name: Configurar Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Checkout código
+      uses: actions/checkout@v4
+
     - name: Login no Container Registry
+      # Este passo só executa se não for uma Pull Request (para evitar push desnecessário)
       if: github.event_name != 'pull_request'
       uses: docker/login-action@v3
       with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: ${{ env.REGISTRY }} # ghcr.io
+        username: ${{ github.actor }} # Seu usuário GitHub
+        password: ${{ secrets.GITHUB_TOKEN }} # Token gerado automaticamente pelo GitHub
 
     - name: Extrair metadados
+      # Ajuda a gerar tags de imagem mais inteligentes (ex: branch, SHA, latest)
       id: meta
       uses: docker/metadata-action@v5
       with:
@@ -78,78 +82,89 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build e Push da imagem Docker
+      # Constrói a imagem Docker e a envia para o GHCR
       uses: docker/build-push-action@v5
       with:
-        context: .
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
+        context: . # O Dockerfile está na raiz do seu repositório
+        push: ${{ github.event_name != 'pull_request' }} # Só empurra se não for uma PR
+        tags: ${{ steps.meta.outputs.tags }} # Usa as tags geradas pelo passo 'meta'
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: type=gha # Usa cache do GitHub Actions para builds mais rápidos
+        cache-to: type=gha,mode=max # Salva o cache para builds futuros
 
   deploy:
-    needs: build
-    runs-on: ubuntu-latest
+    needs: build # Este job só roda se o job 'build' for bem-sucedido
+    runs-on: self-hosted # <-- ESTE É O SEU SERVIDOR HOMELAB COM O RUNNER
+    # Só faz o deploy se o push for para as branches 'main' ou 'master'
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
 
-    - name: Deploy para servidor
-      uses: appleboy/ssh-action@v1.0.0
+    - name: Login no Container Registry (no seu runner local)
+      # Necessário para puxar a imagem do GHCR para o seu homelab
+      uses: docker/login-action@v3
       with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_KEY }}
-        port: ${{ secrets.PORT || 22 }}
-        script: |
-          # Criar diretório do projeto se não existir
-          mkdir -p ~/musicas-igreja
-          cd ~/musicas-igreja
-          
-          # Download dos arquivos de configuração
-          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
-          
-          # Login no registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # Pull da nova imagem
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
-          # Parar containers antigos
-          docker-compose down || true
-          
-          # Iniciar com nova imagem
-          docker-compose up -d
-          
-          # Limpeza de imagens antigas
-          docker image prune -f
-          
-          # Verificar status
-          sleep 10
-          docker-compose ps
-          docker-compose logs --tail=20 musicas-igreja
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Deploy para servidor (executado diretamente no runner local)
+      # Define variáveis de ambiente que estarão disponíveis para o script 'run'
+      env: 
+        SECRET_KEY: ${{ secrets.APP_SECRET_KEY }} # Passa a SECRET_KEY da sua aplicação
+      run: |
+        # Define as variáveis para facilitar o uso no script
+        IMAGE_FULL_NAME="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+        CONTAINER_NAME="musicas-igreja-app" # Nome único para o seu container Docker
+        
+        echo "Iniciando o deploy da imagem ${IMAGE_FULL_NAME}:latest..."
+
+        # Cria o diretório do projeto no servidor se não existir
+        mkdir -p ~/musicas-igreja
+        cd ~/musicas-igreja
+        
+        # Baixa o arquivo docker-compose.yml do seu repositório
+        # Certifique-se de que o docker-compose.yml está na raiz do seu repositório
+        curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
+        
+        # Puxa a imagem mais recente do GHCR para o seu self-hosted runner
+        docker pull ${IMAGE_FULL_NAME}:latest
+        
+        # Para e remove os contêineres antigos definidos no docker-compose.yml
+        docker-compose down || true # '|| true' evita que o workflow falhe se o contêiner não existir
+        
+        # Inicia os contêineres com a nova imagem
+        # --force-recreate garante que o contêiner seja recriado com as novas variáveis de ambiente
+        docker-compose up -d --force-recreate 
+        
+        # Limpa imagens Docker antigas que não estão sendo usadas por nenhum contêiner
+        docker image prune -f
+        
+        # Verifica o status dos contêineres e logs para depuração
+        sleep 10 # Dá um tempo para os contêineres iniciarem
+        docker-compose ps
+        docker-compose logs --tail=20 musicas-igreja
 
   health-check:
-    needs: deploy
-    runs-on: ubuntu-latest
+    needs: deploy # Este job só roda se o job 'deploy' for bem-sucedido
+    runs-on: ubuntu-latest # Pode rodar na nuvem, se sua APP_URL for acessível
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
     - name: Verificar saúde da aplicação
       run: |
-        # Aguardar a aplicação inicializar
-        sleep 30
-        
-        # Verificar se a aplicação está respondendo
+        sleep 30 # Aguarda um tempo para a aplicação inicializar
+        # Verifica se a APP_URL está configurada nos segredos do GitHub
         if [ -n "${{ secrets.APP_URL }}" ]; then
+          # Tenta acessar o endpoint /health da sua aplicação
           response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.APP_URL }}/health" || echo "000")
           if [ "$response" = "200" ]; then
             echo "✅ Aplicação está saudável (HTTP $response)"
           else
             echo "❌ Aplicação não está respondendo corretamente (HTTP $response)"
-            exit 1
+            exit 1 # Falha o job se a verificação de saúde falhar
           fi
         else
           echo "⚠️  APP_URL não configurada, pulando verificação de saúde"
