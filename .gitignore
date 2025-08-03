@@ -119,10 +119,9 @@ dmypy.json
 .pyre/
 
 # Project specific
-uploads/
-organized/
+
 logs/*.log
-*.db
+
 *.db-journal
 
 # IDE
