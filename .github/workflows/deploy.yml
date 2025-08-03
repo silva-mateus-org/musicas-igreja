@@ -133,19 +133,19 @@ jobs:
         docker pull ${IMAGE_FULL_NAME}:latest
         
         # Para e remove os contêineres antigos definidos no docker-compose.yml
-        docker-compose down || true # '|| true' evita que o workflow falhe se o contêiner não existir
+        docker compose down || true # '|| true' evita que o workflow falhe se o contêiner não existir
         
         # Inicia os contêineres com a nova imagem
         # --force-recreate garante que o contêiner seja recriado com as novas variáveis de ambiente
-        docker-compose up -d --force-recreate 
+        docker compose up -d --force-recreate 
         
         # Limpa imagens Docker antigas que não estão sendo usadas por nenhum contêiner
         docker image prune -f
         
         # Verifica o status dos contêineres e logs para depuração
         sleep 10 # Dá um tempo para os contêineres iniciarem
-        docker-compose ps
-        docker-compose logs --tail=20 musicas-igreja
+        docker compose ps
+        docker compose logs --tail=20 musicas-igreja
 
   health-check:
     needs: deploy # Este job só roda se o job 'deploy' for bem-sucedido
