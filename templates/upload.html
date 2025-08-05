@@ -1,47 +1,51 @@
 {% extends "base.html" %}
 
-{% block title %}Enviar Música - Organizador de Música{% endblock %}
+{% block title %}Enviar Música{% endblock %}
 
 {% block content %}
 <style>
-/* Mensagem de artista não cadastrado */
-.artist-not-found {
-    font-size: 0.875rem;
-    color: #dc3545;
-    margin-top: 4px;
-}
+    /* Mensagem de artista não cadastrado */
+    .artist-not-found {
+        font-size: 0.875rem;
+        color: #dc3545;
+        margin-top: 4px;
+    }
 
-.artist-exists {
-    font-size: 0.875rem;
-    color: #28a745;
-    margin-top: 4px;
-}
+    .artist-exists {
+        font-size: 0.875rem;
+        color: #28a745;
+        margin-top: 4px;
+    }
 
-/* Status badges com tamanho consistente */
-.status-badge {
-    min-width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-}
+    /* Status badges com tamanho consistente */
+    .status-badge {
+        min-width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
 
-/* Fix para altura do botão de adicionar artista no bulk upload */
-.artist-add-btn {
-    height: 31px !important; /* Altura específica para alinhar com input */
-    flex-shrink: 0;
-    align-self: flex-start; /* Alinha no topo do container */
-    margin-top: 0 !important;
-}
+    /* Fix para altura do botão de adicionar artista no bulk upload */
+    .artist-add-btn {
+        height: 31px !important;
+        /* Altura específica para alinhar com input */
+        flex-shrink: 0;
+        align-self: flex-start;
+        /* Alinha no topo do container */
+        margin-top: 0 !important;
+    }
 
-/* Fix para altura do botão de adicionar artista no upload único */
-#single_add_artist_btn {
-    height: 38px !important; /* Altura padrão do input form-control */
-    flex-shrink: 0;
-    align-self: flex-start; /* Alinha no topo do container */
-    margin-top: 0 !important;
-}
+    /* Fix para altura do botão de adicionar artista no upload único */
+    #single_add_artist_btn {
+        height: 38px !important;
+        /* Altura padrão do input form-control */
+        flex-shrink: 0;
+        align-self: flex-start;
+        /* Alinha no topo do container */
+        margin-top: 0 !important;
+    }
 </style>
 
 <div class="container mt-4">
@@ -86,7 +90,7 @@
             <div id="singleUploadMode" class="card" style="display: none;">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-file-upload"></i> Upload Individual</h5>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="goBack()">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="goBack()">
                         <i class="fas fa-arrow-left"></i> Voltar
                     </button>
                 </div>
@@ -111,26 +115,7 @@
                                     <small class="text-muted">Verificando se o arquivo já existe...</small>
                                 </div>
 
-                                <!-- Aviso de arquivo duplicado -->
-                                <div id="single-duplicate-warning" class="alert alert-warning mt-2"
-                                    style="display: none;">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                        <div class="flex-grow-1">
-                                            <strong>Arquivo já existe!</strong><br>
-                                            <small id="single-duplicate-info"></small>
-                                        </div>
-                                        <a id="single-duplicate-link" href="#" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i> Ver Detalhes
-                                        </a>
-                                    </div>
-                                </div>
 
-                                <!-- Confirmação de arquivo válido -->
-                                <div id="single-file-valid" class="alert alert-success mt-2" style="display: none;">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    <small>Arquivo válido e não duplicado!</small>
-                                </div>
                             </div>
                         </div>
 
@@ -141,13 +126,11 @@
                                 <div class="card-header d-flex justify-content-between align-items-center">
                                     <span id="singlePdfFileName" class="fw-bold"></span>
                                     <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-outline-secondary"
-                                            onclick="prevPageSingle()">
+                                        <button type="button" class="btn btn-secondary" onclick="prevPageSingle()">
                                             <i class="fas fa-chevron-left"></i>
                                         </button>
-                                        <span class="btn btn-outline-secondary" id="singlePageInfo">1 / 1</span>
-                                        <button type="button" class="btn btn-outline-secondary"
-                                            onclick="nextPageSingle()">
+                                        <span class="btn btn-secondary" id="singlePageInfo">1 / 1</span>
+                                        <button type="button" class="btn btn-secondary" onclick="nextPageSingle()">
                                             <i class="fas fa-chevron-right"></i>
                                         </button>
                                     </div>
@@ -180,8 +163,8 @@
                                         </div>
                                         <div id="single_artist_status" class="artist-status"></div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-success" id="single_add_artist_btn" 
-                                            onclick="addNewArtistQuick('single')" title="Adicionar novo artista" disabled>
+                                    <button type="button" class="btn btn-success" id="single_add_artist_btn"
+                                        onclick="addNewArtistQuick('single')" title="Adicionar novo artista" disabled>
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
@@ -210,8 +193,7 @@
                                     <div class="input-group input-group-sm">
                                         <input type="text" class="form-control" id="single_new_category_input"
                                             placeholder="Nova categoria...">
-                                        <button type="button" class="btn btn-outline-success"
-                                            onclick="addNewCategorySingle()">
+                                        <button type="button" class="btn btn-success" onclick="addNewCategorySingle()">
                                             <i class="fas fa-plus"></i> Adicionar
                                         </button>
                                     </div>
@@ -249,7 +231,7 @@
                                     <div class="input-group input-group-sm">
                                         <input type="text" class="form-control" id="single_new_liturgical_input"
                                             placeholder="Novo tempo litúrgico...">
-                                        <button type="button" class="btn btn-outline-success"
+                                        <button type="button" class="btn btn-success"
                                             onclick="addNewLiturgicalTimeSingle()">
                                             <i class="fas fa-plus"></i> Adicionar
                                         </button>
@@ -295,7 +277,7 @@
         <div id="bulkUploadMode" class="card" style="display: none;">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-upload"></i> Upload em Lote</h5>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="goBack()">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="goBack()">
                     <i class="fas fa-arrow-left"></i> Voltar
                 </button>
             </div>
@@ -312,8 +294,7 @@
                         <div class="col-md-3">
                             <label class="form-label">Aplicar em Massa</label>
                             <div class="btn-group w-100" role="group">
-                                <button type="button" class="btn btn-outline-primary btn-sm"
-                                    onclick="openMassEditModal()">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openMassEditModal()">
                                     <i class="fas fa-edit"></i> Edição em Massa
                                 </button>
                             </div>
@@ -366,8 +347,7 @@
                                     <i class="fas fa-info-circle"></i>
                                     <span id="hiddenFilesCount">0</span> arquivo(s) oculto(s)
                                 </span>
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                    onclick="showHiddenFiles()">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="showHiddenFiles()">
                                     <i class="fas fa-eye"></i> Mostrar Arquivos Ocultos
                                 </button>
                             </div>
@@ -491,36 +471,36 @@
     // Funções para preservar estado dos checkboxes no bulk upload
     function saveCheckboxStates() {
         const states = {};
-        
+
         // Salvar estado das categorias
         bulkFiles.forEach((fileData, index) => {
             states[index] = {
                 categories: [],
                 liturgical_times: []
             };
-            
+
             // Salvar categorias marcadas
             const categoryCheckboxes = document.querySelectorAll(`.bulk-category-checkbox-${index}:checked`);
             categoryCheckboxes.forEach(checkbox => {
                 states[index].categories.push(checkbox.value);
             });
-            
+
             // Salvar tempos litúrgicos marcados
             const liturgicalCheckboxes = document.querySelectorAll(`.bulk-liturgical-checkbox-${index}:checked`);
             liturgicalCheckboxes.forEach(checkbox => {
                 states[index].liturgical_times.push(checkbox.value);
             });
         });
-        
+
         return states;
     }
-    
+
     function restoreCheckboxStates(states) {
         // Aguardar um pequeno delay para garantir que o DOM foi atualizado
         setTimeout(() => {
             Object.keys(states).forEach(index => {
                 const state = states[index];
-                
+
                 // Restaurar categorias
                 state.categories.forEach(categoryValue => {
                     const checkbox = document.querySelector(`.bulk-category-checkbox-${index}[value="${categoryValue}"]`);
@@ -530,7 +510,7 @@
                         updateBulkFileCategory(index, { checked: true, value: categoryValue });
                     }
                 });
-                
+
                 // Restaurar tempos litúrgicos
                 state.liturgical_times.forEach(liturgicalValue => {
                     const checkbox = document.querySelector(`.bulk-liturgical-checkbox-${index}[value="${liturgicalValue}"]`);
@@ -548,7 +528,7 @@
     function autoFillSongName(filename) {
         // Remover extensão .pdf
         let songName = filename.replace(/\.pdf$/i, '');
-        
+
         // Remover padrões comuns de formatação
         songName = songName
             .replace(/^\d+\s+/, '')  // Remove números no início (ex: "01 Nome da Música")
@@ -558,12 +538,12 @@
             .replace(/[_-]+/g, ' ')                    // Substitui _ e múltiplos - por espaços
             .replace(/\s+/g, ' ')                      // Remove espaços extras
             .trim();                                   // Remove espaços nas bordas
-        
+
         // Capitalizar primeira letra de cada palavra
-        songName = songName.replace(/\b\w+\b/g, function(word) {
+        songName = songName.replace(/\b\w+\b/g, function (word) {
             return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
         });
-        
+
         // Preencher o campo apenas se estiver vazio
         const songNameField = document.getElementById('single_song_name');
         if (songNameField && !songNameField.value.trim()) {
@@ -635,13 +615,10 @@
         const file = e.target.files[0];
         const submitBtn = document.getElementById('single-submit-btn');
         const checkStatus = document.getElementById('single-duplicate-check');
-        const warningDiv = document.getElementById('single-duplicate-warning');
-        const validDiv = document.getElementById('single-file-valid');
+
 
         // Reset all status divs
         checkStatus.style.display = 'none';
-        warningDiv.style.display = 'none';
-        validDiv.style.display = 'none';
         singleFileIsDuplicate = false;
         submitBtn.disabled = false;
 
@@ -655,29 +632,29 @@
 
         // Mostrar preview do PDF
         const fileReader = new FileReader();
-        fileReader.onload = function(e) {
+        fileReader.onload = function (e) {
             const typedArray = new Uint8Array(e.target.result);
-            
-            pdfjsLib.getDocument(typedArray).promise.then(function(pdf) {
+
+            pdfjsLib.getDocument(typedArray).promise.then(function (pdf) {
                 singlePdfDoc = pdf;
                 singlePageNum = 1;
                 renderSinglePage(singlePageNum);
-                
+
                 // Mostrar preview
                 document.getElementById('singlePdfPreview').style.display = 'block';
                 document.getElementById('singlePdfFileName').textContent = file.name;
-                
+
                 // Auto-preencher nome da música com base no nome do arquivo
                 autoFillSongName(file.name);
-            }).catch(function(error) {
+            }).catch(function (error) {
                 console.error('Erro ao carregar PDF:', error);
                 // Se houver erro no PDF, ainda mostrar que um arquivo foi selecionado
                 document.getElementById('singlePdfPreview').style.display = 'block';
                 document.getElementById('singlePdfFileName').textContent = file.name;
-                
+
                 // Auto-preencher nome da música mesmo com erro no PDF
                 autoFillSongName(file.name);
-                
+
                 // Esconder o canvas se houver erro
                 const canvas = document.getElementById('singlePdfCanvas');
                 if (canvas) {
@@ -705,7 +682,7 @@
 
                 if (data.error) {
                     console.error('Erro ao verificar duplicado:', data.error);
-                    validDiv.style.display = 'block';
+                    showToast('Arquivo válido!', 'success');
                     return;
                 }
 
@@ -716,18 +693,16 @@
 
                     const existingFile = data.existingFile;
                     const infoText = `Música: "${existingFile.song_name}" | Artista: ${existingFile.artist} | Categoria: ${existingFile.category}`;
-                    document.getElementById('single-duplicate-info').textContent = infoText;
-                    document.getElementById('single-duplicate-link').href = `/details/${existingFile.id}`;
-                    warningDiv.style.display = 'block';
+                    showToast(`Arquivo já existe! ${infoText}`, 'warning');
                 } else {
                     // Arquivo é válido
-                    validDiv.style.display = 'block';
+                    showToast('Arquivo válido e não duplicado!', 'success');
                 }
             })
             .catch(error => {
                 checkStatus.style.display = 'none';
                 console.error('Erro na verificação:', error);
-                validDiv.style.display = 'block'; // Continuar mesmo com erro
+                showToast('Arquivo válido!', 'success'); // Continuar mesmo com erro
             });
     });
 
@@ -735,7 +710,7 @@
     document.getElementById('singleUploadForm').addEventListener('submit', function (e) {
         if (singleFileIsDuplicate) {
             e.preventDefault();
-            alert('Não é possível enviar um arquivo duplicado. Por favor, selecione outro arquivo.');
+            showToast('Não é possível enviar um arquivo duplicado. Por favor, selecione outro arquivo.', 'error');
             return false;
         }
     });
@@ -754,7 +729,7 @@
     function renderBulkFiles() {
         // Salvar estado atual dos checkboxes antes de recriar o HTML
         const checkboxStates = saveCheckboxStates();
-        
+
         const grid = document.getElementById('filesGrid');
         grid.innerHTML = '';
 
@@ -771,7 +746,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <small class="fw-bold text-truncate" title="${fileData.file.name}">${fileData.file.name}</small>
                     <div class="btn-group">
-                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                        <button type="button" class="btn btn-primary btn-sm" 
                                 onclick="previewBulkFile(${index})" title="Preview PDF">
                             <i class="fas fa-eye"></i>
                         </button>
@@ -797,13 +772,13 @@
                                     <small>${fileData.duplicateInfo}</small>
                                     ${document.getElementById('createMusicList').checked ? '<br><small class="text-muted">Será adicionado à lista se mantido</small>' : ''}
                                 </div>
-                                <a href="/details/${fileData.duplicateId}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <a href="/details/${fileData.duplicateId}" target="_blank" class="btn btn-sm btn-primary">
                                     <i class="fas fa-eye"></i> Ver
                                 </a>
                             </div>
                         </div>
                         <div class="d-grid">
-                            <button type="button" class="btn btn-outline-danger btn-sm" 
+                            <button type="button" class="btn btn-danger btn-sm" 
                                     onclick="removeBulkFile(${index})" title="Remover arquivo">
                                 <i class="fas fa-trash"></i> Remover
                             </button>
@@ -830,7 +805,7 @@
                                          style="top: 100%; z-index: 1000; display: none; max-height: 150px; overflow-y: auto;"></div>
                                     <div id="artist-status-${index}" class="artist-status"></div>
                                 </div>
-                                <button type="button" class="btn btn-outline-success btn-sm artist-add-btn" id="add-artist-btn-${index}"
+                                <button type="button" class="btn btn-success btn-sm artist-add-btn" id="add-artist-btn-${index}"
                                         onclick="addNewArtistQuick('bulk', ${index})" title="Adicionar novo artista" disabled>
                                     <i class="fas fa-plus"></i>
                                 </button>
@@ -860,7 +835,7 @@
                             <div class="input-group input-group-sm">
                                 <input type="text" class="form-control" id="bulk_new_category_input_${index}" 
                                        placeholder="Nova categoria...">
-                                <button type="button" class="btn btn-outline-success" onclick="addNewCategoryBulk(${index})">
+                                <button type="button" class="btn btn-success" onclick="addNewCategoryBulk(${index})">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -897,7 +872,7 @@
                             <div class="input-group input-group-sm">
                                 <input type="text" class="form-control" id="bulk_new_liturgical_input_${index}" 
                                        placeholder="Novo tempo litúrgico...">
-                                <button type="button" class="btn btn-outline-success" onclick="addNewLiturgicalTimeBulk(${index})">
+                                <button type="button" class="btn btn-success" onclick="addNewLiturgicalTimeBulk(${index})">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -928,7 +903,7 @@
                     </div>
                     
                     <div class="d-grid">
-                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                        <button type="button" class="btn btn-danger btn-sm" 
                                 onclick="hideBulkFile(${index})" title="Remover música">
                             <i class="fas fa-eye-slash"></i> Remover
                         </button>
@@ -940,7 +915,7 @@
 
             grid.appendChild(col);
         });
-        
+
         // Restaurar estado dos checkboxes após renderização
         restoreCheckboxStates(checkboxStates);
     }
@@ -1035,7 +1010,7 @@
 
         // Adicionar à todas as caixas de categoria (single e bulk)
         addCategoryToAllContainers(categoryName);
-        
+
         input.value = '';
 
         // Marcar como selecionado apenas no arquivo atual
@@ -1064,7 +1039,7 @@
 
         // Adicionar à todas as caixas de tempo litúrgico (single e bulk)
         addLiturgicalToAllContainers(liturgicalName);
-        
+
         input.value = '';
 
         // Marcar como selecionado apenas no arquivo atual
@@ -1325,7 +1300,7 @@
 
             const goHomeBtn = document.createElement('a');
             goHomeBtn.href = '/';
-            goHomeBtn.className = 'btn btn-outline-primary';
+            goHomeBtn.className = 'btn btn-primary';
             goHomeBtn.innerHTML = '<i class="fas fa-home"></i> Ver Todas as Músicas';
             actionsDiv.appendChild(goHomeBtn);
 
@@ -1346,7 +1321,7 @@
     const CACHE_DURATION = 60000; // 1 minuto
 
     // ===== NOVO SISTEMA DE ARTISTAS SEM MODAL =====
-    
+
     // Função para verificar se artista existe (modo single)
     async function checkArtistExists(input, mode) {
         clearTimeout(window.artistCheckTimeout);
@@ -1364,7 +1339,7 @@
             try {
                 const artists = await fetchArtists(query);
                 const exactMatch = artists.find(artist => artist.toLowerCase() === query.toLowerCase());
-                
+
                 if (exactMatch) {
                     statusDiv.innerHTML = '<div class="artist-exists"><i class="fas fa-check"></i> Artista cadastrado</div>';
                     addBtn.disabled = true;
@@ -1372,7 +1347,7 @@
                     statusDiv.innerHTML = '<div class="artist-not-found"><i class="fas fa-exclamation-triangle"></i> Artista não cadastrado</div>';
                     addBtn.disabled = false;
                 }
-                
+
                 // Mostrar sugestões também
                 showArtistSuggestions(input, mode, artists, query);
             } catch (error) {
@@ -1400,7 +1375,7 @@
             try {
                 const artists = await fetchArtists(query);
                 const exactMatch = artists.find(artist => artist.toLowerCase() === query.toLowerCase());
-                
+
                 if (exactMatch) {
                     statusDiv.innerHTML = '<div class="artist-exists"><i class="fas fa-check"></i> Cadastrado</div>';
                     addBtn.disabled = true;
@@ -1408,7 +1383,7 @@
                     statusDiv.innerHTML = '<div class="artist-not-found"><i class="fas fa-exclamation-triangle"></i> Não cadastrado</div>';
                     addBtn.disabled = false;
                 }
-                
+
                 // Mostrar sugestões também
                 showArtistSuggestionsBulk(input, index, artists, query);
             } catch (error) {
@@ -1425,10 +1400,10 @@
         suggestionsDiv.innerHTML = '';
 
         if (artists && artists.length > 0) {
-            const filteredArtists = artists.filter(artist => 
+            const filteredArtists = artists.filter(artist =>
                 artist.toLowerCase().includes(query.toLowerCase())
             ).slice(0, 5);
-            
+
             if (filteredArtists.length > 0) {
                 filteredArtists.forEach(artist => {
                     const div = document.createElement('div');
@@ -1459,10 +1434,10 @@
         suggestionsDiv.innerHTML = '';
 
         if (artists && artists.length > 0) {
-            const filteredArtists = artists.filter(artist => 
+            const filteredArtists = artists.filter(artist =>
                 artist.toLowerCase().includes(query.toLowerCase())
             ).slice(0, 5);
-            
+
             if (filteredArtists.length > 0) {
                 filteredArtists.forEach(artist => {
                     const div = document.createElement('div');
@@ -1491,10 +1466,10 @@
     // Função para adicionar artista rapidamente
     async function addNewArtistQuick(mode, index = null) {
         const inputId = mode === 'single' ? 'single_artist' : `bulk-category-checkbox-${index}`;
-        const input = mode === 'single' ? 
-            document.getElementById('single_artist') : 
+        const input = mode === 'single' ?
+            document.getElementById('single_artist') :
             document.querySelector(`input[data-index="${index}"]`);
-        
+
         const artistName = input.value.trim();
 
         if (!artistName) {
@@ -1551,7 +1526,7 @@
     }
 
     // ===== SINCRONIZAÇÃO DE CATEGORIAS E TEMPOS LITÚRGICOS =====
-    
+
     // Função para adicionar categoria em todos os containers
     function addCategoryToAllContainers(categoryName) {
         // Adicionar no modo single
@@ -1720,7 +1695,7 @@
 
         // Adicionar à todas as caixas de categoria (single e bulk)
         addCategoryToAllContainers(categoryName);
-        
+
         input.value = '';
 
         // Marcar como selecionado apenas no single
@@ -1748,7 +1723,7 @@
 
         // Adicionar à todas as caixas de tempo litúrgico (single e bulk)
         addLiturgicalToAllContainers(liturgicalName);
-        
+
         input.value = '';
 
         // Marcar como selecionado apenas no single
@@ -1894,7 +1869,7 @@
         if (existingToast) {
             existingToast.remove();
         }
-        
+
         // Criar toast
         const toast = document.createElement('div');
         toast.id = 'toast-notification';
@@ -1916,7 +1891,7 @@
             min-width: 250px;
             max-width: 400px;
         `;
-        
+
         const iconMap = {
             'success': '<i class="fas fa-check-circle"></i>',
             'error': '<i class="fas fa-exclamation-circle"></i>',
@@ -1925,15 +1900,15 @@
         };
         const icon = iconMap[type] || iconMap['info'];
         toast.innerHTML = `${icon} ${message}`;
-        
+
         document.body.appendChild(toast);
-        
+
         // Animar entrada
         setTimeout(() => {
             toast.style.opacity = '1';
             toast.style.transform = 'translateX(0)';
         }, 50);
-        
+
         // Remover após 4 segundos
         setTimeout(() => {
             toast.style.opacity = '0';

@@ -1,34 +1,106 @@
-{% extends "auth_base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Login - Organizador de Música Litúrgica{% endblock %}
+{% block title %}Login - Organizador de Músicas{% endblock %}
 
 {% block content %}
-<div class="auth-card">
-    <div class="auth-header">
-        <i class="bi bi-music-note-beamed"></i>
-        <h4>Organizador de Música Litúrgica</h4>
-        <p class="mb-0">Faça login para continuar</p>
-    </div>
-    <div class="auth-body">
-        <form method="POST" action="{{ url_for('login_post') }}" id="loginForm">
-            <div class="mb-3">
-                <label for="username" class="form-label">Usuário</label>
-                <input type="text" class="form-control" id="username" name="username" required autofocus
-                    placeholder="Digite seu nome de usuário">
-            </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Senha</label>
-                <input type="password" class="form-control" id="password" name="password" required
-                    placeholder="Digite sua senha">
-            </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-auth">
-                    <i class="bi bi-box-arrow-in-right"></i> Entrar
-                </button>
-            </div>
-        </form>
-    </div>
+<style>
+    .login-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
+    .login-card {
+        max-width: 380px;
+        width: 100%;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+    }
+
+    .login-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .login-header h4 {
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .login-header i {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        display: block;
+    }
+
+    .login-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+
+    .login-body {
+        padding: 2rem;
+        background: white;
+    }
+
+    .btn-login {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-weight: 600;
+        color: white;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .btn-login:hover {
+        background: linear-gradient(135deg, #218838 0%, #1abc9c 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+
+    .btn-login:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+</style>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <i class="bi bi-music-note-beamed"></i>
+            <h4>Organizador de Músicas</h4>
+            <p class="mb-0">Faça login para continuar</p>
+        </div>
+        <div class="login-body">
+            <form method="POST" action="{{ url_for('login_post') }}" id="loginForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Usuário</label>
+                    <input type="text" class="form-control" id="username" name="username" required autofocus
+                        placeholder="Digite seu nome de usuário">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="password" name="password" required
+                        placeholder="Digite sua senha">
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-login">
+                        <i class="bi bi-box-arrow-in-right"></i> Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

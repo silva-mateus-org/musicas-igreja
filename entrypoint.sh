@@ -8,6 +8,25 @@ log() {
 
 log "🎵 Iniciando Organizador de Música Litúrgica..."
 
+# Caminho do DB no volume persistente
+DB_PATH="/app/data/pdf_organizer.db"
+# Caminho do DB copiado para a imagem durante o build
+INITIAL_DB_PATH="/tmp/initial_db/pdf_organizer.db"
+
+echo "Verificando se o banco de dados já existe no volume persistente..."
+
+# Verifica se o arquivo DB NÃO existe no volume
+if [ ! -f "$DB_PATH" ]; then
+    echo "Banco de dados não encontrado no volume. Copiando do inicial da imagem..."
+    # Garante que o diretório /app/data exista antes de copiar
+    mkdir -p /app/data
+    # Copia o DB inicial para o volume
+    cp "$INITIAL_DB_PATH" "$DB_PATH"
+    echo "Banco de dados inicial copiado para o volume."
+else
+    echo "Banco de dados já existe no volume. Pulando cópia inicial."
+fi
+
 # Criar diretórios necessários se não existirem
 mkdir -p /app/data/logs /app/data/uploads /app/data/organized
 

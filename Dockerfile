@@ -39,6 +39,10 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Copiar aplicação
 COPY --chown=appuser:appuser . .
 
+# COPIAR O ARQUIVO DO BANCO DE DADOS PARA UM LOCAL TEMPORÁRIO DENTRO DA IMAGEM
+# Este diretório não será afetado pelo volume /app/data
+COPY --chown=appuser:appuser pdf_organizer.db /tmp/initial_db/pdf_organizer.db
+
 # Criar diretórios necessários DENTRO DO CONTÊINER (se não estiverem montados como volume)
 # Estes comandos são menos relevantes para volumes montados, mas mantidos para clareza
 # e para o caso de o volume não ser montado.

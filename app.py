@@ -1505,7 +1505,7 @@ def edit_merge_list(list_id):
         # Obter arquivos da lista
         cursor.execute('''
             SELECT mli.id, mli.order_position, pf.id as file_id, pf.filename, 
-                   pf.original_name, pf.category, pf.page_count
+                   pf.original_name, pf.category, pf.page_count, pf.youtube_link
             FROM merge_list_items mli
             JOIN pdf_files pf ON mli.pdf_file_id = pf.id
             WHERE mli.merge_list_id = ?
@@ -1861,7 +1861,7 @@ def add_song_to_list(file_id, list_id):
         conn.commit()
         conn.close()
         
-        return redirect(request.referrer or url_for('index', success=f'"{music_name}" adicionada à lista "{list_name}"'))
+        return redirect(request.referrer or url_for('index', toast_success=f'"{music_name}" adicionada à lista "{list_name}"'))
 
 @app.route('/add_multiple_to_list/<int:list_id>', methods=['POST'])
 def add_multiple_to_list(list_id):
@@ -3134,9 +3134,43 @@ def update_music(file_id):
                          (file_id, liturgical_id))
     
     conn.commit()
+    
+    # Get updated music data for JSON response
+    cursor.execute('''
+        SELECT id, filename, original_name, song_name, artist, category, 
+               liturgical_time, musical_key, youtube_link, page_count, file_size, 
+               upload_date, description
+        FROM pdf_files WHERE id = ?
+    ''', (file_id,))
+    
+    updated_music = cursor.fetchone()
     conn.close()
     
-    return redirect(url_for('music_details', file_id=file_id, success='Informações da música atualizadas com sucesso!'))
+    # Check if this is an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # AJAX request - return JSON
+        if updated_music:
+            music_dict = {
+                'id': updated_music[0],
+                'filename': updated_music[1], 
+                'original_name': updated_music[2],
+                'song_name': updated_music[3],
+                'artist': updated_music[4],
+                'category': updated_music[5],
+                'liturgical_time': updated_music[6],
+                'musical_key': updated_music[7],
+                'youtube_link': updated_music[8],
+                'page_count': updated_music[9],
+                'file_size': updated_music[10],
+                'upload_date': updated_music[11],
+                'description': updated_music[12]
+            }
+            return jsonify({'success': True, 'music': music_dict})
+        else:
+            return jsonify({'success': False, 'error': 'Erro ao recuperar dados atualizados'})
+    else:
+        # Traditional form submission - use redirect
+        return redirect(url_for('music_details', file_id=file_id, toast_success='Informações da música atualizadas com sucesso!'))
 
 @app.route('/replace_pdf/<int:file_id>', methods=['POST'])
 def replace_pdf(file_id):
@@ -3460,6 +3494,12 @@ def music_details(file_id):
     
     return render_template('music_details.html', music=music, categories=get_categories(), 
                          liturgical_times=get_liturgical_times(), musical_keys=get_musical_keys(), artists=get_artists())
+
+@app.route('/details2/<int:file_id>')
+@require_auth
+def music_details2(file_id):
+    """Mostrar detalhes completos da música - redirecionamento para a função principal."""
+    return music_details(file_id)
 
 @app.route('/download/<int:file_id>')
 @require_auth
