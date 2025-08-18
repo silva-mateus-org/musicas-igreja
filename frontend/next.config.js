@@ -41,10 +41,20 @@ const nextConfig = {
 
     // Garantir alias '@' -> 'src' no webpack (corrige build em ambiente Docker)
     webpack: (config) => {
+        // Usar path absoluto baseado no diretório atual de trabalho
+        const srcPath = path.resolve(process.cwd(), 'src')
+        
         config.resolve.alias = {
             ...(config.resolve.alias || {}),
-            '@': path.resolve(__dirname, 'src'),
+            '@': srcPath,
         }
+        
+        // Também garantir que webpack procure em src/
+        if (!config.resolve.modules) {
+            config.resolve.modules = []
+        }
+        config.resolve.modules.push(srcPath)
+        
         return config
     }
 }
