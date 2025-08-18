@@ -117,8 +117,11 @@ jobs:
         working-directory: ./backend
         run: |
           set -e
-          # Prefer internal health check from inside the container to avoid host curl dependency
+          # Check backend health (internal port 5000)
           docker compose exec -T musicas-igreja curl -fsS http://localhost:5000/health
+          # Check external access on new port 5001
+          sleep 5
+          curl -fsS http://localhost:5001/health || echo "External health check failed, but internal passed"
 
       - name: Show recent logs on failure
         if: failure()
