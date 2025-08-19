@@ -4621,7 +4621,8 @@ def _ensure_drive_folder(service, parent_id: str, name: str) -> str:
 def _file_exists_in_folder(service, parent_id: str, name: str) -> bool:
     from googleapiclient.errors import HttpError
     try:
-        q = f"name = '{name.replace('\'', "\\'")}' and '{parent_id}' in parents and trashed = false"
+        safe_name = name.replace("'", "\\'")
+        q = f"name = '{safe_name}' and '{parent_id}' in parents and trashed = false"
         res = service.files().list(q=q, fields='files(id)', spaces='drive').execute()
         return len(res.get('files', [])) > 0
     except HttpError as e:
