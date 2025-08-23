@@ -3,7 +3,7 @@ services:
     image: ghcr.io/${GHCR_NAMESPACE}/musicas-igreja:latest
     container_name: musicas-igreja-app
     restart: unless-stopped
-    user: root  # Rodar como root para corrigir permissões
+    user: "0:0"  # Rodar como root (UID:GID 0:0) para corrigir permissões
     ports:
       - "5001:5000"
     environment:

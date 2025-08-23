@@ -108,7 +108,7 @@ export LOG_FOLDER=${LOG_FOLDER:-/data/logs}
 
 # Verificar se estamos rodando como root e devemos corrigir permissões
 if [ "$(id -u)" = "0" ] && [ "${FIX_PERMISSIONS}" = "true" ]; then
-    log "🔧 Rodando como root - corrigindo permissões de volumes..."
+    log "🔧 Modo correção de permissões ativo - rodando como root"
     
     # Corrigir permissões do volume /data
     if [ -d "/data" ]; then
@@ -124,8 +124,11 @@ if [ "$(id -u)" = "0" ] && [ "${FIX_PERMISSIONS}" = "true" ]; then
         log "✅ Permissões de /app/organized corrigidas"
     fi
     
-    log "🔄 Reiniciando como usuário appuser..."
-    exec su-exec 1000:1000 "$0" "$@"
+    log "🔄 Trocando para usuário appuser e continuando..."
+    # Limpar a flag para evitar loop
+    unset FIX_PERMISSIONS
+    # Executar o resto do script como appuser
+    exec su appuser -s /bin/bash -c 'export USER=appuser HOME=/home/appuser; exec "$0" "$@"' -- "$0" "$@"
 fi
 
 # Verificar e configurar diretório organized
