@@ -15,8 +15,11 @@ cd backend
 # Parar containers
 docker-compose down
 
-# Corrigir permissões
-sudo chown -R 1000:1000 ./organized
+# Corrigir permissões usando Docker (sem sudo)
+docker run --rm -v "$(pwd)/organized:/target" alpine:latest sh -c "
+    chown -R 1000:1000 /target
+    chmod -R 755 /target
+"
 
 # Reiniciar
 docker-compose up -d
@@ -57,9 +60,9 @@ docker-compose logs musicas-igreja --tail=50
 
 ## ✅ A solução:
 
-- Ajustar permissões do diretório host para UID 1000
-- Permite que o container escreva normalmente
-- Sistema funciona sem problemas
+- Usar Docker para ajustar permissões (sem necessidade de sudo)
+- Container temporário roda como root e corrige permissões
+- Sistema funciona sem problemas de acesso
 
 ---
 

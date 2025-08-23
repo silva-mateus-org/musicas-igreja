@@ -12,17 +12,23 @@ if [ -d "./organized" ]; then
     echo "📋 Permissões atuais:"
     ls -la ./organized
     
-    echo "🔧 Corrigindo permissões..."
-    sudo chown -R 1000:1000 ./organized
-    sudo chmod -R 755 ./organized
+    echo "🔧 Corrigindo permissões usando Docker..."
+    docker run --rm -v "$(pwd)/organized:/target" alpine:latest sh -c "
+        chown -R 1000:1000 /target
+        chmod -R 755 /target
+        echo 'Permissions fixed via Docker'
+    "
     
     echo "✅ Permissões corrigidas:"
     ls -la ./organized
 else
     echo "❌ Diretório ./organized não encontrado, criando..."
     mkdir -p ./organized
-    sudo chown -R 1000:1000 ./organized
-    sudo chmod -R 755 ./organized
+    docker run --rm -v "$(pwd)/organized:/target" alpine:latest sh -c "
+        chown -R 1000:1000 /target
+        chmod -R 755 /target
+        echo 'Directory created with correct permissions via Docker'
+    "
 fi
 
 echo "🗃️ Corrigindo volume Docker..."

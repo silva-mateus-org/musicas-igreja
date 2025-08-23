@@ -114,16 +114,36 @@ jobs:
           set -e
           echo "🔍 === Pre-deploy permissions check ==="
           
+          # Função para corrigir permissões usando Docker (sem sudo)
+          fix_permissions_with_docker() {
+            local target_dir="$1"
+            echo "🔧 Using Docker to fix permissions for: $target_dir"
+            
+            # Usar Docker para corrigir permissões (roda como root dentro do container)
+            docker run --rm \
+              -v "$(pwd)/$target_dir:/target" \
+              alpine:latest \
+              sh -c "
+                echo 'Current permissions:'
+                ls -la /target
+                echo 'Fixing permissions to 1000:1000...'
+                chown -R 1000:1000 /target
+                chmod -R 755 /target
+                echo 'Fixed permissions:'
+                ls -la /target
+                echo 'Permissions fixed successfully'
+              "
+          }
+          
           # Verificar se diretório organized existe e suas permissões
           if [ -d "./organized" ]; then
             echo "✅ Directory ./organized exists"
-            current_owner=$(stat -c '%u:%g' ./organized)
+            current_owner=$(stat -c '%u:%g' ./organized 2>/dev/null || echo "unknown")
             echo "📋 Current owner: $current_owner"
             
             if [ "$current_owner" != "1000:1000" ]; then
               echo "🔧 Fixing permissions (current: $current_owner, needed: 1000:1000)"
-              sudo chown -R 1000:1000 ./organized
-              sudo chmod -R 755 ./organized
+              fix_permissions_with_docker "organized"
               echo "✅ Permissions fixed"
             else
               echo "✅ Permissions already correct"
@@ -131,8 +151,7 @@ jobs:
           else
             echo "📁 Creating organized directory with correct permissions"
             mkdir -p ./organized
-            sudo chown -R 1000:1000 ./organized
-            sudo chmod -R 755 ./organized
+            fix_permissions_with_docker "organized"
             echo "✅ Directory created with correct permissions"
           fi
           
@@ -309,12 +328,20 @@ jobs:
           docker compose down || true
           docker container prune -f || true
           
-          # Recriar com permissões corretas
+          # Recriar com permissões corretas usando Docker (sem sudo)
           echo "🔧 Recreating with correct permissions..."
-          sudo rm -rf ./organized || true
+          rm -rf ./organized || true
           mkdir -p ./organized
-          sudo chown -R 1000:1000 ./organized
-          sudo chmod -R 755 ./organized
+          
+          # Usar Docker para corrigir permissões
+          docker run --rm \
+            -v "$(pwd)/organized:/target" \
+            alpine:latest \
+            sh -c "
+              chown -R 1000:1000 /target
+              chmod -R 755 /target
+              echo 'Emergency permissions fixed'
+            "
           
           # Tentar subir uma última vez
           echo "🚀 Final attempt..."
@@ -337,8 +364,8 @@ jobs:
             echo ""
             echo "🛠️  MANUAL RECOVERY STEPS:"
             echo "1. SSH into the server"
-            echo "2. cd to project directory"
-            echo "3. Run: sudo chown -R 1000:1000 ./organized"
+            echo "2. cd to project directory" 
+            echo "3. Run: docker run --rm -v \"\$(pwd)/organized:/target\" alpine:latest sh -c \"chown -R 1000:1000 /target; chmod -R 755 /target\""
             echo "4. Run: docker compose down && docker compose up -d"
             echo "5. Check logs: docker compose logs -f musicas-igreja"
             echo ""
