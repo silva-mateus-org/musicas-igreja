@@ -17,9 +17,9 @@ services:
       - LOG_FOLDER=/data/logs
     volumes:
       # Volume para persistir os dados da aplicação (banco de dados, uploads, logs)
-      - musicas_data:/data
+      - musicas_data:/data:rw
       # Pasta organizada compartilhada com o host (usar mesmo caminho em dev/prod)
-      - ./organized:/app/organized
+      - ./organized:/app/organized:rw
       # Montagem opcional de um diretório 'config' do host para dentro do contêiner (somente leitura)
       - ./config:/app/config:ro
     networks:
@@ -62,3 +62,7 @@ networks:
 volumes:
   musicas_data:
     driver: local # Define um volume local para persistir os dados da aplicação
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/data  # Monta diretório local ./data para persistência
