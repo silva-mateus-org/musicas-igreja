@@ -25,6 +25,7 @@ RUN groupadd -r -g ${APP_USER_GID} appuser && useradd -r -g appuser -u ${APP_USE
 # Instalar apenas dependências runtime necessárias
 RUN apt-get update && apt-get install -y \
     curl \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurar diretório de trabalho
@@ -45,7 +46,11 @@ COPY --chown=appuser:appuser . .
 
 # Criar diretórios padrão em /data (compatível com volume montado)
 RUN mkdir -p /data/logs /data/uploads /data/organized && \
-    chown -R appuser:appuser /data
+    chown -R appuser:appuser /data && \
+    chmod 755 /data /data/logs /data/uploads /data/organized
+
+# Permitir ao appuser usar sudo para ajustar permissões se necessário
+RUN echo "appuser ALL=(ALL) NOPASSWD: /bin/chown, /bin/chmod" >> /etc/sudoers
 
 # Configurar variáveis de ambiente
 ENV FLASK_APP=app.py
