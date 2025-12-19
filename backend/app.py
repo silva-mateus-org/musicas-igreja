@@ -5185,7 +5185,7 @@ def api_create_merge_list():
         cursor.execute('INSERT INTO merge_list_items (merge_list_id, pdf_file_id, order_position) VALUES (?, ?, ?)', (list_id, fid, max_pos))
     conn.commit()
     conn.close()
-    return jsonify({'success': True, 'id': list_id}), 201
+    return jsonify({'success': True, 'list_id': list_id, 'message': f'Lista "{list_name}" criada com sucesso'}), 201
 
 
 @app.route('/api/merge_lists/<int:list_id>', methods=['GET'])
