@@ -22,7 +22,8 @@ import {
     ClipboardList,
     Check,
     FileText,
-    Copy
+    Copy,
+    Youtube
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
@@ -107,13 +108,36 @@ export default function ListDetailsPage() {
         try {
             // Gerar relatório de texto
             let report = `${list.name}\n`
-            report += '='.repeat(list.name.length) + '\n\n'
+            report += '='.repeat(list.name.length) + '\n'
+
+            // Adicionar observações se existirem
+            if (list.observations?.trim()) {
+                report += `${list.observations.trim()}\n`
+            }
+            report += '\n'
 
             list.items.forEach((item, index) => {
                 const title = item.music?.title || 'Título não disponível'
-                const key = item.music?.musical_key || 'Tom não informado'
-                const artist = item.music?.artist || 'Artista não informado'
-                report += `${index + 1}. ${title} - ${key} - ${artist}\n`
+                const key = item.music?.musical_key
+                const artist = item.music?.artist
+                const youtubeLink = item.music?.youtube_link
+
+                // Construir linha omitindo informações faltantes
+                let line = `${index + 1}. ${title}`
+
+                if (key?.trim()) {
+                    line += ` - ${key}`
+                }
+
+                if (artist?.trim()) {
+                    line += ` - ${artist}`
+                }
+
+                if (youtubeLink?.trim()) {
+                    line += ` - ${youtubeLink}`
+                }
+
+                report += line + '\n'
             })
 
             // Copiar para clipboard
@@ -136,6 +160,35 @@ export default function ListDetailsPage() {
         } finally {
             setIsGeneratingReport(false)
         }
+    }
+
+    const handleViewPdf = (musicId: number) => {
+        window.open(`/api/files/${musicId}/stream`, '_blank')
+    }
+
+    const handleDownloadPdf = async (musicId: number, title: string) => {
+        try {
+            const response = await fetch(`/api/files/${musicId}/download`)
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `${title || 'musica'}.pdf`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+        } catch (error) {
+            toast({
+                title: "Erro ao baixar",
+                description: "Não foi possível baixar o arquivo.",
+                variant: "destructive",
+            })
+        }
+    }
+
+    const openYouTube = (url: string) => {
+        window.open(url, '_blank')
     }
 
     if (isLoading) {
@@ -370,18 +423,64 @@ export default function ListDetailsPage() {
                                             </div>
                                         </div>
                                         <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="sm" asChild>
-                                                        <Link href={`/music/${item.music_id}`} target="_blank">
-                                                            <FileText className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>Ver detalhes da música</p>
-                                                </TooltipContent>
-                                            </Tooltip>
+                                            <div className="flex gap-1 flex-wrap justify-end">
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button variant="ghost" size="sm" asChild>
+                                                            <Link href={`/music/${item.music_id}`} target="_blank">
+                                                                <FileText className="h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Ver detalhes da música</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleViewPdf(item.music_id)}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Visualizar PDF</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDownloadPdf(item.music_id, item.music?.title || '')}
+                                                        >
+                                                            <Download className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Baixar arquivo PDF</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                                {item.music?.youtube_link && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openYouTube(item.music!.youtube_link!)}
+                                                            >
+                                                                <Youtube className="h-4 w-4 text-red-500" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Abrir vídeo no YouTube</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )}
+                                            </div>
                                         </TooltipProvider>
                                     </div>
                                 ))}

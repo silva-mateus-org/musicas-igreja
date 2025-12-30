@@ -273,6 +273,7 @@ export const listsApi = {
                     title: it.file.song_name || it.file.filename?.replace('.pdf', ''),
                     artist: it.file.artist,
                     musical_key: it.file.musical_key,
+                    youtube_link: it.file.youtube_link,
                     file_size: 0,
                     upload_date: '',
                     uploaded_by: 0,

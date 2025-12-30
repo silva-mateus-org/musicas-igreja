@@ -5172,12 +5172,13 @@ def api_create_artist_json():
 def api_create_merge_list():
     data = request.get_json(silent=True) or {}
     list_name = (data.get('name') or '').strip()
+    observations = (data.get('observations') or '').strip()
     file_ids = data.get('file_ids') or []
     if not list_name:
         return jsonify({'success': False, 'error': 'Nome da lista é obrigatório'}), 400
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO merge_lists (name) VALUES (?)', (list_name,))
+    cursor.execute('INSERT INTO merge_lists (name, observations) VALUES (?, ?)', (list_name, observations if observations else None))
     list_id = cursor.lastrowid
     max_pos = 0
     for fid in file_ids:
@@ -5198,7 +5199,7 @@ def api_get_merge_list(list_id):
         conn.close()
         return jsonify({'success': False, 'error': 'Lista não encontrada'}), 404
     cursor.execute('''
-        SELECT mli.id, mli.order_position, pf.id as file_id, pf.filename, pf.song_name, pf.artist, pf.musical_key
+        SELECT mli.id, mli.order_position, pf.id as file_id, pf.filename, pf.song_name, pf.artist, pf.musical_key, pf.youtube_link
         FROM merge_list_items mli
         JOIN pdf_files pf ON mli.pdf_file_id = pf.id
         WHERE mli.merge_list_id = ?
@@ -5214,7 +5215,8 @@ def api_get_merge_list(list_id):
                 'filename': row[3],
                 'song_name': row[4],
                 'artist': row[5],
-                'musical_key': row[6]
+                'musical_key': row[6],
+                'youtube_link': row[7]
             }
         })
     conn.close()
