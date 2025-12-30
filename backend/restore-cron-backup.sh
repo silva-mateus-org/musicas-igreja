@@ -213,3 +213,4 @@ echo "   Container: $CONTAINER_NAME"
 echo ""
 echo "🔗 Acesse: http://localhost:5001"
 
+

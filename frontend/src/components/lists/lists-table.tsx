@@ -109,13 +109,36 @@ export function ListsTable({
 
             // Gerar relatório
             let report = `${fullList.name}\n`
-            report += '='.repeat(fullList.name.length) + '\n\n'
+            report += '='.repeat(fullList.name.length) + '\n'
+
+            // Adicionar observações se existirem
+            if (fullList.observations?.trim()) {
+                report += `${fullList.observations.trim()}\n`
+            }
+            report += '\n'
 
             fullList.items.forEach((item, index) => {
                 const title = item.music?.title || 'Título não disponível'
-                const key = item.music?.musical_key || 'Tom não informado'
-                const artist = item.music?.artist || 'Artista não informado'
-                report += `${index + 1}. ${title} - ${key} - ${artist}\n`
+                const key = item.music?.musical_key
+                const artist = item.music?.artist
+                const youtubeLink = item.music?.youtube_link
+
+                // Construir linha omitindo informações faltantes
+                let line = `${index + 1}. ${title}`
+
+                if (key?.trim()) {
+                    line += ` - ${key}`
+                }
+
+                if (artist?.trim()) {
+                    line += ` - ${artist}`
+                }
+
+                if (youtubeLink?.trim()) {
+                    line += ` - ${youtubeLink}`
+                }
+
+                report += line + '\n'
             })
 
             // Copiar para clipboard
