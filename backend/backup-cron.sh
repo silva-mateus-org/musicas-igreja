@@ -89,20 +89,29 @@ log "🎵 Iniciando backup automático..."
 TEMP_DIR="$BACKUP_DIR/temp/current_$$"
 mkdir -p "$TEMP_DIR"
 
-# Cleanup em caso de erro
-trap "rm -rf $TEMP_DIR" EXIT
+# Cleanup em caso de erro (usar sudo porque arquivos do Docker podem ser de root)
+cleanup() {
+    if [ -d "$TEMP_DIR" ]; then
+        rm -rf "$TEMP_DIR" 2>/dev/null || sudo rm -rf "$TEMP_DIR" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+# Obter UID/GID do usuário atual para definir permissões corretas
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
 
 log_info "Extraindo banco de dados..."
 docker run --rm \
     -v "$VOLUME_DATA:/data:ro" \
     -v "$TEMP_DIR:/backup" \
-    alpine sh -c "cp /data/pdf_organizer.db /backup/ 2>/dev/null || echo 'DB não encontrado'" 
+    alpine sh -c "cp /data/pdf_organizer.db /backup/ 2>/dev/null && chown $CURRENT_UID:$CURRENT_GID /backup/pdf_organizer.db || echo 'DB não encontrado'" 
 
 log_info "Extraindo músicas organizadas..."
 docker run --rm \
     -v "$VOLUME_ORGANIZED:/organized:ro" \
     -v "$TEMP_DIR:/backup" \
-    alpine sh -c "cp -r /organized /backup/organized 2>/dev/null || mkdir -p /backup/organized"
+    alpine sh -c "cp -r /organized /backup/organized 2>/dev/null && chown -R $CURRENT_UID:$CURRENT_GID /backup/organized || mkdir -p /backup/organized"
 
 # ============================================
 # CALCULAR HASH DOS DADOS ATUAIS
@@ -257,4 +266,5 @@ if [ -L "$BACKUP_DIR/latest.tar.gz" ]; then
 fi
 
 log "🎵 Backup automático finalizado!"
+
 
