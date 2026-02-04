@@ -115,18 +115,11 @@ jobs:
         run: |
           set -e
           echo "GHCR_NAMESPACE=${GHCR_NAMESPACE}" > .env
-          if [ -n "${SECRET_KEY}" ]; then
-            echo "SECRET_KEY=${SECRET_KEY}" >> .env
-          fi
-          # Backend configuration
-          echo "FLASK_ENV=production" >> .env
-          echo "DATABASE_PATH=/data/pdf_organizer.db" >> .env
-          echo "UPLOAD_FOLDER=/data/uploads" >> .env
-          echo "ORGANIZED_FOLDER=/app/organized" >> .env
-          echo "LOG_FOLDER=/data/logs" >> .env
           # Frontend-Backend communication URLs
           echo "BACKEND_URL=http://musicas-igreja:5000" >> .env
           echo "NEXT_PUBLIC_BACKEND_URL=http://localhost:5001" >> .env
+          # Note: ASP.NET Core backend configuration is set in docker-compose.yml
+          # Database__Path and Storage__OrganizedFolder are configured there
 
       - name: Pull and start services
         working-directory: ./backend
@@ -165,9 +158,9 @@ jobs:
           # Check if backend container is running
           if docker compose ps | grep musicas-igreja | grep -q "Up"; then
             echo "Backend container is running, testing health endpoint..."
-            docker compose exec -T musicas-igreja curl -fsS http://localhost:5000/health || echo "Internal health check failed"
+            docker compose exec -T musicas-igreja curl -fsS http://localhost:5000/api/health || echo "Internal health check failed"
             sleep 5
-            curl -fsS http://localhost:5001/health || echo "External health check failed"
+            curl -fsS http://localhost:5001/api/health || echo "External health check failed"
           else
             echo "Backend container is not running properly"
             exit 1

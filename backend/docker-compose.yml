@@ -1,0 +1,66 @@
+services:
+  musicas-igreja:
+    # Image is built and pushed to GHCR by GitHub Actions 'build' job
+    image: ghcr.io/${GHCR_NAMESPACE}/musicas-igreja:latest
+    container_name: musicas-igreja-app
+    restart: unless-stopped
+    ports:
+      - "5001:5000" # Backend on port 5001 (external) -> 5000 (internal container)
+    environment:
+      # ASP.NET Core configuration
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      # Database configuration (uses __ for nested config in .NET)
+      # Using same database filename as Python backend for seamless migration
+      - Database__Path=/app/data/pdf_organizer.db
+      # Storage configuration
+      - Storage__OrganizedFolder=/app/organized
+    volumes:
+      # Volume for application data (database)
+      # Note: C# backend uses /app/data instead of /data
+      - musicas_data:/app/data:rw
+      # Organized PDFs folder - named volume to persist between deploys
+      - musicas_organized:/app/organized:rw
+    networks:
+      - musicas-network
+    healthcheck:
+      # C# backend uses /api/health endpoint
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: ghcr.io/${GHCR_NAMESPACE}/musicas-igreja-frontend:latest
+    container_name: musicas-igreja-front
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=${BACKEND_URL}
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - musicas-igreja
+    networks:
+      - musicas-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  musicas-network:
+    driver: bridge
+
+volumes:
+  musicas_data:
+    # Volume: backend_musicas_data - persists database
+    driver: local
+  musicas_organized:
+    # Volume: backend_musicas_organized - persists organized PDF files
+    driver: local
