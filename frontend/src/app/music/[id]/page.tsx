@@ -408,7 +408,7 @@ export default function MusicDetailsPage() {
                 open={deleteDialogOpen}
                 onOpenChange={setDeleteDialogOpen}
                 title="Confirmar Exclusão"
-                description={`Tem certeza que deseja excluir a música "${music?.song_name || 'esta música'}"? Esta ação não pode ser desfeita.`}
+                description={`Tem certeza que deseja excluir a música "${music?.title || 'esta música'}"? Esta ação não pode ser desfeita.`}
                 confirmText="Excluir"
                 cancelText="Cancelar"
                 variant="destructive"
