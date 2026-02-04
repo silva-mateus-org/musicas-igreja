@@ -17,6 +17,7 @@ public class AuthControllerTests : IDisposable
     private readonly AppDbContext _context;
     private readonly AuthController _controller;
     private readonly AuthService _authService;
+    private readonly Mock<IRateLimitService> _rateLimitServiceMock;
     private readonly Mock<ILogger<AuthController>> _loggerMock;
     private readonly Mock<ILogger<AuthService>> _authLoggerMock;
     private readonly Mock<IWebHostEnvironment> _environmentMock;
@@ -31,14 +32,18 @@ public class AuthControllerTests : IDisposable
         _loggerMock = new Mock<ILogger<AuthController>>();
         _authLoggerMock = new Mock<ILogger<AuthService>>();
         _environmentMock = new Mock<IWebHostEnvironment>();
+        _rateLimitServiceMock = new Mock<IRateLimitService>();
         
         _authService = new AuthService(_context, _authLoggerMock.Object);
         
         _environmentMock.Setup(e => e.EnvironmentName).Returns("Production");
-
-        _controller = new AuthController(_authService, _loggerMock.Object, _environmentMock.Object);
         
-        // Setup HttpContext with session
+        // Setup rate limit mock to not block by default
+        _rateLimitServiceMock.Setup(r => r.IsRateLimited(It.IsAny<string>())).Returns(false);
+
+        _controller = new AuthController(_authService, _rateLimitServiceMock.Object, _loggerMock.Object, _environmentMock.Object);
+        
+        // Setup HttpContext with session and connection info
         var httpContext = new DefaultHttpContext();
         var sessionMock = new Mock<ISession>();
         var sessionData = new Dictionary<string, byte[]>();
@@ -54,6 +59,7 @@ public class AuthControllerTests : IDisposable
             });
         
         httpContext.Session = sessionMock.Object;
+        httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("127.0.0.1");
         _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
         SeedDatabase();
@@ -168,48 +174,42 @@ public class AuthControllerTests : IDisposable
 
     #endregion
 
-    #region Debug Endpoints Tests
+    #region Rate Limiting Tests
 
     [Fact]
-    public void DebugHash_InProduction_ShouldReturnNotFound()
+    public async Task Login_WhenRateLimited_ShouldReturn429()
     {
-        _environmentMock.Setup(e => e.EnvironmentName).Returns("Production");
+        // Setup rate limit to return true (blocked)
+        _rateLimitServiceMock.Setup(r => r.IsRateLimited(It.IsAny<string>())).Returns(true);
 
-        var result = _controller.DebugHash("test");
+        var request = new LoginRequest { Username = "testuser", Password = "password123" };
 
-        Assert.IsType<NotFoundResult>(result);
+        var result = await _controller.Login(request);
+
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(429, statusCodeResult.StatusCode);
     }
 
     [Fact]
-    public void DebugHash_InDevelopment_ShouldReturnHash()
+    public async Task Login_WithValidCredentials_ShouldResetRateLimit()
     {
-        _environmentMock.Setup(e => e.EnvironmentName).Returns("Development");
-        var devController = new AuthController(_authService, _loggerMock.Object, _environmentMock.Object);
+        var request = new LoginRequest { Username = "testuser", Password = "password123" };
 
-        var result = devController.DebugHash("test");
+        await _controller.Login(request);
 
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
+        // Verify that ResetAttempts was called
+        _rateLimitServiceMock.Verify(r => r.ResetAttempts(It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
-    public async Task DebugUsers_InProduction_ShouldReturnNotFound()
+    public async Task Login_WithInvalidCredentials_ShouldRecordAttempt()
     {
-        _environmentMock.Setup(e => e.EnvironmentName).Returns("Production");
+        var request = new LoginRequest { Username = "testuser", Password = "wrongpassword" };
 
-        var result = await _controller.DebugUsers();
+        await _controller.Login(request);
 
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task ResetAdmin_InProduction_ShouldReturnNotFound()
-    {
-        _environmentMock.Setup(e => e.EnvironmentName).Returns("Production");
-
-        var result = await _controller.ResetAdmin();
-
-        Assert.IsType<NotFoundResult>(result);
+        // Verify that RecordAttempt was called
+        _rateLimitServiceMock.Verify(r => r.RecordAttempt(It.IsAny<string>()), Times.Once);
     }
 
     #endregion

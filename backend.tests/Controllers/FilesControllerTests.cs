@@ -16,6 +16,7 @@ public class FilesControllerTests : IDisposable
     private readonly AppDbContext _context;
     private readonly FilesController _controller;
     private readonly Mock<IFileService> _fileServiceMock;
+    private readonly Mock<IAuthService> _authServiceMock;
     private readonly Mock<ILogger<FilesController>> _loggerMock;
 
     public FilesControllerTests()
@@ -26,9 +27,10 @@ public class FilesControllerTests : IDisposable
 
         _context = new AppDbContext(options);
         _fileServiceMock = new Mock<IFileService>();
+        _authServiceMock = new Mock<IAuthService>();
         _loggerMock = new Mock<ILogger<FilesController>>();
 
-        _controller = new FilesController(_context, _fileServiceMock.Object, _loggerMock.Object);
+        _controller = new FilesController(_context, _fileServiceMock.Object, _authServiceMock.Object, _loggerMock.Object);
 
         SeedDatabase();
     }
