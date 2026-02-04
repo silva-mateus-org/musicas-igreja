@@ -652,7 +652,7 @@ export default function SystemSettingsPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="font-medium">Versão:</span> 2.0.0
+                                <span className="font-medium">Versão:</span> 3.0.0
                             </div>
                             <div>
                                 <span className="font-medium">Banco de Dados:</span> SQLite

@@ -13,6 +13,7 @@ import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
 import { musicApi, handleApiError } from '@/lib/api'
 import { AddToListModal } from '@/components/music/add-to-list-modal'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuth } from '@/contexts/AuthContext'
 
 function isValidYouTube(url?: string) {
@@ -36,6 +37,8 @@ export default function MusicDetailsPage() {
     const [pdfError, setPdfError] = useState(false)
     const [pdfUrl, setPdfUrl] = useState<string | null>(null)
     const [loadingPdf, setLoadingPdf] = useState(true)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const musicId = params.id as string
 
@@ -116,14 +119,21 @@ export default function MusicDetailsPage() {
         }
     }
 
-    const handleDelete = async () => {
-        if (!music || !confirm('Tem certeza que deseja excluir esta música?')) return
+    const handleDeleteClick = () => {
+        setDeleteDialogOpen(true)
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!music) return
         try {
+            setIsDeleting(true)
             await musicApi.deleteMusic(music.id)
             toast({ title: 'Música excluída', description: 'A música foi removida com sucesso' })
             router.push('/music')
         } catch (error) {
             toast({ title: 'Erro', description: handleApiError(error), variant: 'destructive' })
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -250,7 +260,7 @@ export default function MusicDetailsPage() {
                                 {canDelete && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 gap-1 sm:gap-2 text-xs sm:text-sm" onClick={handleDelete}>
+                                            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 gap-1 sm:gap-2 text-xs sm:text-sm" onClick={handleDeleteClick}>
                                                 <Trash2 className="h-4 w-4" />
                                                 <span>Excluir</span>
                                             </Button>
@@ -392,6 +402,19 @@ export default function MusicDetailsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Confirm Delete Dialog */}
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Confirmar Exclusão"
+                description={`Tem certeza que deseja excluir a música "${music?.song_name || 'esta música'}"? Esta ação não pode ser desfeita.`}
+                confirmText="Excluir"
+                cancelText="Cancelar"
+                variant="destructive"
+                onConfirm={handleDeleteConfirm}
+                loading={isDeleting}
+            />
         </MainLayout>
     )
 }

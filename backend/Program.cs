@@ -21,8 +21,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IMigrationService, MigrationService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 
-// Session configuration
+// Session configuration with sliding expiration
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -31,6 +32,8 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.Name = ".MusicasIgreja.Session";
+    // Renovação automática: a sessão é renovada a cada request
+    // O IdleTimeout é resetado automaticamente pelo ASP.NET Core
 });
 
 // Controllers

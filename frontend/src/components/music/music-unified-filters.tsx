@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { dashboardApi, categoriesApi, liturgicalTimesApi, handleApiError } from '@/lib/api'
 import type { SearchFilters } from '@/types'
-import { Search, X, Filter, ChevronDown, RotateCcw, ArrowUpDown } from 'lucide-react'
+import { Search, X, Filter, ChevronDown, RotateCcw, ArrowUpDown, Music2, User, FolderOpen, Calendar, Hash, Youtube } from 'lucide-react'
 import { debounce } from '@/lib/utils'
 
 interface SortOption {
@@ -63,10 +63,10 @@ export function MusicUnifiedFilters({
         musicalKeys: MUSICAL_KEYS
     })
 
-    // Load filter options on mount
+    // Load filter options on mount and when filters change
     useEffect(() => {
         loadFilterOptions()
-    }, [])
+    }, [filters.category, filters.liturgical_time, filters.artist, filters.musical_key])
 
     // Sync search term with filters
     useEffect(() => {
@@ -76,20 +76,31 @@ export function MusicUnifiedFilters({
     const loadFilterOptions = async () => {
         try {
             setIsLoading(true)
-            const [artistsResult, catsResult, timesResult] = await Promise.all([
-                dashboardApi.getArtists().catch(() => []),
-                categoriesApi.getCategories().catch(() => ({ data: [] })),
-                liturgicalTimesApi.getLiturgicalTimes().catch(() => ({ data: [] })),
-            ])
+            // Build query params for dynamic filtering
+            const params = new URLSearchParams()
+            if (filters.category) params.append('category', filters.category)
+            if (filters.liturgical_time) params.append('liturgical_time', filters.liturgical_time)
+            if (filters.artist) params.append('artist', filters.artist)
+            if (filters.musical_key) params.append('musical_key', filters.musical_key)
+
+            const response = await fetch(`/api/filters/suggestions?${params.toString()}`)
+            const data = await response.json()
 
             setOptions({
-                artists: Array.isArray(artistsResult) ? artistsResult : [],
-                categories: Array.isArray(catsResult?.data) ? catsResult.data : [],
-                liturgicalTimes: Array.isArray(timesResult?.data) ? timesResult.data : [],
-                musicalKeys: MUSICAL_KEYS
+                artists: Array.isArray(data.artists) ? data.artists : [],
+                categories: Array.isArray(data.categories) ? data.categories : [],
+                liturgicalTimes: Array.isArray(data.liturgical_times) ? data.liturgical_times : [],
+                musicalKeys: Array.isArray(data.musical_keys) && data.musical_keys.length > 0 ? data.musical_keys : MUSICAL_KEYS
             })
         } catch (error) {
             console.error('Erro ao carregar opções de filtro:', handleApiError(error))
+            // Fallback to all options on error
+            setOptions({
+                artists: [],
+                categories: [],
+                liturgicalTimes: [],
+                musicalKeys: MUSICAL_KEYS
+            })
         } finally {
             setIsLoading(false)
         }
@@ -191,7 +202,8 @@ export function MusicUnifiedFilters({
                             value={filters.category || ALL_VALUE} 
                             onValueChange={(v) => handleFilterChange('category', v === ALL_VALUE ? undefined : v)}
                         >
-                            <SelectTrigger className="w-40">
+                            <SelectTrigger className="w-40 gap-2">
+                                <FolderOpen className="h-4 w-4 shrink-0" />
                                 <SelectValue placeholder="Categoria" />
                             </SelectTrigger>
                             <SelectContent>
@@ -206,7 +218,8 @@ export function MusicUnifiedFilters({
                             value={filters.artist || ALL_VALUE} 
                             onValueChange={(v) => handleFilterChange('artist', v === ALL_VALUE ? undefined : v)}
                         >
-                            <SelectTrigger className="w-40">
+                            <SelectTrigger className="w-40 gap-2">
+                                <User className="h-4 w-4 shrink-0" />
                                 <SelectValue placeholder="Artista" />
                             </SelectTrigger>
                             <SelectContent>
@@ -288,7 +301,8 @@ export function MusicUnifiedFilters({
                                             value={filters.category || ALL_VALUE} 
                                             onValueChange={(v) => handleFilterChange('category', v === ALL_VALUE ? undefined : v)}
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="gap-2">
+                                                <FolderOpen className="h-4 w-4 shrink-0" />
                                                 <SelectValue placeholder="Categoria" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -306,7 +320,8 @@ export function MusicUnifiedFilters({
                                             value={filters.artist || ALL_VALUE} 
                                             onValueChange={(v) => handleFilterChange('artist', v === ALL_VALUE ? undefined : v)}
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="gap-2">
+                                                <User className="h-4 w-4 shrink-0" />
                                                 <SelectValue placeholder="Artista" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -323,7 +338,8 @@ export function MusicUnifiedFilters({
                                         value={filters.liturgical_time || ALL_VALUE} 
                                         onValueChange={(v) => handleFilterChange('liturgical_time', v === ALL_VALUE ? undefined : v)}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="gap-2">
+                                            <Calendar className="h-4 w-4 shrink-0" />
                                             <SelectValue placeholder="Tempo Litúrgico" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -339,7 +355,8 @@ export function MusicUnifiedFilters({
                                         value={filters.musical_key || ALL_VALUE} 
                                         onValueChange={(v) => handleFilterChange('musical_key', v === ALL_VALUE ? undefined : v)}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="gap-2">
+                                            <Hash className="h-4 w-4 shrink-0" />
                                             <SelectValue placeholder="Tom" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -358,7 +375,8 @@ export function MusicUnifiedFilters({
                                             else handleFilterChange('has_youtube', v === 'true')
                                         }}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="gap-2">
+                                            <Youtube className="h-4 w-4 shrink-0" />
                                             <SelectValue placeholder="YouTube" />
                                         </SelectTrigger>
                                         <SelectContent>

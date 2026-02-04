@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import { DuplicateListDialog } from '@/components/lists/duplicate-list-dialog'
 
@@ -43,6 +44,8 @@ export default function ListDetailsPage() {
     const [error, setError] = useState('')
     const [isGeneratingReport, setIsGeneratingReport] = useState(false)
     const [reportCopied, setReportCopied] = useState(false)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const loadList = async () => {
         try {
@@ -63,10 +66,15 @@ export default function ListDetailsPage() {
         }
     }, [listId])
 
-    const handleDelete = async () => {
-        if (!list || !confirm(`Tem certeza que deseja excluir a lista "${list.name}"?`)) return
+    const handleDeleteClick = () => {
+        setDeleteDialogOpen(true)
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!list) return
 
         try {
+            setIsDeleting(true)
             await listsApi.deleteList(list.id)
             toast({
                 title: "Lista excluída",
@@ -79,6 +87,8 @@ export default function ListDetailsPage() {
                 description: handleApiError(error),
                 variant: "destructive",
             })
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -333,7 +343,7 @@ export default function ListDetailsPage() {
                             {canDelete && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button variant="destructive" size="sm" onClick={handleDelete} className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
+                                        <Button variant="destructive" size="sm" onClick={handleDeleteClick} className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
                                             <Trash2 className="h-4 w-4" />
                                             <span>Excluir</span>
                                         </Button>
@@ -534,6 +544,19 @@ export default function ListDetailsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Confirm Delete Dialog */}
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Confirmar Exclusão"
+                description={`Tem certeza que deseja excluir a lista "${list?.name || 'esta lista'}"? Esta ação não pode ser desfeita e todas as músicas associadas serão removidas da lista.`}
+                confirmText="Excluir Lista"
+                cancelText="Cancelar"
+                variant="destructive"
+                onConfirm={handleDeleteConfirm}
+                loading={isDeleting}
+            />
         </MainLayout>
     )
 }

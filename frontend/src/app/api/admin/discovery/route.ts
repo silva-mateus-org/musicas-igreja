@@ -8,7 +8,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5000'
 export async function GET(request: NextRequest) {
     try {
         const response = await fetch(`${BACKEND_URL}/api/admin/discover-entities`, {
-            method: 'POST',
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',

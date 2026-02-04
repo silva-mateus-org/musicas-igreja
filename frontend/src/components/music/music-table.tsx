@@ -15,7 +15,12 @@ import {
     Edit,
     Youtube,
     ListPlus,
-    MoreHorizontal
+    MoreHorizontal,
+    Music2,
+    User,
+    Hash,
+    FolderOpen,
+    Calendar
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { AddToListModal } from './add-to-list-modal'
@@ -68,11 +73,36 @@ export function MusicTable({
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Título</TableHead>
-                                <TableHead>Artista</TableHead>
-                                <TableHead className="hidden sm:table-cell">Tom</TableHead>
-                                <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                                <TableHead className="hidden lg:table-cell">Tempo</TableHead>
+                                <TableHead>
+                                    <div className="flex items-center gap-2">
+                                        <Music2 className="h-4 w-4" />
+                                        <span>Título</span>
+                                    </div>
+                                </TableHead>
+                                <TableHead>
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4" />
+                                        <span>Artista</span>
+                                    </div>
+                                </TableHead>
+                                <TableHead className="hidden sm:table-cell">
+                                    <div className="flex items-center gap-2">
+                                        <Hash className="h-4 w-4" />
+                                        <span>Tom</span>
+                                    </div>
+                                </TableHead>
+                                <TableHead className="hidden md:table-cell">
+                                    <div className="flex items-center gap-2">
+                                        <FolderOpen className="h-4 w-4" />
+                                        <span>Categoria</span>
+                                    </div>
+                                </TableHead>
+                                <TableHead className="hidden lg:table-cell">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4" />
+                                        <span>Tempo</span>
+                                    </div>
+                                </TableHead>
                                 <TableHead>Ações</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -108,11 +138,36 @@ export function MusicTable({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Título</TableHead>
-                        <TableHead>Artista</TableHead>
-                        <TableHead className="hidden sm:table-cell">Tom</TableHead>
-                        <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                        <TableHead className="hidden lg:table-cell">Tempo</TableHead>
+                        <TableHead>
+                            <div className="flex items-center gap-2">
+                                <Music2 className="h-4 w-4" />
+                                <span>Título</span>
+                            </div>
+                        </TableHead>
+                        <TableHead>
+                            <div className="flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                <span>Artista</span>
+                            </div>
+                        </TableHead>
+                        <TableHead className="hidden sm:table-cell">
+                            <div className="flex items-center gap-2">
+                                <Hash className="h-4 w-4" />
+                                <span>Tom</span>
+                            </div>
+                        </TableHead>
+                        <TableHead className="hidden md:table-cell">
+                            <div className="flex items-center gap-2">
+                                <FolderOpen className="h-4 w-4" />
+                                <span>Categoria</span>
+                            </div>
+                        </TableHead>
+                        <TableHead className="hidden lg:table-cell">
+                            <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>Tempo</span>
+                            </div>
+                        </TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                 </TableHeader>

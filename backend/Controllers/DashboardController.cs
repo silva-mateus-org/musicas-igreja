@@ -150,12 +150,12 @@ public class DashboardController : ControllerBase
         var topArtists = await _context.PdfFiles
             .Where(f => f.Artist != null && f.Artist != "")
             .GroupBy(f => f.Artist)
-            .Select(g => new { artist = g.Key, count = g.Count() })
-            .OrderByDescending(x => x.count)
+            .Select(g => new { artist = g.Key, song_count = g.Count() })
+            .OrderByDescending(x => x.song_count)
             .Take(limit)
             .ToListAsync();
 
-        return Ok(topArtists);
+        return Ok(new { artists = topArtists });
     }
 
     [HttpGet("top-songs-by-category")]
@@ -164,34 +164,56 @@ public class DashboardController : ControllerBase
         if (string.IsNullOrWhiteSpace(category))
             return BadRequest(new { error = "Categoria é obrigatória" });
 
+        // Get files in category with usage count (how many lists they appear in)
         var songs = await _context.PdfFiles
             .Where(f => f.Category == category)
-            .OrderByDescending(f => f.UploadDate)
-            .Take(10)
             .Select(f => new
             {
                 id = f.Id,
                 song_name = f.SongName,
                 artist = f.Artist,
-                musical_key = f.MusicalKey
+                musical_key = f.MusicalKey,
+                usage_count = _context.MergeListItems.Count(mli => mli.PdfFileId == f.Id)
             })
+            .OrderByDescending(f => f.usage_count)
+            .ThenBy(f => f.song_name)
+            .Take(10)
             .ToListAsync();
 
-        return Ok(songs);
+        return Ok(new { songs });
     }
 
     [HttpGet("uploads-timeline")]
-    public async Task<ActionResult<object>> GetUploadsTimeline([FromQuery] int days = 30)
+    public async Task<ActionResult<object>> GetUploadsTimeline([FromQuery] int months = 12)
     {
-        var startDate = DateTime.UtcNow.AddDays(-days);
+        var startDate = DateTime.UtcNow.AddMonths(-months);
         
-        var timeline = await _context.PdfFiles
+        // Get all files from the period
+        var files = await _context.PdfFiles
             .Where(f => f.UploadDate >= startDate)
-            .GroupBy(f => f.UploadDate.Date)
-            .Select(g => new { date = g.Key, count = g.Count() })
-            .OrderBy(x => x.date)
+            .Select(f => new { f.UploadDate })
             .ToListAsync();
+        
+        // Group by month in memory to avoid EF Core translation issues
+        var monthlyData = files
+            .GroupBy(f => new { f.UploadDate.Year, f.UploadDate.Month })
+            .Select(g => new { 
+                Year = g.Key.Year,
+                Month = g.Key.Month,
+                Count = g.Count() 
+            })
+            .OrderBy(x => x.Year)
+            .ThenBy(x => x.Month)
+            .ToList();
 
-        return Ok(timeline);
+        // Format month names in Portuguese
+        var monthNames = new[] { "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez" };
+        
+        var timeline = monthlyData.Select(m => new {
+            month_name = $"{monthNames[m.Month]}/{m.Year}",
+            upload_count = m.Count
+        }).ToList();
+
+        return Ok(new { timeline });
     }
 }

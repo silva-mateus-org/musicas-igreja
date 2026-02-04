@@ -1,158 +1,138 @@
-# Músicas Igreja
+# 🎵 Sistema de Músicas da Igreja
 
-Sistema de gerenciamento de partituras e cifras para músicas litúrgicas. Permite organizar, categorizar e criar listas de músicas em PDF para celebrações religiosas.
+Sistema web completo para gerenciamento de partituras e repertórios musicais da igreja, com autenticação, controle de permissões e organização inteligente de PDFs.
 
-## Tecnologias
+## 🌐 Demonstração
+
+Acesse a aplicação em produção: **[https://cifras.networkmat.uk/](https://cifras.networkmat.uk/)**
+
+## ✨ Principais Funcionalidades
+
+- 📤 **Upload e Organização de PDFs** - Upload de partituras com metadados completos
+- 🔍 **Busca Inteligente** - Busca por título, artista, categoria, tempo litúrgico e tom
+- 📋 **Listas de Músicas** - Crie repertórios e exporte como PDF único
+- 🎼 **Gestão de Entidades** - Gerenciamento de artistas, categorias e tempos litúrgicos
+- 👥 **Sistema de Usuários** - Autenticação com controle de permissões (RBAC)
+- 📊 **Dashboard** - Estatísticas e visualização de dados
+- 🎨 **Interface Moderna** - Design responsivo com tema dark
+
+## 🛠️ Tecnologias
 
 ### Backend
-- **C# / .NET 9** (ASP.NET Core Web API)
-- **Entity Framework Core** com SQLite
-- **Swagger** para documentação da API
+- **C# / ASP.NET Core 9.0** - API RESTful
+- **Entity Framework Core** - ORM para SQLite
+- **BCrypt** - Hash seguro de senhas
+- **iText7** - Manipulação de PDFs
 
 ### Frontend
-- **Next.js 14** com App Router
-- **TypeScript**
-- **Tailwind CSS** + **shadcn/ui**
+- **Next.js 14** - Framework React com Server-Side Rendering
+- **TypeScript** - Tipagem estática
+- **Tailwind CSS** - Estilização
+- **shadcn/ui** - Componentes UI
 
-## Funcionalidades
+### Infraestrutura
+- **Docker / Docker Compose** - Containerização
+- **GitHub Actions** - CI/CD automatizado
+- **SQLite** - Banco de dados
 
-- Upload e organização de partituras em PDF
-- Categorização por tipo de música (Entrada, Comunhão, Ofertório, etc.)
-- Classificação por tempo litúrgico (Advento, Quaresma, Páscoa, etc.)
-- Busca por nome da música, artista ou tom
-- Criação de listas para celebrações (merge lists)
-- Exportação de listas como PDF único
-- Detecção automática de duplicatas via hash MD5
-
-## Estrutura do Projeto
-
-```
-musicas-igreja/
-├── backend/                   # API ASP.NET Core
-│   ├── Controllers/           # Endpoints da API
-│   ├── Models/                # Entidades do domínio
-│   ├── Data/                  # DbContext e configuração
-│   ├── Services/              # Lógica de negócio
-│   ├── DTOs/                  # Data Transfer Objects
-│   ├── Program.cs             # Configuração da aplicação
-│   ├── MusicasIgreja.Api.csproj
-│   └── Dockerfile
-├── frontend/                  # Interface Next.js
-│   ├── src/
-│   │   ├── app/               # Páginas e rotas (App Router)
-│   │   ├── components/        # Componentes React
-│   │   └── lib/               # Utilitários e cliente API
-│   └── package.json
-└── README.md
-```
-
-## Instalação
+## 🚀 Instalação e Execução
 
 ### Pré-requisitos
-- .NET SDK 9.0+
-- Node.js 18+
-- npm ou pnpm
+- [Docker](https://www.docker.com/) e Docker Compose
+- Ou: [.NET 9.0 SDK](https://dotnet.microsoft.com/download) + [Node.js 20+](https://nodejs.org/)
 
-### Backend
+### Opção 1: Docker (Recomendado)
 
+```bash
+# Clone o repositório
+git clone https://github.com/silva-mateus-org/musicas-igreja.git
+cd musicas-igreja
+
+# Inicie os containers
+docker-compose up -d
+
+# Acesse a aplicação
+# Frontend: http://localhost:3000
+# Backend: http://localhost:5000
+```
+
+### Opção 2: Desenvolvimento Local
+
+#### Backend
 ```bash
 cd backend
 dotnet restore
 dotnet run
+# API disponível em http://localhost:5000
 ```
 
-O backend estará disponível em `http://localhost:5000`
-
-A documentação Swagger está em `http://localhost:5000/swagger`
-
-### Frontend
-
+#### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
+# Interface disponível em http://localhost:3000
 ```
 
-O frontend estará disponível em `http://localhost:3000`
+## 🔐 Acesso Padrão
 
-## Configuração
+Ao iniciar pela primeira vez, um usuário administrador é criado automaticamente:
 
-### Backend (appsettings.json)
+- **Usuário:** `admin`
+- **Senha:** `admin123`
 
-```json
-{
-  "Database": {
-    "Path": "data/musicas.db"
-  },
-  "Storage": {
-    "OrganizedFolder": "organized"
-  }
-}
-```
+> ⚠️ **IMPORTANTE:** Altere a senha padrão imediatamente após o primeiro acesso!
 
-### Frontend (.env.local)
+## 🧪 Testes
 
-```env
-BACKEND_URL=http://localhost:5000
-```
-
-## API Endpoints
-
-### Arquivos (PDFs)
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/api/files` | Listar arquivos com paginação e filtros |
-| POST | `/api/files` | Upload de novo arquivo |
-| GET | `/api/files/{id}` | Detalhes do arquivo |
-| PUT | `/api/files/{id}` | Atualizar metadados |
-| DELETE | `/api/files/{id}` | Remover arquivo |
-| GET | `/api/files/{id}/download` | Download do PDF |
-| GET | `/api/files/{id}/stream` | Visualização inline |
-
-### Listas de Músicas
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/api/merge_lists` | Listar todas as listas |
-| POST | `/api/merge_lists` | Criar nova lista |
-| GET | `/api/merge_lists/{id}` | Detalhes da lista |
-| PUT | `/api/merge_lists/{id}` | Atualizar lista |
-| DELETE | `/api/merge_lists/{id}` | Remover lista |
-| POST | `/api/merge_lists/{id}/items` | Adicionar músicas à lista |
-| POST | `/api/merge_lists/{id}/reorder` | Reordenar itens |
-| POST | `/api/merge_lists/{id}/duplicate` | Duplicar lista |
-| GET | `/api/merge_lists/{id}/export` | Exportar como PDF |
-
-### Categorias e Metadados
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/api/categories` | Listar categorias |
-| POST | `/api/categories` | Criar categoria |
-| GET | `/api/liturgical_times` | Listar tempos litúrgicos |
-| POST | `/api/liturgical_times` | Criar tempo litúrgico |
-| GET | `/api/dashboard/stats` | Estatísticas do sistema |
-| GET | `/api/dashboard/get_artists` | Listar artistas |
-| GET | `/api/filters/suggestions` | Sugestões para filtros |
-| GET | `/api/health` | Health check |
-
-## Deploy com Docker
+O projeto inclui 143+ testes automatizados:
 
 ```bash
-cd backend
-docker build -t musicas-igreja-api .
-docker run -p 5000:5000 -v ./data:/app/data -v ./organized:/app/organized musicas-igreja-api
+cd backend.tests
+dotnet test --configuration Release
 ```
 
-## Arquitetura
+Os testes são executados automaticamente no CI/CD antes de cada deploy.
 
-O projeto segue uma arquitetura em camadas:
+## 📁 Estrutura do Projeto
 
-- **Controllers**: Recebem requisições HTTP e delegam para serviços
-- **Services**: Contêm a lógica de negócio
-- **Models**: Entidades do domínio mapeadas para o banco
-- **DTOs**: Objetos de transferência entre camadas
-- **Data**: Configuração do Entity Framework e DbContext
+```
+musicas-igreja/
+├── backend/                 # API em C# / ASP.NET Core
+│   ├── Controllers/         # Endpoints da API
+│   ├── Services/            # Lógica de negócio
+│   ├── Models/              # Modelos de dados
+│   ├── Data/                # Contexto EF Core
+│   └── Migrations/          # Migrações do banco
+├── backend.tests/           # Testes unitários
+├── frontend/                # Interface em Next.js
+│   └── src/
+│       ├── app/             # Páginas (App Router)
+│       ├── components/      # Componentes React
+│       ├── contexts/        # Context API (Auth, etc)
+│       └── lib/             # Utilitários
+└── .github/workflows/       # CI/CD
+```
 
-## Licença
+## 🔒 Segurança
 
-MIT License
+- ✅ Senhas com hash BCrypt (work factor 12)
+- ✅ Proteção contra SQL Injection (Entity Framework)
+- ✅ Validação de uploads (apenas PDFs, limite 50MB)
+- ✅ Cookies HttpOnly e SameSite
+- ✅ Controle de permissões granular (RBAC)
+- ✅ Headers de segurança configurados
 
+## 📄 Licença
+
+Este projeto é de código aberto e está disponível sob a [Licença MIT](LICENSE).
+
+## 🤝 Contribuindo
+
+Atualmente não estou aceitando contribuições externas via Pull Request. No entanto, você pode fazer o clone do repositório e utilizá-lo conforme desejar para fins pessoais ou de estudo.
+
+
+## 📞 Contato
+
+- **Repositório:** [github.com/silva-mateus-org/musicas-igreja](https://github.com/silva-mateus-org/musicas-igreja)
+- **Produção:** [cifras.networkmat.uk](https://cifras.networkmat.uk/)

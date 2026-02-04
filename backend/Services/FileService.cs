@@ -282,13 +282,58 @@ public class FileService : IFileService
         return sanitized;
     }
 
+    /// <summary>
+    /// Format text in title case: first letter of each word capitalized,
+    /// except for small words (articles and connectors) that are not the first word.
+    /// This matches the Portuguese language conventions.
+    /// </summary>
     private static string? FormatTitleCase(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        var textInfo = CultureInfo.CurrentCulture.TextInfo;
-        return textInfo.ToTitleCase(text.ToLower());
+        // List of words that should remain lowercase (except when first word)
+        // Based on Portuguese articles, prepositions, and connectors
+        var smallWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "a", "e", "o", "as", "os", "da", "de", "do", "das", "dos",
+            "em", "na", "no", "nas", "nos", "com", "por", "para", "que",
+            "se", "te", "me", "lhe", "la", "le", "lo", "um", "uma", "uns", "umas",
+            "ao", "aos", "à", "às", "pelo", "pela", "pelos", "pelas",
+            "sob", "sobre", "sem", "até", "mas"
+        };
+
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var formattedWords = new List<string>();
+
+        for (int i = 0; i < words.Length; i++)
+        {
+            var word = words[i];
+            if (string.IsNullOrWhiteSpace(word))
+            {
+                formattedWords.Add(word);
+                continue;
+            }
+
+            // Extract clean word for comparison (remove special characters)
+            var cleanWord = Regex.Replace(word, @"[^\w]", "").ToLower();
+
+            // First word always capitalized
+            // Words with more than 2 letters always capitalized
+            // Small words (1-2 letters) only lowercase if not first and in the list
+            if (i == 0 || cleanWord.Length > 2 || !smallWords.Contains(cleanWord))
+            {
+                // Title case: first letter uppercase, rest lowercase
+                var formattedWord = char.ToUpper(word[0]) + (word.Length > 1 ? word[1..].ToLower() : "");
+                formattedWords.Add(formattedWord);
+            }
+            else
+            {
+                formattedWords.Add(word.ToLower());
+            }
+        }
+
+        return string.Join(" ", formattedWords);
     }
 
     private static string GetUniqueFilename(string filename, string directory)

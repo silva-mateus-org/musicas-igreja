@@ -14,12 +14,14 @@ public class FilesController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IFileService _fileService;
+    private readonly IAuthService _authService;
     private readonly ILogger<FilesController> _logger;
 
-    public FilesController(AppDbContext context, IFileService fileService, ILogger<FilesController> logger)
+    public FilesController(AppDbContext context, IFileService fileService, IAuthService authService, ILogger<FilesController> logger)
     {
         _context = context;
         _fileService = fileService;
+        _authService = authService;
         _logger = logger;
     }
 
@@ -28,8 +30,12 @@ public class FilesController : ControllerBase
         [FromQuery] string? q = null,
         [FromQuery] string? category = null,
         [FromQuery] string? liturgical_time = null,
+        [FromQuery] string? artist = null,
+        [FromQuery] string? musical_key = null,
         [FromQuery] int page = 1,
-        [FromQuery] int per_page = 20)
+        [FromQuery] int per_page = 20,
+        [FromQuery] string? sort_by = "upload_date",
+        [FromQuery] string? sort_order = "desc")
     {
         var query = _context.PdfFiles
             .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
@@ -71,11 +77,35 @@ public class FilesController : ControllerBase
                 f.FileLiturgicalTimes.Any(flt => flt.LiturgicalTime.Name == liturgical_time));
         }
 
+        // Apply artist filter
+        if (!string.IsNullOrWhiteSpace(artist))
+        {
+            query = query.Where(f => f.Artist == artist);
+        }
+
+        // Apply musical key filter
+        if (!string.IsNullOrWhiteSpace(musical_key))
+        {
+            query = query.Where(f => f.MusicalKey == musical_key);
+        }
+
         var total = await query.CountAsync();
         var totalPages = (int)Math.Ceiling(total / (double)per_page);
 
+        // Apply sorting
+        query = (sort_by?.ToLower(), sort_order?.ToLower()) switch
+        {
+            ("song_name", "asc") => query.OrderBy(f => f.SongName),
+            ("song_name", "desc") => query.OrderByDescending(f => f.SongName),
+            ("artist", "asc") => query.OrderBy(f => f.Artist),
+            ("artist", "desc") => query.OrderByDescending(f => f.Artist),
+            ("category", "asc") => query.OrderBy(f => f.Category),
+            ("category", "desc") => query.OrderByDescending(f => f.Category),
+            ("upload_date", "asc") => query.OrderBy(f => f.UploadDate),
+            _ => query.OrderByDescending(f => f.UploadDate) // Default: newest first
+        };
+
         var files = await query
-            .OrderByDescending(f => f.UploadDate)
             .Skip((page - 1) * per_page)
             .Take(per_page)
             .ToListAsync();
@@ -146,48 +176,118 @@ public class FilesController : ControllerBase
         [FromForm] List<string>? liturgical_times = null,
         [FromForm] string? musical_key = null,
         [FromForm] string? youtube_link = null,
-        [FromForm] string? description = null)
+        [FromForm] string? description = null,
+        [FromForm] List<string>? new_categories = null,
+        [FromForm] List<string>? new_liturgical_times = null,
+        [FromForm] string? new_artist = null)
     {
+        // 🔒 SECURITY: Check authentication
+        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
+        if (authCheck != null) return authCheck;
+
+        // 🔒 SECURITY: Check upload permission
+        var canUpload = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanUploadMusic);
+        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canUpload, _logger);
+        if (permissionCheck != null) return permissionCheck;
+
         if (file == null || file.Length == 0)
-            return BadRequest(new { success = false, error = "Nenhum arquivo enviado" });
+            return BadRequest(new FileUploadResultDto
+            {
+                OriginalName = file?.FileName ?? "unknown",
+                Size = file?.Length ?? 0,
+                Status = "error",
+                Message = "Nenhum arquivo enviado"
+            });
 
         if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { success = false, error = "Apenas arquivos PDF são permitidos" });
+            return BadRequest(new FileUploadResultDto
+            {
+                OriginalName = file.FileName,
+                Size = file.Length,
+                Status = "error",
+                Message = "Apenas arquivos PDF são permitidos"
+            });
 
         try
         {
+            // Merge new categories/times with selected ones
+            var allCategories = (categories ?? new List<string>()).Concat(new_categories ?? new List<string>()).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
+            var allLiturgicalTimes = (liturgical_times ?? new List<string>()).Concat(new_liturgical_times ?? new List<string>()).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList();
+            
+            // Handle new artist
+            var finalArtist = artist;
+            if (!string.IsNullOrWhiteSpace(new_artist) && string.IsNullOrWhiteSpace(artist))
+            {
+                finalArtist = new_artist;
+                // Create artist if it doesn't exist
+                var existingArtist = await _context.Artists.FirstOrDefaultAsync(a => a.Name == new_artist);
+                if (existingArtist == null)
+                {
+                    _context.Artists.Add(new Artist { Name = new_artist });
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             var result = await _fileService.SaveFileAsync(file, new FileUploadDto
             {
                 SongName = song_name,
-                Artist = artist,
-                Categories = categories,
-                LiturgicalTimes = liturgical_times,
+                Artist = finalArtist,
+                Categories = allCategories,
+                LiturgicalTimes = allLiturgicalTimes,
                 MusicalKey = musical_key,
                 YoutubeLink = youtube_link,
                 Description = description
             });
 
-            return StatusCode(201, new
+            return StatusCode(201, new FileUploadResultDto
             {
-                success = true,
-                file_id = result.Id,
-                filename = result.Filename
+                Filename = result.Filename,
+                OriginalName = result.OriginalName,
+                Size = result.FileSize ?? 0,
+                Status = "success",
+                Message = "Arquivo enviado com sucesso",
+                FileId = result.Id
             });
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("duplicado"))
         {
-            return Conflict(new { success = false, error = ex.Message });
+            // Extract duplicate filename from error message
+            var duplicateFilename = ex.Message.Replace("Arquivo duplicado encontrado: ", "");
+            
+            return StatusCode(409, new FileUploadResultDto
+            {
+                OriginalName = file.FileName,
+                Size = file.Length,
+                Status = "duplicate",
+                DuplicateOf = duplicateFilename,
+                Message = $"Arquivo duplicado: {duplicateFilename}"
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao fazer upload do arquivo");
-            return StatusCode(500, new { success = false, error = "Erro interno ao processar arquivo" });
+            return StatusCode(500, new FileUploadResultDto
+            {
+                OriginalName = file.FileName,
+                Size = file.Length,
+                Status = "error",
+                Message = $"Erro ao processar arquivo: {ex.Message}"
+            });
         }
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<object>> UpdateFile(int id, [FromBody] FileUpdateDto dto)
     {
+        // 🔒 SECURITY: Check authentication
+        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
+        if (authCheck != null) return authCheck;
+
+        // 🔒 SECURITY: Check edit permission
+        var canEdit = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanEditMusicMetadata);
+        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canEdit, _logger);
+        if (permissionCheck != null) return permissionCheck;
+
         var file = await _context.PdfFiles
             .Include(f => f.FileCategories)
             .Include(f => f.FileLiturgicalTimes)
@@ -256,6 +356,15 @@ public class FilesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult<object>> DeleteFile(int id)
     {
+        // 🔒 SECURITY: Check authentication
+        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
+        if (authCheck != null) return authCheck;
+
+        // 🔒 SECURITY: Check delete permission
+        var canDelete = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanDeleteMusic);
+        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canDelete, _logger);
+        if (permissionCheck != null) return permissionCheck;
+
         var file = await _context.PdfFiles.FindAsync(id);
         if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });

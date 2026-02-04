@@ -52,3 +52,14 @@ public record FileUpdateDto
     public string? Description { get; init; }
 }
 
+public record FileUploadResultDto
+{
+    public string Filename { get; init; } = string.Empty;
+    public string OriginalName { get; init; } = string.Empty;
+    public long Size { get; init; }
+    public string Status { get; init; } = "success"; // "success", "duplicate", "error"
+    public string? DuplicateOf { get; init; }
+    public string? Message { get; init; }
+    public int? FileId { get; init; }
+}
+

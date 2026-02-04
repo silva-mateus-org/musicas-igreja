@@ -163,6 +163,7 @@ export const musicApi = {
             observations?: string
             new_categories?: string[]
             new_liturgical_times?: string[]
+            new_artist?: string
         }>
     ): Promise<any> {
         const arr = Array.from(files)
@@ -177,6 +178,7 @@ export const musicApi = {
 
             if (meta?.title) form.append('song_name', meta.title)
             if (meta?.artist) form.append('artist', meta.artist)
+            if (meta?.new_artist) form.append('new_artist', meta.new_artist)
             if (meta?.musical_key) form.append('musical_key', meta.musical_key)
             if (meta?.youtube_link) form.append('youtube_link', meta.youtube_link)
             if (meta?.observations) form.append('description', meta.observations)
@@ -207,20 +209,32 @@ export const musicApi = {
 
             console.log('📤 [UPLOAD] Form data keys:', Array.from(form.keys()))
 
-            const res = await fetch(`${BASE}/files`, { method: 'POST', body: form })
-
-            if (!res.ok) {
-                const errorText = await res.text()
-                console.error('Upload error:', res.status, res.statusText, errorText)
-                throw new Error(`Upload failed: ${res.status} ${res.statusText}`)
+            try {
+                const res = await fetch(`${BASE}/files`, { method: 'POST', body: form })
+                const data = await res.json()
+                
+                console.log('📥 [UPLOAD] Response:', data)
+                
+                // Backend now returns FileUploadResultDto directly
+                // with status, original_name, size, etc.
+                results.push(data)
+                
+            } catch (error) {
+                console.error('Upload error:', error)
+                // Add error result for this file
+                results.push({
+                    filename: arr[i].name,
+                    original_name: arr[i].name,
+                    size: arr[i].size,
+                    status: 'error',
+                    message: error instanceof Error ? error.message : 'Erro desconhecido'
+                })
             }
-
-            const data = await res.json()
-            results.push(data)
+            
             processed++
             if (onProgress) onProgress(Math.round((processed * 100) / arr.length))
         }
-        return { message: 'ok', files: results }
+        return { message: 'Upload concluído', files: results }
     },
 }
 

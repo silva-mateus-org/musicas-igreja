@@ -22,32 +22,81 @@ public class FiltersController : ControllerBase
     }
 
     [HttpGet("suggestions")]
-    public async Task<ActionResult<object>> GetSuggestions()
+    public async Task<ActionResult<object>> GetSuggestions(
+        [FromQuery] string? category = null,
+        [FromQuery] string? liturgical_time = null,
+        [FromQuery] string? artist = null,
+        [FromQuery] string? musical_key = null)
     {
-        var categories = await _context.Categories
-            .OrderBy(c => c.Name)
-            .Select(c => c.Name)
+        // Start with all files
+        var query = _context.PdfFiles.AsQueryable();
+
+        // Apply filters progressively to get dynamic suggestions
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            query = query.Where(f => 
+                f.Category == category ||
+                f.FileCategories.Any(fc => fc.Category.Name == category));
+        }
+
+        if (!string.IsNullOrWhiteSpace(liturgical_time))
+        {
+            query = query.Where(f => 
+                f.LiturgicalTime == liturgical_time ||
+                f.FileLiturgicalTimes.Any(flt => flt.LiturgicalTime.Name == liturgical_time));
+        }
+
+        if (!string.IsNullOrWhiteSpace(artist))
+        {
+            query = query.Where(f => f.Artist == artist);
+        }
+
+        if (!string.IsNullOrWhiteSpace(musical_key))
+        {
+            query = query.Where(f => f.MusicalKey == musical_key);
+        }
+
+        // Get files matching current filters
+        var filteredFiles = await query
+            .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
+            .Include(f => f.FileLiturgicalTimes).ThenInclude(flt => flt.LiturgicalTime)
             .ToListAsync();
 
-        var liturgicalTimes = await _context.LiturgicalTimes
-            .OrderBy(l => l.Name)
-            .Select(l => l.Name)
-            .ToListAsync();
+        // Extract available options from filtered files
+        var availableCategories = filteredFiles
+            .SelectMany(f => f.FileCategories.Select(fc => fc.Category.Name))
+            .Concat(filteredFiles.Where(f => f.Category != null).Select(f => f.Category!))
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
 
-        // Get unique artists from pdf_files
-        var artists = await _context.PdfFiles
-            .Where(f => f.Artist != null && f.Artist != "")
+        var availableLiturgicalTimes = filteredFiles
+            .SelectMany(f => f.FileLiturgicalTimes.Select(flt => flt.LiturgicalTime.Name))
+            .Concat(filteredFiles.Where(f => f.LiturgicalTime != null).Select(f => f.LiturgicalTime!))
+            .Distinct()
+            .OrderBy(l => l)
+            .ToList();
+
+        var availableArtists = filteredFiles
+            .Where(f => !string.IsNullOrEmpty(f.Artist))
             .Select(f => f.Artist!)
             .Distinct()
             .OrderBy(a => a)
-            .ToListAsync();
+            .ToList();
+
+        var availableMusicalKeys = filteredFiles
+            .Where(f => !string.IsNullOrEmpty(f.MusicalKey))
+            .Select(f => f.MusicalKey!)
+            .Distinct()
+            .OrderBy(k => Array.IndexOf(MusicalKeys, k))
+            .ToList();
 
         return Ok(new
         {
-            categories,
-            liturgical_times = liturgicalTimes,
-            artists,
-            musical_keys = MusicalKeys
+            categories = availableCategories,
+            liturgical_times = availableLiturgicalTimes,
+            artists = availableArtists,
+            musical_keys = availableMusicalKeys.Any() ? availableMusicalKeys : MusicalKeys.ToList()
         });
     }
 }

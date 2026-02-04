@@ -14,6 +14,7 @@ import { Autocomplete } from '@/components/ui/autocomplete'
 import { ArrowLeft, Save, X, Music, User, Tag, Calendar, Link as LinkIcon, Eye, Lock } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
 import { musicApi, handleApiError } from '@/lib/api'
@@ -51,6 +52,7 @@ export default function EditMusicPage() {
     const [saving, setSaving] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
     const [pendingPdf, setPendingPdf] = useState<File | null>(null)
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [suggestions, setSuggestions] = useState<FilterSuggestions>({
         categories: CATEGORIES,
         liturgical_times: LITURGICAL_TIMES,
@@ -173,8 +175,15 @@ export default function EditMusicPage() {
         }
     }
 
-    const handleCancel = () => {
-        if (hasChanges && !confirm('Você tem alterações não salvas. Deseja realmente cancelar?')) return
+    const handleCancelClick = () => {
+        if (hasChanges) {
+            setCancelDialogOpen(true)
+        } else {
+            router.push(`/music/${musicId}`)
+        }
+    }
+
+    const handleCancelConfirm = () => {
         router.push(`/music/${musicId}`)
     }
 
@@ -217,7 +226,7 @@ export default function EditMusicPage() {
                 <div className="flex flex-col gap-4">
                     {/* Navigation */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                        <Button variant="outline" size="sm" onClick={handleCancel} className="self-start shrink-0">
+                        <Button variant="outline" size="sm" onClick={handleCancelClick} className="self-start shrink-0">
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Voltar
                         </Button>
@@ -237,7 +246,7 @@ export default function EditMusicPage() {
                             <span className="hidden sm:inline">Visualizar PDF</span>
                             <span className="sm:hidden">Ver PDF</span>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                        <Button variant="outline" size="sm" onClick={handleCancelClick} disabled={saving} className="gap-1 sm:gap-2 text-xs sm:text-sm">
                             <X className="h-4 w-4" />
                             <span>Cancelar</span>
                         </Button>
@@ -404,6 +413,18 @@ export default function EditMusicPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Confirm Cancel Dialog */}
+            <ConfirmDialog
+                open={cancelDialogOpen}
+                onOpenChange={setCancelDialogOpen}
+                title="Alterações Não Salvas"
+                description="Você tem alterações não salvas. Deseja realmente cancelar e descartar estas alterações?"
+                confirmText="Descartar Alterações"
+                cancelText="Continuar Editando"
+                variant="destructive"
+                onConfirm={handleCancelConfirm}
+            />
         </MainLayout>
     )
 }

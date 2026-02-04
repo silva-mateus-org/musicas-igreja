@@ -224,7 +224,18 @@ export function MainLayout({ children }: MainLayoutProps) {
                         Entrar
                     </Button>
                 )}
-                <p className="text-xs text-muted-foreground text-center">v2.0</p>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <span>v3.0</span>
+                    <span>•</span>
+                    <a 
+                        href="https://github.com/silva-mateus-org/musicas-igreja" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover:underline hover:text-foreground transition-colors"
+                    >
+                        GitHub
+                    </a>
+                </div>
             </div>
         </div>
     )

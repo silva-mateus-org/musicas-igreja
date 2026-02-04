@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Services;
+using MusicasIgreja.Api.Helpers;
 
 namespace MusicasIgreja.Api.Controllers;
 
@@ -9,92 +10,16 @@ namespace MusicasIgreja.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IRateLimitService _rateLimitService;
     private readonly ILogger<AuthController> _logger;
     private readonly IWebHostEnvironment _environment;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger, IWebHostEnvironment environment)
+    public AuthController(IAuthService authService, IRateLimitService rateLimitService, ILogger<AuthController> logger, IWebHostEnvironment environment)
     {
         _authService = authService;
+        _rateLimitService = rateLimitService;
         _logger = logger;
         _environment = environment;
-    }
-
-    /// <summary>
-    /// Debug endpoint - Only available in Development environment.
-    /// Generates a hash for a password for testing purposes.
-    /// </summary>
-    [HttpGet("debug-hash")]
-    public ActionResult DebugHash([FromQuery] string password = "admin123")
-    {
-        // Only allow in development
-        if (!_environment.IsDevelopment())
-        {
-            return NotFound();
-        }
-
-        var hash = _authService.HashPassword(password);
-        return Ok(new { 
-            password = password, 
-            hash = hash,
-            message = "This endpoint is only available in Development mode"
-        });
-    }
-
-    /// <summary>
-    /// Debug endpoint - Only available in Development environment.
-    /// Lists all users with partial password hash info.
-    /// </summary>
-    [HttpGet("debug-users")]
-    public async Task<ActionResult> DebugUsers()
-    {
-        // Only allow in development
-        if (!_environment.IsDevelopment())
-        {
-            return NotFound();
-        }
-
-        var users = await _authService.GetAllUsersAsync();
-        return Ok(new
-        {
-            count = users.Count,
-            users = users.Select(u => new
-            {
-                id = u.Id,
-                username = u.Username,
-                full_name = u.FullName,
-                password_hash_preview = u.PasswordHash.Length > 20 ? u.PasswordHash.Substring(0, 20) + "..." : u.PasswordHash,
-                password_hash_length = u.PasswordHash.Length,
-                role_id = u.RoleId,
-                role_name = u.Role?.Name ?? "unknown",
-                is_active = u.IsActive,
-                must_change_password = u.MustChangePassword
-            })
-        });
-    }
-
-    /// <summary>
-    /// Debug endpoint - Only available in Development environment.
-    /// Resets admin password to default.
-    /// </summary>
-    [HttpPost("reset-admin")]
-    public async Task<ActionResult> ResetAdmin()
-    {
-        // Only allow in development
-        if (!_environment.IsDevelopment())
-        {
-            return NotFound();
-        }
-
-        var users = await _authService.GetAllUsersAsync();
-        var admin = users.FirstOrDefault(u => u.Username.ToLower() == "admin");
-        
-        if (admin != null)
-        {
-            await _authService.ResetPasswordAsync(admin.Id, "admin123");
-            return Ok(new { success = true, message = "Admin password reset to 'admin123'" });
-        }
-        
-        return NotFound(new { success = false, error = "Admin user not found" });
     }
 
     [HttpPost("login")]
@@ -103,19 +28,51 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new { success = false, error = "Username e password são obrigatórios" });
 
-        _logger.LogInformation("Login attempt for user: {Username}", request.Username);
+        // 🔒 SECURITY: Rate limiting - Usar IP + Username como chave
+        var clientIp = AuthHelper.GetClientIp(HttpContext);
+        var rateLimitKey = $"login:{clientIp}:{request.Username.ToLower()}";
+        
+        if (_rateLimitService.IsRateLimited(rateLimitKey))
+        {
+            _logger.LogWarning(
+                "🚫 Rate limit exceeded for login attempt - User: {Username}, IP: {IP}",
+                request.Username, clientIp);
+            
+            return StatusCode(429, new 
+            { 
+                success = false, 
+                error = "Muitas tentativas de login. Tente novamente em 15 minutos." 
+            });
+        }
+
+        _logger.LogInformation("🔐 Login attempt for user: {Username} from IP: {IP}", request.Username, clientIp);
 
         var user = await _authService.ValidateUserAsync(request.Username, request.Password);
 
         if (user == null)
         {
-            _logger.LogWarning("Login failed for user: {Username}", request.Username);
+            // 🔒 SECURITY: Registrar tentativa falhada para rate limiting
+            _rateLimitService.RecordAttempt(rateLimitKey);
+            
+            _logger.LogWarning(
+                "❌ Login failed for user: {Username} from IP: {IP}",
+                request.Username, clientIp);
+            
             return Unauthorized(new { success = false, error = "Credenciais inválidas" });
         }
 
+        // 🔒 SECURITY: Login bem-sucedido - resetar rate limit
+        _rateLimitService.ResetAttempts(rateLimitKey);
+        
+        // Criar sessão
         HttpContext.Session.SetInt32("UserId", user.Id);
         HttpContext.Session.SetInt32("RoleId", user.RoleId);
         HttpContext.Session.SetString("RoleName", user.Role?.Name ?? "viewer");
+        HttpContext.Session.SetString("LastActivity", DateTime.UtcNow.ToString("O"));
+        
+        _logger.LogInformation(
+            "✅ Login successful for user: {Username} (ID: {UserId}) from IP: {IP}",
+            request.Username, user.Id, clientIp);
 
         return Ok(new
         {

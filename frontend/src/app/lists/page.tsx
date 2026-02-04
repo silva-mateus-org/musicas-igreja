@@ -44,10 +44,33 @@ export default function ListsPage() {
             setIsLoading(true)
             setError('')
 
-            const data = await listsApi.getLists(
-                { page, limit: 20 },
-                searchTerm || undefined
-            )
+            // Build query params
+            const params = new URLSearchParams()
+            if (searchTerm) params.append('search', searchTerm)
+            if (sortBy.field) params.append('sort_by', sortBy.field)
+            if (sortBy.order) params.append('sort_order', sortBy.order)
+
+            const response = await fetch(`/api/merge_lists?${params.toString()}`)
+            const listsData = await response.json()
+
+            // Map to expected format
+            const data = {
+                data: listsData.map((l: any) => ({
+                    id: l.id,
+                    name: l.name,
+                    observations: l.observations || '',
+                    created_date: l.created_date,
+                    updated_date: l.updated_date,
+                    file_count: l.file_count,
+                    items: []
+                })),
+                pagination: { 
+                    page: 1, 
+                    limit: listsData.length, 
+                    total: listsData.length, 
+                    pages: 1 
+                }
+            }
 
             setLists(data)
         } catch (error) {

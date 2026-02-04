@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { listsApi, musicApi, handleApiError } from '@/lib/api'
 import type { MusicList, MusicFile } from '@/types'
 import {
@@ -66,6 +67,8 @@ export default function EditListPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState('')
+    const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
+    const [itemToRemove, setItemToRemove] = useState<number | null>(null)
 
     // Form data
     const [name, setName] = useState('')
@@ -223,23 +226,28 @@ export default function EditListPage() {
         }
     }
 
-    const handleRemoveMusic = async (itemId: number) => {
-        if (!list) return
+    const handleRemoveMusicClick = (itemId: number) => {
+        setItemToRemove(itemId)
+        setRemoveDialogOpen(true)
+    }
+
+    const handleRemoveMusicConfirm = async () => {
+        if (!list || itemToRemove === null) return
 
         // Verificar se é um item temporário (adicionado dinamicamente)
-        const item = list.items?.find(item => item.id === itemId)
-        const isTemporaryItem = itemId > 1000000000000 // IDs temporários são gerados com Date.now()
+        const item = list.items?.find(item => item.id === itemToRemove)
+        const isTemporaryItem = itemToRemove > 1000000000000 // IDs temporários são gerados com Date.now()
 
         try {
             // Se não é temporário, remover do backend
             if (!isTemporaryItem) {
-                await listsApi.removeMusicFromList(list.id, itemId)
+                await listsApi.removeMusicFromList(list.id, itemToRemove)
             }
 
             // Atualizar lista localmente sempre
             setList(prev => prev ? {
                 ...prev,
-                items: prev.items?.filter(item => item.id !== itemId) || []
+                items: prev.items?.filter(item => item.id !== itemToRemove) || []
             } : prev)
 
             toast({
@@ -645,7 +653,7 @@ export default function EditListPage() {
                                                                                                     variant="ghost"
                                                                                                     size="icon"
                                                                                                     className="h-7 w-7 text-destructive hover:text-destructive"
-                                                                                                    onClick={() => handleRemoveMusic(item.id)}
+                                                                                                    onClick={() => handleRemoveMusicClick(item.id)}
                                                                                                 >
                                                                                                     <Trash2 className="h-3.5 w-3.5" />
                                                                                                 </Button>
@@ -893,6 +901,18 @@ export default function EditListPage() {
                     </Card>
                 </Collapsible>
             </div>
+
+            {/* Confirm Remove Music Dialog */}
+            <ConfirmDialog
+                open={removeDialogOpen}
+                onOpenChange={setRemoveDialogOpen}
+                title="Remover Música"
+                description="Tem certeza que deseja remover esta música da lista? Esta ação não pode ser desfeita."
+                confirmText="Remover"
+                cancelText="Cancelar"
+                variant="destructive"
+                onConfirm={handleRemoveMusicConfirm}
+            />
         </MainLayout>
     )
 }

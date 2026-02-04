@@ -25,11 +25,35 @@ public class MergeListsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<MergeListSummaryDto>>> GetLists()
+    public async Task<ActionResult<List<MergeListSummaryDto>>> GetLists(
+        [FromQuery] string? search = null,
+        [FromQuery] string? sort_by = "updated_date",
+        [FromQuery] string? sort_order = "desc")
     {
-        var lists = await _context.MergeLists
+        var query = _context.MergeLists
             .Include(l => l.Items)
-            .OrderByDescending(l => l.UpdatedDate)
+            .AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(l => l.Name.Contains(search));
+        }
+
+        // Apply sorting
+        query = (sort_by?.ToLower(), sort_order?.ToLower()) switch
+        {
+            ("name", "asc") => query.OrderBy(l => l.Name),
+            ("name", "desc") => query.OrderByDescending(l => l.Name),
+            ("created_date", "asc") => query.OrderBy(l => l.CreatedDate),
+            ("created_date", "desc") => query.OrderByDescending(l => l.CreatedDate),
+            ("file_count", "asc") => query.OrderBy(l => l.Items.Count),
+            ("file_count", "desc") => query.OrderByDescending(l => l.Items.Count),
+            ("updated_date", "asc") => query.OrderBy(l => l.UpdatedDate),
+            _ => query.OrderByDescending(l => l.UpdatedDate) // Default: newest first
+        };
+
+        var lists = await query
             .Select(l => new MergeListSummaryDto(
                 l.Id,
                 l.Name,

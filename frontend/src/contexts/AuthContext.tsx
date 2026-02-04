@@ -85,18 +85,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const refreshUser = async () => {
         try {
+            // First check if we have a stored user (to know if we should try to refresh)
             const storedUser = localStorage.getItem('user')
-            const storedPermissions = localStorage.getItem('permissions')
-            if (storedUser) {
-                const parsedUser = JSON.parse(storedUser)
-                setUser(parsedUser)
-                setMustChangePassword(parsedUser.must_change_password || false)
-                
-                if (storedPermissions) {
-                    setPermissions(JSON.parse(storedPermissions))
-                } else if (parsedUser.permissions) {
-                    setPermissions(parsedUser.permissions)
+            if (!storedUser) {
+                setIsLoading(false)
+                return
+            }
+
+            // Try to get current user from server to get updated permissions
+            try {
+                const result = await authApi.getCurrentUser()
+                if (result.success && result.user) {
+                    // Update with fresh data from server
+                    setUser(result.user)
+                    setMustChangePassword(result.user.must_change_password || false)
+                    localStorage.setItem('user', JSON.stringify(result.user))
+                    
+                    if (result.user.permissions) {
+                        setPermissions(result.user.permissions)
+                        localStorage.setItem('permissions', JSON.stringify(result.user.permissions))
+                    }
+                    return
                 }
+            } catch (apiError) {
+                // API call failed (maybe server is down or session expired)
+                // Fall back to local storage data
+                console.warn('Failed to refresh user from server, using cached data:', apiError)
+            }
+
+            // Fallback: use stored data if API fails
+            const parsedUser = JSON.parse(storedUser)
+            setUser(parsedUser)
+            setMustChangePassword(parsedUser.must_change_password || false)
+            
+            const storedPermissions = localStorage.getItem('permissions')
+            if (storedPermissions) {
+                setPermissions(JSON.parse(storedPermissions))
+            } else if (parsedUser.permissions) {
+                setPermissions(parsedUser.permissions)
             }
         } catch (error) {
             console.error('Error refreshing user:', error)
