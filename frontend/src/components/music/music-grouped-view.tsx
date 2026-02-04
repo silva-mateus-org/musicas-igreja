@@ -31,7 +31,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Loader2 } from 'lucide-react'
+import { Loader2, FileText } from 'lucide-react'
 
 interface GroupedFile {
     id: number

@@ -587,6 +587,13 @@ export const usersApi = {
             method: 'PUT',
             credentials: 'include',
         })
+    },
+
+    async deletePermanently(userId: number): Promise<any> {
+        return await request<any>(`/users/${userId}/permanent`, {
+            method: 'DELETE',
+            credentials: 'include',
+        })
     }
 }
 

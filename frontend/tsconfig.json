@@ -31,9 +31,9 @@
             "@/components/*": [
                 "./src/components/*"
             ],
-            "@/lib/*": [
-                "./lib/*"
-            ],
+        "@/lib/*": [
+            "./src/lib/*"
+        ],
             "@/hooks/*": [
                 "./src/hooks/*"
             ],
