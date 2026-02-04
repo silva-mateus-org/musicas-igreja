@@ -128,6 +128,7 @@ export interface UploadFileResult {
     status: 'success' | 'duplicate' | 'error'
     duplicate_of?: string
     message?: string
+    file_id?: number
 }
 
 export interface UploadResponse extends ApiResponse {
