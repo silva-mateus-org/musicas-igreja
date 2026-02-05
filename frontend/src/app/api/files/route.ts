@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'Cookie': request.headers.get('cookie') || '',
             },
             cache: 'no-store',
         })
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
             method: 'POST',
             body: formData, // Send form data directly, don't stringify
             // Don't set Content-Type header, let browser set it with boundary
+            headers: {
+                'Cookie': request.headers.get('cookie') || '',
+            },
         })
 
         // Backend response received
