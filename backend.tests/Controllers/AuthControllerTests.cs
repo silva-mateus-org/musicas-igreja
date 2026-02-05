@@ -57,11 +57,13 @@ public class AuthControllerTests : IDisposable
         
         sessionMock.Setup(s => s.Set(It.IsAny<string>(), It.IsAny<byte[]>()))
             .Callback<string, byte[]>((key, value) => sessionData[key] = value);
+#pragma warning disable CS8601 // Possible null reference assignment in test mock
         sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]>.IsAny))
+#pragma warning restore CS8601
             .Returns((string key, out byte[] value) =>
             {
                 var exists = sessionData.TryGetValue(key, out var data);
-                value = data!;
+                value = data ?? Array.Empty<byte>();
                 return exists;
             });
         
@@ -245,11 +247,13 @@ public class AuthControllerTests : IDisposable
         {
             ["UserId"] = BitConverter.GetBytes(1)
         };
+#pragma warning disable CS8601 // Possible null reference assignment in test mock
         sessionMock.Setup(s => s.TryGetValue("UserId", out It.Ref<byte[]>.IsAny))
+#pragma warning restore CS8601
             .Returns((string key, out byte[] value) =>
             {
                 var exists = sessionData.TryGetValue(key, out var data);
-                value = data!;
+                value = data ?? Array.Empty<byte>();
                 return exists;
             });
         
@@ -272,11 +276,13 @@ public class AuthControllerTests : IDisposable
         {
             ["UserId"] = BitConverter.GetBytes(1)
         };
+#pragma warning disable CS8601 // Possible null reference assignment in test mock
         sessionMock.Setup(s => s.TryGetValue("UserId", out It.Ref<byte[]>.IsAny))
+#pragma warning restore CS8601
             .Returns((string key, out byte[] value) =>
             {
                 var exists = sessionData.TryGetValue(key, out var data);
-                value = data!;
+                value = data ?? Array.Empty<byte>();
                 return exists;
             });
         

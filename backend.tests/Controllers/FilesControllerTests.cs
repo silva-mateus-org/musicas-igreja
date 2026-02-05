@@ -43,11 +43,13 @@ public class FilesControllerTests : IDisposable
             ["RoleId"] = BitConverter.GetBytes(1)
         };
         
+#pragma warning disable CS8601 // Possible null reference assignment in test mock
         sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]>.IsAny))
+#pragma warning restore CS8601
             .Returns((string key, out byte[] value) =>
             {
                 var exists = sessionData.TryGetValue(key, out var data);
-                value = data!;
+                value = data ?? Array.Empty<byte>();
                 return exists;
             });
         
