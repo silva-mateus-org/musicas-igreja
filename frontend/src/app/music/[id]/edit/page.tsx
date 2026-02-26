@@ -3,17 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Textarea } from '@core/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { ArrowLeft, Save, X, Music, User, Tag, Calendar, Link as LinkIcon, Eye, Lock } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
@@ -45,7 +45,8 @@ export default function EditMusicPage() {
     const params = useParams()
     const router = useRouter()
     const { toast } = useToast()
-    const { canEdit, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
 
     const [music, setMusic] = useState<MusicType | null>(null)
     const [loading, setLoading] = useState(true)

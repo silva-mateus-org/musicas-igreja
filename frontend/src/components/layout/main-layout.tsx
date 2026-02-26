@@ -3,17 +3,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@core/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@core/components/ui/dropdown-menu'
 import { Music, BarChart3, Upload, List, Settings, Menu, Search, FileMusic, FolderOpen, LogOut, LogIn, Users, User, ChevronDown, ChevronRight, Shield, Bell, AlertCircle, AlertTriangle, Info, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { LoginModal } from '@/components/auth/login-modal'
 import { ProfileModal } from '@/components/auth/profile-modal'
-import { monitoringApi } from '@/lib/api'
 import type { SystemEvent } from '@/types'
 
 interface NavigationItem {
@@ -56,9 +55,17 @@ export function MainLayout({ children }: MainLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [loginModalOpen, setLoginModalOpen] = useState(false)
     const [profileModalOpen, setProfileModalOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const pathname = usePathname()
     const router = useRouter()
-    const { user, isAuthenticated, isAdmin, canEdit, canUpload, logout } = useAuth()
+    const { user, isAuthenticated, hasPermission, logout, api } = useAuth()
+
+    useEffect(() => { setMounted(true) }, [])
+
+    // Defer auth checks until client-side mount to avoid hydration mismatch
+    const isAdmin = mounted && hasPermission('admin:access')
+    const canEdit = mounted && (hasPermission('music:edit_metadata') || hasPermission('lists:manage'))
+    const canUpload = mounted && hasPermission('music:upload')
     
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [alertCount, setAlertCount] = useState(0)
@@ -101,6 +108,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         setLoginModalOpen(true)
     }
 
+    const getUserDisplayName = (u: { fullName?: string; full_name?: string; username: string } | null) =>
+        u ? (u.fullName ?? (u as { full_name?: string }).full_name ?? u.username) : ''
+
     const getRoleLabel = (role: string) => {
         const labels: Record<string, string> = {
             admin: 'Administrador',
@@ -117,11 +127,11 @@ export function MainLayout({ children }: MainLayoutProps) {
         
         try {
             setLoadingAlerts(true)
-            const countResponse = await monitoringApi.getAlertCount()
+            const countResponse = await api.get<{ count: number }>('/monitoring/alerts/count')
             setAlertCount(countResponse.count || 0)
             
             if (countResponse.count > 0) {
-                const alertsResponse = await monitoringApi.getAlerts()
+                const alertsResponse = await api.get<{ data: SystemEvent[] }>('/monitoring/alerts')
                 setRecentAlerts((alertsResponse.data || []).slice(0, 5))
             }
         } catch (error: any) {
@@ -262,12 +272,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                 })}
             </nav>
             <div className="border-t border-border p-4 space-y-3">
-                {isAuthenticated && user ? (
+                {mounted && isAuthenticated && user ? (
                     <>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{user.full_name || user.username}</p>
+                                    <p className="text-sm font-medium truncate">{getUserDisplayName(user)}</p>
                                     <Badge variant="outline" className="text-xs">
                                         {getRoleLabel(user.role)}
                                     </Badge>
@@ -420,7 +430,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                             </DropdownMenu>
                         )}
                         
-                        {!isAuthenticated && (
+                        {mounted && !isAuthenticated && (
                             <Button 
                                 variant="default" 
                                 size="sm" 

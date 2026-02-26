@@ -6,15 +6,15 @@ import { MainLayout } from '@/components/layout/main-layout'
 import { MusicUnifiedFilters } from '@/components/music/music-unified-filters'
 import { MusicTable } from '@/components/music/music-table'
 import { MusicGroupedView } from '@/components/music/music-grouped-view'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@core/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { useMusic, musicKeys } from '@/hooks/use-music'
 import { request } from '@/lib/api'
 import type { SearchFilters, PaginationParams } from '@/types'
 import { Music, Upload, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import Link from 'next/link'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 import { useQuery } from '@tanstack/react-query'
@@ -22,7 +22,8 @@ import { useQuery } from '@tanstack/react-query'
 type TabValue = 'all' | 'by-artist' | 'by-category' | 'by-liturgical-time'
 
 export default function MusicPage() {
-    const { canUpload } = useAuth()
+    const { hasPermission } = useAuth()
+    const canUpload = hasPermission('music:upload')
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<TabValue>('all')
     

@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Separator } from '@core/components/ui/separator'
+import { Badge } from '@core/components/ui/badge'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { Loader2, User, Eye, EyeOff, Lock } from 'lucide-react'
 
 const profileSchema = z.object({
@@ -50,7 +50,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
     const profileForm = useForm<ProfileFormData>({
         resolver: zodResolver(profileSchema),
         defaultValues: {
-            fullName: user?.full_name || '',
+            fullName: user?.fullName ?? (user as { full_name?: string })?.full_name ?? '',
         },
     })
 
@@ -65,53 +65,52 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
 
     // Update form when user changes
     useEffect(() => {
-        if (user?.full_name) {
-            profileForm.setValue('fullName', user.full_name)
+        const name = user?.fullName ?? (user as { full_name?: string })?.full_name
+        if (name) {
+            profileForm.setValue('fullName', name)
         }
-    }, [user?.full_name, profileForm])
+    }, [user?.fullName, user, profileForm])
 
     const handleProfileSubmit = async (data: ProfileFormData) => {
         setIsLoadingProfile(true)
-
-        const result = await updateProfile(data.fullName)
-
-        if (result.success) {
+        try {
+            await updateProfile(data.fullName)
             toast({
                 title: 'Perfil atualizado!',
                 description: 'Seu nome foi alterado com sucesso.',
             })
-        } else {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Não foi possível atualizar o perfil'
             toast({
                 title: 'Erro ao atualizar perfil',
-                description: result.error || 'Não foi possível atualizar o perfil',
+                description: message,
                 variant: 'destructive',
             })
+        } finally {
+            setIsLoadingProfile(false)
         }
-
-        setIsLoadingProfile(false)
     }
 
     const handlePasswordSubmit = async (data: PasswordFormData) => {
         setIsLoadingPassword(true)
-
-        const result = await changePassword(data.currentPassword, data.newPassword)
-
-        if (result.success) {
+        try {
+            await changePassword(data.currentPassword, data.newPassword)
             toast({
                 title: 'Senha alterada!',
                 description: 'Sua senha foi alterada com sucesso.',
             })
             passwordForm.reset()
             setShowChangePassword(false)
-        } else {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Não foi possível alterar a senha'
             toast({
                 title: 'Erro ao alterar senha',
-                description: result.error || 'Não foi possível alterar a senha',
+                description: message,
                 variant: 'destructive',
             })
+        } finally {
+            setIsLoadingPassword(false)
         }
-
-        setIsLoadingPassword(false)
     }
 
     const handleOpenChange = (isOpen: boolean) => {
@@ -144,7 +143,7 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                             <span className="font-medium">@{user?.username}</span>
                             <span className="mx-2">·</span>
                             <Badge variant="outline" className="font-normal">
-                                {getRoleLabel(user?.role || '')}
+                                {getRoleLabel(user?.role ?? '')}
                             </Badge>
                         </div>
                     </DialogDescription>

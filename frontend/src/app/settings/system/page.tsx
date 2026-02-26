@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useAuth } from '@/contexts/AuthContext'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Label } from '@core/components/ui/label'
+import { Badge } from '@core/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { useAuth } from '@core/contexts/auth-context'
 import {
     Settings,
     Save,
@@ -24,7 +24,7 @@ import {
     Database,
     Lock
 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@core/hooks/use-toast'
 import { adminApi } from '@/lib/api'
 
 interface MismatchedFile {
@@ -64,7 +64,8 @@ interface DiscoveryResult {
 
 export default function SystemSettingsPage() {
     const { toast } = useToast()
-    const { isAdmin, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const isAdmin = hasPermission('admin:access')
 
     // PDF Verification
     const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
@@ -655,7 +656,7 @@ export default function SystemSettingsPage() {
                                 <span className="font-medium">Versão:</span> 3.0.0
                             </div>
                             <div>
-                                <span className="font-medium">Banco de Dados:</span> SQLite
+                                <span className="font-medium">Banco de Dados:</span> MySQL
                             </div>
                             <div>
                                 <span className="font-medium">Estrutura:</span> /organized

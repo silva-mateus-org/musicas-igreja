@@ -1,3 +1,4 @@
+using Core.Auth.Models;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Models;
@@ -73,18 +74,19 @@ public class ValidationTests : IDisposable
     [Fact]
     public async Task User_CanBeSavedWithValidData()
     {
-        _context.Roles.Add(new Role { Id = 1, Name = "viewer", DisplayName = "Viewer" });
+        _context.Set<CoreRole>().Add(new CoreRole { Id = 1, Name = "viewer", Description = "Viewer" });
         await _context.SaveChangesAsync();
 
-        _context.Users.Add(new User
+        _context.Set<CoreUser>().Add(new CoreUser
         {
             Username = "testuser",
+            FullName = "Test User",
             PasswordHash = "hash1",
             RoleId = 1
         });
         await _context.SaveChangesAsync();
 
-        var user = await _context.Users.FirstAsync(u => u.Username == "testuser");
+        var user = await _context.Set<CoreUser>().FirstAsync(u => u.Username == "testuser");
         Assert.NotNull(user);
     }
 

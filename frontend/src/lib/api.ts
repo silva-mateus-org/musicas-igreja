@@ -488,47 +488,6 @@ export const dashboardApi = {
     }
 }
 
-// ============ AUTH ============
-export const authApi = {
-    async login(username: string, password: string): Promise<any> {
-        return await request<any>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ username, password }),
-            credentials: 'include',
-        })
-    },
-
-    async logout(): Promise<any> {
-        return await request<any>('/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-        })
-    },
-
-    async getCurrentUser(): Promise<any> {
-        return await request<any>('/auth/me', {
-            method: 'GET',
-            credentials: 'include',
-        })
-    },
-
-    async changePassword(currentPassword: string, newPassword: string): Promise<any> {
-        return await request<any>('/auth/change-password', {
-            method: 'POST',
-            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-            credentials: 'include',
-        })
-    },
-
-    async updateProfile(fullName: string): Promise<any> {
-        return await request<any>('/auth/profile', {
-            method: 'PUT',
-            body: JSON.stringify({ full_name: fullName }),
-            credentials: 'include',
-        })
-    }
-}
-
 // ============ ROLES ============
 export const rolesApi = {
     async getAll(): Promise<any> {

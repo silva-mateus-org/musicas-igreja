@@ -1,3 +1,4 @@
+using Core.Auth.Models;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 
@@ -54,8 +55,8 @@ public class MetricsCollectorService : BackgroundService
         {
             // 1. Database metrics
             var totalFiles = await context.PdfFiles.CountAsync();
-            var totalUsers = await context.Users.CountAsync();
-            var activeUsers = await context.Users.CountAsync(u => u.IsActive);
+            var totalUsers = await context.Set<CoreUser>().CountAsync();
+            var activeUsers = await context.Set<CoreUser>().CountAsync(u => u.IsActive);
 
             await monitoringService.RecordMetricAsync("database_files_count", totalFiles, "count");
             await monitoringService.RecordMetricAsync("database_users_count", totalUsers, "count");

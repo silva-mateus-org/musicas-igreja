@@ -6,23 +6,24 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MainLayout } from '@/components/layout/main-layout'
 import { ListsTable } from '@/components/lists/lists-table'
 import { CreateListDialog } from '@/components/lists/create-list-dialog'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent } from '@core/components/ui/card'
+import { Input } from '@core/components/ui/input'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { listsKeys } from '@/hooks/use-lists'
 import type { MusicList } from '@/types'
 import { List, Plus, Search, RefreshCw, ArrowUpDown } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { debounce } from '@/lib/utils'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
 export default function ListsPage() {
     const { toast } = useToast()
-    const { canEdit } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
     const queryClient = useQueryClient()
 
     const [searchTerm, setSearchTerm] = useState('')

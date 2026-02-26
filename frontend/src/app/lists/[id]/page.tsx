@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Badge } from '@core/components/ui/badge'
+import { Separator } from '@core/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
 import { listsApi, handleApiError } from '@/lib/api'
 import type { MusicList } from '@/types'
 import {
@@ -26,8 +26,8 @@ import {
     Youtube,
     Lock
 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import { DuplicateListDialog } from '@/components/lists/duplicate-list-dialog'
@@ -36,7 +36,9 @@ export default function ListDetailsPage() {
     const router = useRouter()
     const params = useParams()
     const { toast } = useToast()
-    const { canEdit, canDelete } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canDelete = hasPermission('music:delete')
     const listId = parseInt(params.id as string)
 
     const [list, setList] = useState<MusicList | null>(null)

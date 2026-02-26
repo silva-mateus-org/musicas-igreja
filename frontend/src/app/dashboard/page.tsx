@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadingOverlay } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'

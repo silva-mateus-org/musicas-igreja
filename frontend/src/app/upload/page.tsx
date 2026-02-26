@@ -7,16 +7,16 @@ import { UploadZone } from '@/components/upload/upload-zone'
 import { UploadProgress } from '@/components/upload/upload-progress'
 import { UploadResults } from '@/components/upload/upload-results'
 import { UploadMetadataEditor } from '@/components/upload/upload-metadata-editor'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { musicApi, handleApiError } from '@/lib/api'
 import type { UploadResponse } from '@/types'
 import { Upload, FileText, AlertTriangle, RefreshCw, Lock, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
 interface FileMetadata {
@@ -46,7 +46,8 @@ interface UploadState {
 
 export default function UploadPage() {
     const { toast } = useToast()
-    const { canUpload, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const canUpload = hasPermission('music:upload')
 
     const [uploadState, setUploadState] = useState<UploadState>({
         files: [],

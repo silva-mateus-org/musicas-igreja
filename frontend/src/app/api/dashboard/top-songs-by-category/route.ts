@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
 
         const response = await fetch(`${BACKEND_URL}/api/dashboard/top-songs-by-category?category=${encodeURIComponent(category)}`, {
             method: 'GET',
+            cache: 'no-store',
             headers: {
                 'Content-Type': 'application/json',
             },

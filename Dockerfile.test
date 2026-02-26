@@ -3,9 +3,13 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0
 
 WORKDIR /src
 
-# Copy backend project
+# Copy project files for restore
 COPY backend/MusicasIgreja.Api.csproj ./backend/
 COPY backend.tests/MusicasIgreja.Api.Tests.csproj ./backend.tests/
+COPY core/backend/src/Core.Auth/Core.Auth.csproj ./core/backend/src/Core.Auth/
+COPY core/backend/src/Core.Common/Core.Common.csproj ./core/backend/src/Core.Common/
+COPY core/backend/src/Core.FileManagement/Core.FileManagement.csproj ./core/backend/src/Core.FileManagement/
+COPY core/backend/src/Core.Infrastructure/Core.Infrastructure.csproj ./core/backend/src/Core.Infrastructure/
 
 # Restore
 WORKDIR /src/backend.tests
@@ -15,10 +19,10 @@ RUN dotnet restore
 WORKDIR /src
 COPY backend/ ./backend/
 COPY backend.tests/ ./backend.tests/
+COPY core/backend/src/ ./core/backend/src/
 
 # Build and test
 WORKDIR /src/backend.tests
 RUN dotnet build --no-restore -c Release
 
-# Run tests - exit with non-zero if tests fail
 ENTRYPOINT ["dotnet", "test", "--no-build", "-c", "Release", "--verbosity", "normal", "--logger", "console;verbosity=detailed"]

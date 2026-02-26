@@ -3,18 +3,18 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Badge } from '@core/components/ui/badge'
 import { ArrowLeft, Download, Edit, Trash2, ExternalLink, Music, User, Tag, Calendar, PlayCircle, Eye, Plus, RefreshCw } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useToast } from '@core/hooks/use-toast'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
 import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
 import { musicApi, handleApiError } from '@/lib/api'
 import { AddToListModal } from '@/components/music/add-to-list-modal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
 function isValidYouTube(url?: string) {
@@ -31,7 +31,9 @@ export default function MusicDetailsPage() {
     const params = useParams()
     const router = useRouter()
     const { toast } = useToast()
-    const { canEdit, canDelete } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canDelete = hasPermission('music:delete')
 
     const [music, setMusic] = useState<MusicType | null>(null)
     const [loading, setLoading] = useState(true)

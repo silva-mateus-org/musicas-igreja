@@ -1,4 +1,7 @@
+using Core.Auth.Helpers;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Services;
 
@@ -8,29 +11,20 @@ namespace MusicasIgreja.Api.Controllers;
 [Route("api/users")]
 public class UsersController : ControllerBase
 {
-    private readonly IAuthService _authService;
+    private readonly ICoreAuthService _authService;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(IAuthService authService, ILogger<UsersController> logger)
+    public UsersController(ICoreAuthService authService, ILogger<UsersController> logger)
     {
         _authService = authService;
         _logger = logger;
     }
 
-    private async Task<bool> CanManageUsersAsync()
-    {
-        var roleId = HttpContext.Session.GetInt32("RoleId");
-        if (roleId == null) return false;
-        
-        var role = await _authService.GetRoleByIdAsync(roleId.Value);
-        return role?.CanManageUsers ?? false;
-    }
-
     [HttpGet]
     public async Task<ActionResult> GetUsers()
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         var users = await _authService.GetAllUsersAsync();
 
@@ -44,10 +38,10 @@ public class UsersController : ControllerBase
                 full_name = u.FullName,
                 role = u.Role?.Name ?? "viewer",
                 role_id = u.RoleId,
-                role_display_name = u.Role?.DisplayName ?? "Visualizador",
+                role_display_name = u.Role?.Description ?? u.Role?.Name ?? "Visualizador",
                 is_active = u.IsActive,
                 must_change_password = u.MustChangePassword,
-                created_at = u.CreatedDate,
+                created_at = u.CreatedAt,
                 last_login = u.LastLoginDate
             })
         });
@@ -56,8 +50,8 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new { success = false, error = "Username e password são obrigatórios" });
@@ -67,25 +61,27 @@ public class UsersController : ControllerBase
 
         try
         {
-            // Get role ID from name or use provided role_id
-            int roleId = request.RoleId ?? 1; // Default to Viewer
-            
+            int roleId = request.RoleId ?? 1;
+
             if (!string.IsNullOrEmpty(request.Role))
             {
-                var role = await _authService.GetRoleByNameAsync(request.Role);
+                var roles = await _authService.GetAllRolesAsync();
+                var role = roles.FirstOrDefault(r => r.Name.Equals(request.Role.Trim(), StringComparison.OrdinalIgnoreCase));
                 if (role != null)
                     roleId = role.Id;
             }
 
-            var user = await _authService.CreateUserAsync(
+            var result = await _authService.CreateUserAsync(
                 request.Username,
                 request.FullName ?? request.Username,
                 request.Password,
                 roleId
             );
 
-            // Reload user with role
-            var userWithRole = await _authService.GetUserWithRoleAsync(user.Id);
+            if (!result.IsSuccess)
+                return Conflict(new { success = false, error = result.Error });
+
+            var userWithRole = await _authService.GetUserWithRoleAsync(result.Value!.Id);
 
             return StatusCode(201, new
             {
@@ -109,24 +105,29 @@ public class UsersController : ControllerBase
     [HttpPut("{id}/role")]
     public async Task<ActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleRequest request)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         int roleId = request.RoleId ?? 1;
-        
+
         if (!string.IsNullOrEmpty(request.Role))
         {
-            var role = await _authService.GetRoleByNameAsync(request.Role);
+            var roles = await _authService.GetAllRolesAsync();
+            var role = roles.FirstOrDefault(r => r.Name.Equals(request.Role.Trim(), StringComparison.OrdinalIgnoreCase));
             if (role != null)
                 roleId = role.Id;
             else
                 return BadRequest(new { success = false, error = "Role não encontrada" });
         }
 
-        var result = await _authService.UpdateUserRoleAsync(id, roleId);
-
-        if (!result)
+        var user = await _authService.GetUserByIdAsync(id);
+        if (user == null)
             return NotFound(new { success = false, error = "Usuário não encontrado" });
+
+        var result = await _authService.UpdateUserAsync(id, user.FullName, roleId);
+
+        if (!result.IsSuccess)
+            return NotFound(new { success = false, error = result.Error });
 
         return Ok(new { success = true, message = "Role atualizada com sucesso" });
     }
@@ -134,17 +135,17 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeactivateUser(int id)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
-        var currentUserId = HttpContext.Session.GetInt32("UserId");
+        var currentUserId = CoreAuthHelper.GetCurrentUserId(HttpContext);
         if (currentUserId == id)
             return BadRequest(new { success = false, error = "Não é possível desativar a própria conta" });
 
         var result = await _authService.DeactivateUserAsync(id);
 
-        if (!result)
-            return NotFound(new { success = false, error = "Usuário não encontrado" });
+        if (!result.IsSuccess)
+            return NotFound(new { success = false, error = result.Error });
 
         return Ok(new { success = true, message = "Usuário desativado com sucesso" });
     }
@@ -152,17 +153,17 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}/permanent")]
     public async Task<ActionResult> DeleteUserPermanently(int id)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
-        var currentUserId = HttpContext.Session.GetInt32("UserId");
+        var currentUserId = CoreAuthHelper.GetCurrentUserId(HttpContext);
         if (currentUserId == id)
             return BadRequest(new { success = false, error = "Não é possível excluir a própria conta" });
 
         var result = await _authService.DeleteUserAsync(id);
 
-        if (!result)
-            return NotFound(new { success = false, error = "Usuário não encontrado" });
+        if (!result.IsSuccess)
+            return NotFound(new { success = false, error = result.Error });
 
         return Ok(new { success = true, message = "Usuário excluído permanentemente" });
     }
@@ -170,8 +171,8 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/reset-password")]
     public async Task<ActionResult> ResetPassword(int id, [FromBody] ResetPasswordRequest request)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         if (string.IsNullOrWhiteSpace(request.NewPassword))
             return BadRequest(new { success = false, error = "Nova senha é obrigatória" });
@@ -181,8 +182,8 @@ public class UsersController : ControllerBase
 
         var result = await _authService.ResetPasswordAsync(id, request.NewPassword);
 
-        if (!result)
-            return NotFound(new { success = false, error = "Usuário não encontrado" });
+        if (!result.IsSuccess)
+            return NotFound(new { success = false, error = result.Error });
 
         return Ok(new { success = true, message = "Senha resetada com sucesso" });
     }
@@ -190,13 +191,13 @@ public class UsersController : ControllerBase
     [HttpPut("{id}/activate")]
     public async Task<ActionResult> ActivateUser(int id)
     {
-        if (!await CanManageUsersAsync())
-            return Forbid();
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageUsers))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         var result = await _authService.ActivateUserAsync(id);
 
-        if (!result)
-            return NotFound(new { success = false, error = "Usuário não encontrado" });
+        if (!result.IsSuccess)
+            return NotFound(new { success = false, error = result.Error });
 
         return Ok(new { success = true, message = "Usuário ativado com sucesso" });
     }

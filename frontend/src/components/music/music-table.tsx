@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Button } from '@core/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
+import { Badge } from '@core/components/ui/badge'
+import { Skeleton } from '@core/components/ui/skeleton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@core/components/ui/dropdown-menu'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { MusicFile } from '@/types'
@@ -22,7 +22,7 @@ import {
     FolderOpen,
     Calendar
 } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { AddToListModal } from './add-to-list-modal'
 import { useState } from 'react'
 
@@ -47,7 +47,9 @@ export function MusicTable({
     onMusicUpdate
 }: MusicTableProps) {
     const router = useRouter()
-    const { canEdit, canManageLists } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canManageLists = hasPermission('lists:manage')
 
     const handleView = (music: MusicFile) => {
         router.push(`/music/${music.id}`)

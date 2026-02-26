@@ -32,10 +32,15 @@ backend/obj/
 # Note: backend/Data/ is source code folder (AppDbContext.cs), not ignored
 # Only ignore lowercase data/ for runtime database
 backend/data/*.db
-backend/data/*.db-journal
 backend/organized/
+
+# SQLite runtime files (anywhere in repo)
 *.db-journal
-*.db-journal
+*.db-shm
+*.db-wal
+
+# Migration tool data (production database copies)
+tools/MigrateSqlite/*.db
 
 # NuGet packages
 *.nupkg
@@ -107,7 +112,8 @@ start-all.ps1
 
 backend/StudyReadme_backend.md
 
-# Cursor rules (local only)
+# Cursor IDE
+.cursor/plans/
 .cursorrules
 backend/.cursorrules
 frontend/.cursorrules

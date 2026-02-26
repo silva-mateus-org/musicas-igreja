@@ -1,5 +1,8 @@
+using Core.Auth.Helpers;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
@@ -13,12 +16,14 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IFileService _fileService;
+    private readonly ICoreAuthService _authService;
     private readonly ILogger<AdminController> _logger;
 
-    public AdminController(AppDbContext context, IFileService fileService, ILogger<AdminController> logger)
+    public AdminController(AppDbContext context, IFileService fileService, ICoreAuthService authService, ILogger<AdminController> logger)
     {
         _context = context;
         _fileService = fileService;
+        _authService = authService;
         _logger = logger;
     }
 
@@ -28,6 +33,9 @@ public class AdminController : ControllerBase
     [HttpGet("verify-pdfs")]
     public async Task<ActionResult> VerifyPdfs()
     {
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
+
         var files = await _context.PdfFiles.ToListAsync();
         var mismatchedFiles = new List<object>();
 
@@ -69,6 +77,9 @@ public class AdminController : ControllerBase
     [HttpPost("fix-pdf-names")]
     public async Task<ActionResult> FixPdfNames([FromBody] FixPdfNamesRequest request)
     {
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
+
         if (request.FileIds == null || !request.FileIds.Any())
             return BadRequest(new { error = "Nenhum arquivo selecionado" });
 
@@ -134,6 +145,9 @@ public class AdminController : ControllerBase
     [HttpGet("discover-entities")]
     public async Task<ActionResult> DiscoverEntities()
     {
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
+
         // Get registered entities
         var registeredArtists = await _context.Artists.Select(a => a.Name).ToListAsync();
         var registeredCategories = await _context.Categories.Select(c => c.Name).ToListAsync();
@@ -208,6 +222,9 @@ public class AdminController : ControllerBase
     [HttpPost("register-discovered-entities")]
     public async Task<ActionResult> RegisterDiscoveredEntities([FromBody] RegisterEntitiesRequest request)
     {
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
+
         var addedArtists = 0;
         var addedCategories = 0;
         var addedLiturgicalTimes = 0;
@@ -275,6 +292,9 @@ public class AdminController : ControllerBase
     [HttpPost("cleanup-entities")]
     public async Task<ActionResult> CleanupEntities()
     {
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
+
         var removedArtists = 0;
         var removedCategories = 0;
         var removedLiturgicalTimes = 0;

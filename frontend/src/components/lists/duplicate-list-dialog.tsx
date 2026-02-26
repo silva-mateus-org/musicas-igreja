@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@core/components/ui/dialog'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
 import { Copy, Loader2 } from 'lucide-react'
 import { listsApi, handleApiError } from '@/lib/api'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@core/hooks/use-toast'
 
 interface DuplicateListDialogProps {
     listId: number

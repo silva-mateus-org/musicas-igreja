@@ -1,7 +1,7 @@
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { useMobile } from '@/hooks/use-mobile'
+import { Button } from '@core/components/ui/button'
+import { useMobile } from '@core/hooks/use-mobile'
 import {
     ChevronLeft,
     ChevronRight,

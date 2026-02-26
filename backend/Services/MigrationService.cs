@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 
@@ -13,29 +12,23 @@ public class MigrationService : IMigrationService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<MigrationService> _logger;
-    private readonly IConfiguration _configuration;
 
-    public MigrationService(AppDbContext context, ILogger<MigrationService> logger, IConfiguration configuration)
+    public MigrationService(AppDbContext context, ILogger<MigrationService> logger)
     {
         _context = context;
         _logger = logger;
-        _configuration = configuration;
     }
 
     public async Task RunMigrationsAsync()
     {
         _logger.LogInformation("Checking for pending migrations...");
 
-        // Ensure migration history table exists
         await EnsureMigrationHistoryTableAsync();
 
         var scriptsPath = Path.Combine(AppContext.BaseDirectory, "Migrations", "Scripts");
-        
-        // Fallback for development
+
         if (!Directory.Exists(scriptsPath))
-        {
             scriptsPath = Path.Combine(Directory.GetCurrentDirectory(), "Migrations", "Scripts");
-        }
 
         if (!Directory.Exists(scriptsPath))
         {
@@ -53,7 +46,6 @@ public class MigrationService : IMigrationService
             return;
         }
 
-        // Get already executed migrations
         var executedMigrations = await GetExecutedMigrationsAsync();
 
         var pendingScripts = scripts
@@ -71,14 +63,13 @@ public class MigrationService : IMigrationService
         foreach (var scriptPath in pendingScripts)
         {
             var scriptName = Path.GetFileName(scriptPath);
-            
+
             try
             {
                 _logger.LogInformation("Running migration: {Script}", scriptName);
-                
+
                 var sql = await File.ReadAllTextAsync(scriptPath);
-                
-                // Split by semicolons for SQLite (execute statements one by one)
+
                 var statements = sql
                     .Split(';', StringSplitOptions.RemoveEmptyEntries)
                     .Where(s => !string.IsNullOrWhiteSpace(s))
@@ -86,12 +77,11 @@ public class MigrationService : IMigrationService
 
                 foreach (var statement in statements)
                 {
-                    // Remove comment lines from the statement
                     var lines = statement.Split('\n')
                         .Where(line => !line.Trim().StartsWith("--"))
                         .ToList();
                     var trimmedStatement = string.Join('\n', lines).Trim();
-                    
+
                     if (string.IsNullOrWhiteSpace(trimmedStatement))
                         continue;
 
@@ -99,37 +89,21 @@ public class MigrationService : IMigrationService
                     {
                         await _context.Database.ExecuteSqlRawAsync(trimmedStatement);
                     }
-                    catch (SqliteException ex) when (ex.SqliteErrorCode == 19) // UNIQUE constraint
+                    catch (Exception ex) when (
+                        ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Ignore duplicate key errors (idempotent migrations)
-                        _logger.LogDebug("Ignoring duplicate key in {Script}: {Message}", scriptName, ex.Message);
-                    }
-                    catch (SqliteException ex) when (ex.Message.Contains("already exists"))
-                    {
-                        // Ignore "table/index already exists" errors
-                        _logger.LogDebug("Ignoring 'already exists' in {Script}: {Message}", scriptName, ex.Message);
-                    }
-                    catch (SqliteException ex) when (ex.Message.Contains("duplicate column name"))
-                    {
-                        // Ignore "duplicate column name" errors (column already added)
-                        _logger.LogDebug("Ignoring 'duplicate column' in {Script}: {Message}", scriptName, ex.Message);
-                    }
-                    catch (SqliteException ex)
-                    {
-                        // Log other SQLite errors but continue
-                        _logger.LogWarning("SQLite error in {Script}: {Message}. Statement: {Statement}", 
-                            scriptName, ex.Message, trimmedStatement.Substring(0, Math.Min(100, trimmedStatement.Length)));
+                        _logger.LogDebug("Ignoring idempotent error in {Script}: {Message}", scriptName, ex.Message);
                     }
                 }
 
-                // Record successful migration
                 await RecordMigrationAsync(scriptName);
                 _logger.LogInformation("Completed migration: {Script}", scriptName);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running migration {Script}", scriptName);
-                // Don't throw - continue with other migrations
             }
         }
 
@@ -142,9 +116,9 @@ public class MigrationService : IMigrationService
         {
             await _context.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS __migration_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    script_name TEXT NOT NULL UNIQUE,
-                    executed_at TEXT NOT NULL DEFAULT (datetime('now'))
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    script_name VARCHAR(255) NOT NULL UNIQUE,
+                    executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
             ");
         }

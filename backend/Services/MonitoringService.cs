@@ -1,3 +1,4 @@
+using Core.Auth.Models;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Models;
@@ -280,8 +281,8 @@ public class MonitoringService : IMonitoringService
 
             // Database stats
             var totalFiles = await _context.PdfFiles.CountAsync();
-            var totalUsers = await _context.Users.CountAsync();
-            var activeUsers = await _context.Users.CountAsync(u => u.IsActive);
+            var totalUsers = await _context.Set<CoreUser>().CountAsync();
+            var activeUsers = await _context.Set<CoreUser>().CountAsync(u => u.IsActive);
 
             // Recent activity (last 24h)
             var yesterday = DateTime.UtcNow.AddDays(-1);

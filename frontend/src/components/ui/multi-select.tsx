@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { Check, ChevronsUpDown, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
+import { Button } from '@core/components/ui/button'
 import {
     Command,
     CommandEmpty,
@@ -17,7 +17,7 @@ import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@core/components/ui/popover'
 
 interface MultiSelectProps {
     options: string[]

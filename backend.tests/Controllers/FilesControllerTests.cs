@@ -1,8 +1,12 @@
+using Core.Auth.Models;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Controllers;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
@@ -16,7 +20,7 @@ public class FilesControllerTests : IDisposable
     private readonly AppDbContext _context;
     private readonly FilesController _controller;
     private readonly Mock<IFileService> _fileServiceMock;
-    private readonly Mock<IAuthService> _authServiceMock;
+    private readonly Mock<ICoreAuthService> _authServiceMock;
     private readonly Mock<IMonitoringService> _monitoringServiceMock;
     private readonly Mock<ILogger<FilesController>> _loggerMock;
 
@@ -28,46 +32,29 @@ public class FilesControllerTests : IDisposable
 
         _context = new AppDbContext(options);
         _fileServiceMock = new Mock<IFileService>();
-        _authServiceMock = new Mock<IAuthService>();
+        _authServiceMock = new Mock<ICoreAuthService>();
         _monitoringServiceMock = new Mock<IMonitoringService>();
         _loggerMock = new Mock<ILogger<FilesController>>();
 
         _controller = new FilesController(_context, _fileServiceMock.Object, _authServiceMock.Object, _monitoringServiceMock.Object, _loggerMock.Object);
 
-        // Setup HttpContext with session for authentication tests
+        // Setup HttpContext with session for authentication tests (set via ISessionFeature so Session property works)
         var httpContext = new DefaultHttpContext();
-        var sessionMock = new Mock<ISession>();
-        var sessionData = new Dictionary<string, byte[]>
+        var testSession = new TestSession(new Dictionary<string, byte[]>
         {
             ["UserId"] = BitConverter.GetBytes(1),
-            ["RoleId"] = BitConverter.GetBytes(1)
-        };
-        
-#pragma warning disable CS8601 // Possible null reference assignment in test mock
-        sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]>.IsAny))
-#pragma warning restore CS8601
-            .Returns((string key, out byte[] value) =>
-            {
-                var exists = sessionData.TryGetValue(key, out var data);
-                value = data ?? Array.Empty<byte>();
-                return exists;
-            });
-        
-        httpContext.Session = sessionMock.Object;
+            ["RoleId"] = BitConverter.GetBytes(1),
+            ["Username"] = System.Text.Encoding.UTF8.GetBytes("testuser")
+        });
+        httpContext.Features.Set<ISessionFeature>(new TestSessionFeature { Session = testSession });
         httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("127.0.0.1");
         _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
-        // Setup AuthService mock to return permissions
-        var mockRole = new Role
-        {
-            Id = 1,
-            Name = "admin",
-            CanUploadMusic = true,
-            CanEditMusicMetadata = true,
-            CanDeleteMusic = true
-        };
-        _authServiceMock.Setup(a => a.GetRoleByIdAsync(It.IsAny<int>()))
-            .ReturnsAsync(mockRole);
+        // Setup ICoreAuthService mock: UserHasPermissionAsync returns true for any user (session user is 1)
+        _authServiceMock.Setup(a => a.UserHasPermissionAsync(It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+        _authServiceMock.Setup(a => a.GetUserWithRoleAsync(It.IsAny<int>()))
+            .ReturnsAsync((int id) => new CoreUser { Id = id, Username = "testuser", RoleId = 1 });
 
         SeedDatabase();
     }
@@ -337,4 +324,33 @@ public class FilesControllerTests : IDisposable
     }
 
     #endregion
+}
+
+/// <summary>
+/// Minimal ISession implementation for tests. Properly handles TryGetValue so Session.GetInt32 works.
+/// </summary>
+internal sealed class TestSession : ISession
+{
+    private readonly Dictionary<string, byte[]> _data;
+
+    public TestSession(Dictionary<string, byte[]> data) => _data = data;
+
+    public bool IsAvailable => true;
+    public string Id => "test-session-id";
+    public IEnumerable<string> Keys => _data.Keys;
+
+    public void Clear() => _data.Clear();
+    public void Remove(string key) => _data.Remove(key);
+    public void Set(string key, byte[] value) => _data[key] = value;
+
+    public bool TryGetValue(string key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out byte[]? value) =>
+        _data.TryGetValue(key, out value);
+
+    public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+internal sealed class TestSessionFeature : ISessionFeature
+{
+    public ISession Session { get; set; } = null!;
 }

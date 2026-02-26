@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Info } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import {
     Dialog,
     DialogContent,
@@ -10,9 +10,9 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+} from '@core/components/ui/dialog'
+import { ScrollArea } from '@core/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface InstructionSection {

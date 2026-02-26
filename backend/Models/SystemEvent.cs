@@ -50,7 +50,7 @@ public class SystemEvent
     [Column("created_date")]
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
-    // Navigation property
+    // Navigation property (UserId references core_users)
     [ForeignKey("UserId")]
-    public User? User { get; set; }
+    public Core.Auth.Models.CoreUser? User { get; set; }
 }

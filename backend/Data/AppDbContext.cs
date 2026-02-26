@@ -1,3 +1,4 @@
+using Core.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Models;
 
@@ -18,9 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<FileCategory> FileCategories { get; set; }
     public DbSet<FileLiturgicalTime> FileLiturgicalTimes { get; set; }
     public DbSet<FileArtist> FileArtists { get; set; }
-    public DbSet<User> Users { get; set; }
-    public DbSet<Role> Roles { get; set; }
-    
+
     // Monitoring tables
     public DbSet<SystemEvent> SystemEvents { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
@@ -30,6 +29,10 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Core entities (Users, Roles, Permissions, StoredFiles)
+        modelBuilder.ApplyCoreAuthEntities();
+        modelBuilder.ApplyCoreFileEntities();
 
         // PdfFile configuration
         modelBuilder.Entity<PdfFile>(entity =>
@@ -200,53 +203,6 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.ArtistId);
 
             entity.HasIndex(e => new { e.FileId, e.ArtistId }).IsUnique();
-        });
-
-        // User configuration
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.ToTable("users");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Username).HasColumnName("username").IsRequired();
-            entity.Property(e => e.FullName).HasColumnName("full_name");
-            entity.Property(e => e.PasswordHash).HasColumnName("password_hash").IsRequired();
-            entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.IsActive).HasColumnName("is_active");
-            entity.Property(e => e.MustChangePassword).HasColumnName("must_change_password");
-            entity.Property(e => e.CreatedDate).HasColumnName("created_date");
-            entity.Property(e => e.LastLoginDate).HasColumnName("last_login_date");
-            entity.HasIndex(e => e.Username).IsUnique();
-            
-            entity.HasOne(e => e.Role)
-                .WithMany(r => r.Users)
-                .HasForeignKey(e => e.RoleId);
-        });
-
-        // Role configuration
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.ToTable("roles");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Name).HasColumnName("name").IsRequired();
-            entity.Property(e => e.DisplayName).HasColumnName("display_name").IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.IsSystemRole).HasColumnName("is_system_role");
-            entity.Property(e => e.IsDefault).HasColumnName("is_default");
-            entity.Property(e => e.Priority).HasColumnName("priority");
-            entity.Property(e => e.CanViewMusic).HasColumnName("can_view_music");
-            entity.Property(e => e.CanDownloadMusic).HasColumnName("can_download_music");
-            entity.Property(e => e.CanEditMusicMetadata).HasColumnName("can_edit_music_metadata");
-            entity.Property(e => e.CanUploadMusic).HasColumnName("can_upload_music");
-            entity.Property(e => e.CanDeleteMusic).HasColumnName("can_delete_music");
-            entity.Property(e => e.CanManageLists).HasColumnName("can_manage_lists");
-            entity.Property(e => e.CanManageCategories).HasColumnName("can_manage_categories");
-            entity.Property(e => e.CanManageUsers).HasColumnName("can_manage_users");
-            entity.Property(e => e.CanManageRoles).HasColumnName("can_manage_roles");
-            entity.Property(e => e.CanAccessAdmin).HasColumnName("can_access_admin");
-            entity.Property(e => e.CreatedDate).HasColumnName("created_date");
-            entity.HasIndex(e => e.Name).IsUnique();
         });
 
         // Seed default liturgical times

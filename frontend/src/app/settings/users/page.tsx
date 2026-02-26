@@ -3,17 +3,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Badge } from '@core/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
+import { Label } from '@core/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { usersApi, rolesApi, handleApiError } from '@/lib/api'
 import {
     Users,
@@ -68,7 +68,9 @@ interface RoleItem {
 
 export default function UsersPage() {
     const { toast } = useToast()
-    const { canManageUsers, canManageRoles, isAuthenticated, user } = useAuth()
+    const { hasPermission, isAuthenticated, user } = useAuth()
+    const canManageUsers = hasPermission('users:manage')
+    const canManageRoles = hasPermission('roles:manage')
     const [users, setUsers] = useState<UserItem[]>([])
     const [roles, setRoles] = useState<RoleItem[]>([])
     const [isLoading, setIsLoading] = useState(true)

@@ -2,9 +2,9 @@
 
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
+import { Card } from '@core/components/ui/card'
 import { Upload, FileText, X, AlertCircle, CheckCircle2, File } from 'lucide-react'
 import { formatFileSize, cn } from '@/lib/utils'
 

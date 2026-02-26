@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
 import type { SearchFilters } from '@/types'
 import { 
     ChevronDown, 
@@ -24,10 +24,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { musicApi, downloadFile } from '@/lib/api'
 import { AddToListModal } from './add-to-list-modal'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@core/components/ui/dropdown-menu'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -72,7 +72,10 @@ export function MusicGroupedView({
     filters = {}
 }: MusicGroupedViewProps) {
     const router = useRouter()
-    const { canDownloadMusic, canEdit, canManageLists } = useAuth()
+    const { hasPermission } = useAuth()
+    const canDownloadMusic = hasPermission('music:download')
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canManageLists = hasPermission('lists:manage')
     const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
     const [downloadingId, setDownloadingId] = useState<number | null>(null)
 

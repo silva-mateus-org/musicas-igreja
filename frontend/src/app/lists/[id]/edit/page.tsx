@@ -4,18 +4,18 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Textarea } from '@core/components/ui/textarea'
+import { Badge } from '@core/components/ui/badge'
+import { Separator } from '@core/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Checkbox } from '@core/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@core/components/ui/popover'
+import { ScrollArea } from '@core/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { listsApi, musicApi, handleApiError } from '@/lib/api'
 import type { MusicList, MusicFile } from '@/types'
@@ -45,8 +45,8 @@ import {
     Check,
     User
 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import Link from 'next/link'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
@@ -66,7 +66,8 @@ export default function EditListPage() {
     const router = useRouter()
     const params = useParams()
     const { toast } = useToast()
-    const { canEdit, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
     const listId = parseInt(params.id as string)
 
     const [list, setList] = useState<MusicList | null>(null)

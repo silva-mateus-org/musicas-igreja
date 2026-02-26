@@ -1,5 +1,8 @@
+using Core.Auth.Helpers;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Helpers;
@@ -14,11 +17,11 @@ public class FilesController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IFileService _fileService;
-    private readonly IAuthService _authService;
+    private readonly ICoreAuthService _authService;
     private readonly IMonitoringService _monitoringService;
     private readonly ILogger<FilesController> _logger;
 
-    public FilesController(AppDbContext context, IFileService fileService, IAuthService authService, IMonitoringService monitoringService, ILogger<FilesController> logger)
+    public FilesController(AppDbContext context, IFileService fileService, ICoreAuthService authService, IMonitoringService monitoringService, ILogger<FilesController> logger)
     {
         _context = context;
         _fileService = fileService;
@@ -186,14 +189,11 @@ public class FilesController : ControllerBase
         [FromForm] List<string>? new_liturgical_times = null,
         [FromForm] string? new_artist = null)
     {
-        // Check authentication
-        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
-        if (authCheck != null) return authCheck;
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
 
-        // Check upload permission
-        var canUpload = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanUploadMusic);
-        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canUpload, _logger);
-        if (permissionCheck != null) return permissionCheck;
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.UploadMusic))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         if (file == null || file.Length == 0)
             return BadRequest(new FileUploadResultDto
@@ -245,9 +245,9 @@ public class FilesController : ControllerBase
             });
 
             // Log upload metrics and audit
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
-            var username = HttpContext.Session.GetString("Username") ?? "unknown";
-            var ipAddress = AuthHelper.GetClientIp(HttpContext);
+            var userId = CoreAuthHelper.GetCurrentUserId(HttpContext) ?? 0;
+            var username = CoreAuthHelper.GetCurrentUsername(HttpContext) ?? "unknown";
+            var ipAddress = CoreAuthHelper.GetClientIp(HttpContext);
             
             await _monitoringService.RecordMetricAsync("upload_size", file.Length / (1024.0 * 1024.0), "MB");
             await _monitoringService.LogAuditActionAsync("upload", "file", result.Id, userId, username, ipAddress);
@@ -292,14 +292,11 @@ public class FilesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult<object>> UpdateFile(int id, [FromBody] FileUpdateDto dto)
     {
-        // Check authentication
-        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
-        if (authCheck != null) return authCheck;
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
 
-        // Check edit permission
-        var canEdit = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanEditMusicMetadata);
-        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canEdit, _logger);
-        if (permissionCheck != null) return permissionCheck;
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.EditMetadata))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         var file = await _context.PdfFiles
             .Include(f => f.FileCategories)
@@ -369,23 +366,20 @@ public class FilesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult<object>> DeleteFile(int id)
     {
-        // Check authentication
-        var authCheck = AuthHelper.CheckAuthentication(HttpContext, _logger);
-        if (authCheck != null) return authCheck;
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
 
-        // Check delete permission
-        var canDelete = await AuthHelper.HasPermissionAsync(HttpContext, _authService, role => role.CanDeleteMusic);
-        var permissionCheck = AuthHelper.CheckPermission(HttpContext, canDelete, _logger);
-        if (permissionCheck != null) return permissionCheck;
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.DeleteMusic))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         var file = await _context.PdfFiles.FindAsync(id);
         if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });
 
         // Log audit before deleting
-        var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
-        var username = HttpContext.Session.GetString("Username") ?? "unknown";
-        var ipAddress = AuthHelper.GetClientIp(HttpContext);
+        var userId = CoreAuthHelper.GetCurrentUserId(HttpContext) ?? 0;
+        var username = CoreAuthHelper.GetCurrentUsername(HttpContext) ?? "unknown";
+        var ipAddress = CoreAuthHelper.GetClientIp(HttpContext);
         
         await _monitoringService.LogAuditActionAsync("delete", "file", id, userId, username, ipAddress);
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface ErrorStateProps {
