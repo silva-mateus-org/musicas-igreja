@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
+using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
 
 namespace MusicasIgreja.Api.Controllers;
@@ -21,7 +22,7 @@ public class ArtistsController : ControllerBase
     {
         var artists = await _context.Artists
             .OrderBy(a => a.Name)
-            .Select(a => a.Name)
+            .Select(a => new FilterOptionDto(a.Slug, a.Name))
             .ToListAsync();
 
         return Ok(new { artists });
@@ -36,6 +37,7 @@ public class ArtistsController : ControllerBase
             {
                 id = a.Id,
                 name = a.Name,
+                slug = a.Slug,
                 description = a.Description,
                 file_count = a.FileArtists.Count
             })

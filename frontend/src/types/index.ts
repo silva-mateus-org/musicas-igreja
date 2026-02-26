@@ -81,7 +81,13 @@ export interface MusicListItem {
     music?: MusicFile
 }
 
-// Search and Filter types
+// Filter option returned by API (slug for URL, label for display)
+export interface FilterOption {
+    slug: string
+    label: string
+}
+
+// Search and Filter types (values are slugs)
 export interface SearchFilters {
     title?: string
     artist?: string | string[]

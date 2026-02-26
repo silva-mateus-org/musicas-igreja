@@ -66,29 +66,53 @@ public class FilesController : ControllerBase
                 .Where(f => filteredIds.Contains(f.Id));
         }
 
-        // Apply category filter (supports multiple categories with OR logic)
-        var categories = category?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
-        if (categories != null && categories.Count > 0)
+        // Apply category filter (slugs → resolve to names)
+        var categorySlugs = category?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+        if (categorySlugs != null && categorySlugs.Count > 0)
         {
-            query = query.Where(f =>
-                categories.Contains(f.Category!) ||
-                f.FileCategories.Any(fc => categories.Contains(fc.Category.Name)));
+            var categoryNames = await _context.Categories
+                .Where(c => categorySlugs.Contains(c.Slug))
+                .Select(c => c.Name)
+                .ToListAsync();
+
+            if (categoryNames.Count > 0)
+            {
+                query = query.Where(f =>
+                    categoryNames.Contains(f.Category!) ||
+                    f.FileCategories.Any(fc => categoryNames.Contains(fc.Category.Name)));
+            }
         }
 
-        // Apply liturgical time filter (supports multiple times with OR logic)
-        var liturgicalTimes = liturgical_time?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
-        if (liturgicalTimes != null && liturgicalTimes.Count > 0)
+        // Apply liturgical time filter (slugs → resolve to names)
+        var liturgicalTimeSlugs = liturgical_time?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        if (liturgicalTimeSlugs != null && liturgicalTimeSlugs.Count > 0)
         {
-            query = query.Where(f =>
-                liturgicalTimes.Contains(f.LiturgicalTime!) ||
-                f.FileLiturgicalTimes.Any(flt => liturgicalTimes.Contains(flt.LiturgicalTime.Name)));
+            var ltNames = await _context.LiturgicalTimes
+                .Where(l => liturgicalTimeSlugs.Contains(l.Slug))
+                .Select(l => l.Name)
+                .ToListAsync();
+
+            if (ltNames.Count > 0)
+            {
+                query = query.Where(f =>
+                    ltNames.Contains(f.LiturgicalTime!) ||
+                    f.FileLiturgicalTimes.Any(flt => ltNames.Contains(flt.LiturgicalTime.Name)));
+            }
         }
 
-        // Apply artist filter (supports multiple artists with OR logic)
-        var artists = artist?.Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
-        if (artists != null && artists.Count > 0)
+        // Apply artist filter (slugs → resolve to names)
+        var artistSlugs = artist?.Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+        if (artistSlugs != null && artistSlugs.Count > 0)
         {
-            query = query.Where(f => artists.Contains(f.Artist!));
+            var artistNames = await _context.Artists
+                .Where(a => artistSlugs.Contains(a.Slug))
+                .Select(a => a.Name)
+                .ToListAsync();
+
+            if (artistNames.Count > 0)
+            {
+                query = query.Where(f => artistNames.Contains(f.Artist!));
+            }
         }
 
         // Apply musical key filter

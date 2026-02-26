@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
+using MusicasIgreja.Api.DTOs;
 
 namespace MusicasIgreja.Api.Controllers;
 
@@ -28,30 +29,55 @@ public class FiltersController : ControllerBase
         [FromQuery] List<string>? artist = null,
         [FromQuery] string? musical_key = null)
     {
-        // Start with all files
         var query = _context.PdfFiles.AsQueryable();
 
-        // Apply filters progressively to get dynamic suggestions
-        var categories = category?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
-        if (categories != null && categories.Count > 0)
+        // Resolve category slugs to names for filtering
+        var categorySlugs = category?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+        if (categorySlugs != null && categorySlugs.Count > 0)
         {
-            query = query.Where(f => 
-                categories.Contains(f.Category!) ||
-                f.FileCategories.Any(fc => categories.Contains(fc.Category.Name)));
+            var categoryNames = await _context.Categories
+                .Where(c => categorySlugs.Contains(c.Slug))
+                .Select(c => c.Name)
+                .ToListAsync();
+
+            if (categoryNames.Count > 0)
+            {
+                query = query.Where(f => 
+                    categoryNames.Contains(f.Category!) ||
+                    f.FileCategories.Any(fc => categoryNames.Contains(fc.Category.Name)));
+            }
         }
 
-        var liturgicalTimes = liturgical_time?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
-        if (liturgicalTimes != null && liturgicalTimes.Count > 0)
+        // Resolve liturgical time slugs to names for filtering
+        var liturgicalTimeSlugs = liturgical_time?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+        if (liturgicalTimeSlugs != null && liturgicalTimeSlugs.Count > 0)
         {
-            query = query.Where(f => 
-                liturgicalTimes.Contains(f.LiturgicalTime!) ||
-                f.FileLiturgicalTimes.Any(flt => liturgicalTimes.Contains(flt.LiturgicalTime.Name)));
+            var ltNames = await _context.LiturgicalTimes
+                .Where(l => liturgicalTimeSlugs.Contains(l.Slug))
+                .Select(l => l.Name)
+                .ToListAsync();
+
+            if (ltNames.Count > 0)
+            {
+                query = query.Where(f => 
+                    ltNames.Contains(f.LiturgicalTime!) ||
+                    f.FileLiturgicalTimes.Any(flt => ltNames.Contains(flt.LiturgicalTime.Name)));
+            }
         }
 
-        var artists = artist?.Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
-        if (artists != null && artists.Count > 0)
+        // Resolve artist slugs to names for filtering
+        var artistSlugs = artist?.Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+        if (artistSlugs != null && artistSlugs.Count > 0)
         {
-            query = query.Where(f => artists.Contains(f.Artist!));
+            var artistNames = await _context.Artists
+                .Where(a => artistSlugs.Contains(a.Slug))
+                .Select(a => a.Name)
+                .ToListAsync();
+
+            if (artistNames.Count > 0)
+            {
+                query = query.Where(f => artistNames.Contains(f.Artist!));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(musical_key))
@@ -59,25 +85,21 @@ public class FiltersController : ControllerBase
             query = query.Where(f => f.MusicalKey == musical_key);
         }
 
-        // Get files matching current filters
         var filteredFiles = await query
             .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
             .Include(f => f.FileLiturgicalTimes).ThenInclude(flt => flt.LiturgicalTime)
             .ToListAsync();
 
-        // Extract available options from filtered files
         var availableCategories = filteredFiles
-            .SelectMany(f => f.FileCategories.Select(fc => fc.Category.Name))
-            .Concat(filteredFiles.Where(f => f.Category != null).Select(f => f.Category!))
-            .Distinct()
-            .OrderBy(c => c)
+            .SelectMany(f => f.FileCategories.Select(fc => new FilterOptionDto(fc.Category.Slug, fc.Category.Name)))
+            .DistinctBy(o => o.Slug)
+            .OrderBy(o => o.Label)
             .ToList();
 
         var availableLiturgicalTimes = filteredFiles
-            .SelectMany(f => f.FileLiturgicalTimes.Select(flt => flt.LiturgicalTime.Name))
-            .Concat(filteredFiles.Where(f => f.LiturgicalTime != null).Select(f => f.LiturgicalTime!))
-            .Distinct()
-            .OrderBy(l => l)
+            .SelectMany(f => f.FileLiturgicalTimes.Select(flt => new FilterOptionDto(flt.LiturgicalTime.Slug, flt.LiturgicalTime.Name)))
+            .DistinctBy(o => o.Slug)
+            .OrderBy(o => o.Label)
             .ToList();
 
         var availableArtists = filteredFiles
@@ -85,6 +107,12 @@ public class FiltersController : ControllerBase
             .Select(f => f.Artist!)
             .Distinct()
             .OrderBy(a => a)
+            .Select(a =>
+            {
+                var registeredArtist = _context.Artists.Local.FirstOrDefault(ar => ar.Name == a);
+                var slug = registeredArtist?.Slug ?? Core.Common.Extensions.StringExtensions.ToSlug(a);
+                return new FilterOptionDto(slug, a);
+            })
             .ToList();
 
         var availableMusicalKeys = filteredFiles
@@ -103,4 +131,3 @@ public class FiltersController : ControllerBase
         });
     }
 }
-

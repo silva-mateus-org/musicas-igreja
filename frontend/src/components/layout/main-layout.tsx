@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@core/contexts/auth-context'
 import { LoginModal } from '@/components/auth/login-modal'
 import { ProfileModal } from '@/components/auth/profile-modal'
+import { useServerEvents } from '@core/hooks/use-server-events'
 import type { SystemEvent } from '@/types'
 
 interface NavigationItem {
@@ -70,7 +71,6 @@ export function MainLayout({ children }: MainLayoutProps) {
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [alertCount, setAlertCount] = useState(0)
     const [recentAlerts, setRecentAlerts] = useState<SystemEvent[]>([])
-    const [loadingAlerts, setLoadingAlerts] = useState(false)
 
     const canAccessItem = (item: NavigationItem) => {
         if (item.requiresAdmin) return isAdmin
@@ -121,40 +121,17 @@ export function MainLayout({ children }: MainLayoutProps) {
         return labels[role.toLowerCase()] || role
     }
 
-    // Fetch alerts for admin users
-    const fetchAlerts = async () => {
-        if (!isAdmin) return
-        
-        try {
-            setLoadingAlerts(true)
-            const countResponse = await api.get<{ count: number }>('/monitoring/alerts/count')
-            setAlertCount(countResponse.count || 0)
-            
-            if (countResponse.count > 0) {
-                const alertsResponse = await api.get<{ data: SystemEvent[] }>('/monitoring/alerts')
-                setRecentAlerts((alertsResponse.data || []).slice(0, 5))
-            }
-        } catch (error: any) {
-            // Silently ignore auth errors (session expired) - these are expected
-            if (error.message !== 'Acesso negado' && error.message !== 'Não autenticado') {
-                console.error('Error fetching alerts:', error)
-            }
-            setAlertCount(0)
-            setRecentAlerts([])
-        } finally {
-            setLoadingAlerts(false)
+    const sseUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000'}/api/events/stream`
+
+    useServerEvents(sseUrl, {
+        'alert-count': (data: { count: number }) => {
+            setAlertCount(data.count || 0)
+            if (data.count === 0) setRecentAlerts([])
+        },
+        'recent-alerts': (data: { alerts: SystemEvent[] }) => {
+            setRecentAlerts((data.alerts || []).slice(0, 5))
         }
-    }
-
-    // Poll for alerts every 30 seconds
-    useEffect(() => {
-        if (!isAdmin) return
-
-        fetchAlerts()
-        const interval = setInterval(fetchAlerts, 30000) // 30 seconds
-
-        return () => clearInterval(interval)
-    }, [isAdmin])
+    }, { enabled: isAdmin })
 
     const getSeverityIcon = (severity: string) => {
         switch (severity) {
@@ -342,18 +319,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <SheetContent side="left" className="p-0 w-72">
                     <SidebarContent />
                 </SheetContent>
-            </Sheet>
+            
             <div className="lg:pl-72">
                 <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                     <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
-                        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-                            <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon" className="lg:hidden">
-                                    <Menu className="h-5 w-5" />
-                                    <span className="sr-only">Toggle sidebar</span>
-                                </Button>
-                            </SheetTrigger>
-                        </Sheet>
+                        <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon" className="lg:hidden">
+                                <Menu className="h-5 w-5" />
+                                <span className="sr-only">Toggle sidebar</span>
+                            </Button>
+                        </SheetTrigger>
                         <div className="flex-1" />
                         <Button variant="outline" size="sm" asChild className="gap-2">
                             <Link href="/music">
@@ -388,11 +363,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                                         )}
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    {loadingAlerts ? (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                            Carregando...
-                                        </div>
-                                    ) : recentAlerts.length === 0 ? (
+                                    {recentAlerts.length === 0 ? (
                                         <div className="p-4 text-center text-sm text-muted-foreground">
                                             Nenhum alerta novo
                                         </div>
@@ -445,6 +416,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </header>
                 <main className="p-4 sm:p-6">{children}</main>
             </div>
+            </Sheet>
             
             <LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
             <ProfileModal open={profileModalOpen} onOpenChange={setProfileModalOpen} />

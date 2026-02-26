@@ -31,12 +31,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        // Tentar primeiro a rota direta de sugestões
-        let response = await fetch(`${BACKEND_URL}/api/filters/suggestions`, {
+        const queryString = request.nextUrl.search
+        let response = await fetch(`${BACKEND_URL}/api/filters/suggestions${queryString}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'Cookie': request.headers.get('cookie') || '',
             },
             cache: 'no-store',
         })

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@core/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { dashboardApi, categoriesApi, liturgicalTimesApi, handleApiError } from '@/lib/api'
-import type { SearchFilters } from '@/types'
+import type { SearchFilters, FilterOption } from '@/types'
 import { Search, X, Filter, ChevronDown, RotateCcw, ArrowUpDown, Music2, Hash, Youtube } from 'lucide-react'
 import { debounce } from '@/lib/utils'
 
@@ -28,9 +28,9 @@ interface MusicUnifiedFiltersProps {
 }
 
 interface FilterOptions {
-    artists: string[]
-    categories: string[]
-    liturgicalTimes: string[]
+    artists: FilterOption[]
+    categories: FilterOption[]
+    liturgicalTimes: FilterOption[]
     musicalKeys: string[]
 }
 
@@ -72,7 +72,6 @@ export function MusicUnifiedFilters({
 
     const loadFilterOptions = async () => {
         try {
-            // Build query params for dynamic filtering
             const params = new URLSearchParams()
             if (filters.category) {
                 const categories = Array.isArray(filters.category) ? filters.category : [filters.category]
@@ -91,18 +90,19 @@ export function MusicUnifiedFilters({
             const response = await fetch(`/api/filters/suggestions?${params.toString()}`)
             const data = await response.json()
 
-            const clean = (values: unknown) =>
-                (Array.isArray(values) ? values : []).filter((value) => typeof value === 'string' && value.trim().length > 0)
+            const toFilterOptions = (values: unknown): FilterOption[] =>
+                (Array.isArray(values) ? values : [])
+                    .filter((v: any) => v && v.slug && v.label)
+                    .map((v: any) => ({ slug: v.slug, label: v.label }))
 
             setOptions({
-                artists: clean(data.artists),
-                categories: clean(data.categories),
-                liturgicalTimes: clean(data.liturgical_times),
+                artists: toFilterOptions(data.artists),
+                categories: toFilterOptions(data.categories),
+                liturgicalTimes: toFilterOptions(data.liturgical_times),
                 musicalKeys: Array.isArray(data.musical_keys) && data.musical_keys.length > 0 ? data.musical_keys : MUSICAL_KEYS
             })
         } catch (error) {
             console.error('Erro ao carregar opções de filtro:', handleApiError(error))
-            // Fallback to all options on error
             setOptions({
                 artists: [],
                 categories: [],
@@ -173,6 +173,12 @@ export function MusicUnifiedFilters({
 
     const hasActiveFilters = activeFilterCount > 0
 
+    const allOptions = [...options.categories, ...options.liturgicalTimes, ...options.artists]
+    const slugToLabel = (slug: string): string => {
+        const opt = allOptions.find(o => o.slug === slug)
+        return opt?.label ?? slug
+    }
+
     const getFilterLabel = (key: string, value: any): string => {
         const labels: Record<string, string> = {
             title: 'Busca',
@@ -184,6 +190,9 @@ export function MusicUnifiedFilters({
         }
         
         if (key === 'has_youtube') return labels[key]
+        if (key === 'category' || key === 'liturgical_time' || key === 'artist') {
+            return `${labels[key] || key}: ${slugToLabel(value)}`
+        }
         return `${labels[key] || key}: ${value}`
     }
 
@@ -216,7 +225,7 @@ export function MusicUnifiedFilters({
                     {/* Quick Filters (always visible on desktop) */}
                     <div className="hidden lg:flex gap-2">
                         <MultiSelect
-                            options={options.categories.filter((cat) => cat && cat.trim())}
+                            options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
                             value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
                             onChange={(values) => handleFilterChange('category', values)}
                             placeholder="Categoria"
@@ -224,7 +233,7 @@ export function MusicUnifiedFilters({
                         />
 
                         <MultiSelect
-                            options={options.artists.filter((artist) => artist && artist.trim())}
+                            options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
                             value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
                             onChange={(values) => handleFilterChange('artist', values)}
                             placeholder="Artista"
@@ -297,7 +306,7 @@ export function MusicUnifiedFilters({
                                     {/* Category (mobile/tablet) */}
                                      <div className="lg:hidden">
                                          <MultiSelect
-                                             options={options.categories.filter((cat) => cat && cat.trim())}
+                                             options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
                                              value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
                                              onChange={(values) => handleFilterChange('category', values)}
                                              placeholder="Categoria"
@@ -308,7 +317,7 @@ export function MusicUnifiedFilters({
                                      {/* Artist (mobile/tablet) */}
                                      <div className="lg:hidden">
                                          <MultiSelect
-                                             options={options.artists.filter((artist) => artist && artist.trim())}
+                                             options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
                                              value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
                                              onChange={(values) => handleFilterChange('artist', values)}
                                              placeholder="Artista"
@@ -318,7 +327,7 @@ export function MusicUnifiedFilters({
 
                                     {/* Liturgical Time */}
                                      <MultiSelect
-                                         options={options.liturgicalTimes.filter((time) => time && time.trim())}
+                                         options={options.liturgicalTimes.map(o => ({ value: o.slug, label: o.label }))}
                                          value={Array.isArray(filters.liturgical_time) ? filters.liturgical_time : filters.liturgical_time ? [filters.liturgical_time] : []}
                                          onChange={(values) => handleFilterChange('liturgical_time', values)}
                                          placeholder="Tempo Litúrgico"

@@ -4,6 +4,8 @@ using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
 
+// Categories and LiturgicalTimes controllers
+
 namespace MusicasIgreja.Api.Controllers;
 
 [ApiController]
@@ -22,7 +24,7 @@ public class CategoriesController : ControllerBase
     {
         var categories = await _context.Categories
             .OrderBy(c => c.Name)
-            .Select(c => c.Name)
+            .Select(c => new FilterOptionDto(c.Slug, c.Name))
             .ToListAsync();
 
         return Ok(new { categories });
@@ -37,6 +39,7 @@ public class CategoriesController : ControllerBase
             {
                 id = c.Id,
                 name = c.Name,
+                slug = c.Slug,
                 description = c.Description,
                 file_count = c.FileCategories.Count
             })
@@ -183,7 +186,7 @@ public class LiturgicalTimesController : ControllerBase
     {
         var times = await _context.LiturgicalTimes
             .OrderBy(l => l.Name)
-            .Select(l => l.Name)
+            .Select(l => new FilterOptionDto(l.Slug, l.Name))
             .ToListAsync();
 
         return Ok(new { liturgical_times = times });
@@ -198,6 +201,7 @@ public class LiturgicalTimesController : ControllerBase
             {
                 id = l.Id,
                 name = l.Name,
+                slug = l.Slug,
                 description = l.Description,
                 file_count = l.FileLiturgicalTimes.Count
             })

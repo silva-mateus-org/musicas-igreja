@@ -5,6 +5,7 @@ using MusicasIgreja.Api.Services;
 using Core.Auth.Extensions;
 using Core.FileManagement.Extensions;
 using Core.Infrastructure.Extensions;
+using Core.Infrastructure.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,9 @@ builder.Services.AddCoreFileManagement(options =>
     options.AllowedExtensions = [".pdf"];
     options.OrganizeByCategory = true;
 });
+
+// Real-time events (SSE)
+builder.Services.AddCoreSse();
 
 // Application services
 builder.Services.AddScoped<IFileService, FileService>();

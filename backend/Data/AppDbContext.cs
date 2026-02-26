@@ -10,6 +10,18 @@ public class AppDbContext : DbContext
     {
     }
 
+    public override int SaveChanges()
+    {
+        ChangeTracker.ApplySlugs();
+        return base.SaveChanges();
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ChangeTracker.ApplySlugs();
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
     public DbSet<PdfFile> PdfFiles { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<LiturgicalTime> LiturgicalTimes { get; set; }
@@ -64,9 +76,11 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+            entity.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(200).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.CreatedDate).HasColumnName("created_date");
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Slug).IsUnique();
         });
 
         // LiturgicalTime configuration
@@ -76,9 +90,11 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+            entity.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(200).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.CreatedDate).HasColumnName("created_date");
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Slug).IsUnique();
         });
 
         // Artist configuration
@@ -88,9 +104,11 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
+            entity.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(200).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.CreatedDate).HasColumnName("created_date");
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Slug).IsUnique();
         });
 
         // MergeList configuration
@@ -168,21 +186,21 @@ public class AppDbContext : DbContext
 
         // Seed default categories
         modelBuilder.Entity<Category>().HasData(
-            new Category { Id = 1, Name = "Aclamação" },
-            new Category { Id = 2, Name = "Adoração" },
-            new Category { Id = 3, Name = "Ato penitencial" },
-            new Category { Id = 4, Name = "Comunhão" },
-            new Category { Id = 5, Name = "Cordeiro" },
-            new Category { Id = 6, Name = "Entrada" },
-            new Category { Id = 7, Name = "Espírito Santo" },
-            new Category { Id = 8, Name = "Final" },
-            new Category { Id = 9, Name = "Glória" },
-            new Category { Id = 10, Name = "Maria" },
-            new Category { Id = 11, Name = "Ofertório" },
-            new Category { Id = 12, Name = "Pós Comunhão" },
-            new Category { Id = 13, Name = "Salmo" },
-            new Category { Id = 14, Name = "Santo" },
-            new Category { Id = 15, Name = "Diversos" }
+            new Category { Id = 1, Name = "Aclamação", Slug = "aclamacao" },
+            new Category { Id = 2, Name = "Adoração", Slug = "adoracao" },
+            new Category { Id = 3, Name = "Ato penitencial", Slug = "ato-penitencial" },
+            new Category { Id = 4, Name = "Comunhão", Slug = "comunhao" },
+            new Category { Id = 5, Name = "Cordeiro", Slug = "cordeiro" },
+            new Category { Id = 6, Name = "Entrada", Slug = "entrada" },
+            new Category { Id = 7, Name = "Espírito Santo", Slug = "espirito-santo" },
+            new Category { Id = 8, Name = "Final", Slug = "final" },
+            new Category { Id = 9, Name = "Glória", Slug = "gloria" },
+            new Category { Id = 10, Name = "Maria", Slug = "maria" },
+            new Category { Id = 11, Name = "Ofertório", Slug = "ofertorio" },
+            new Category { Id = 12, Name = "Pós Comunhão", Slug = "pos-comunhao" },
+            new Category { Id = 13, Name = "Salmo", Slug = "salmo" },
+            new Category { Id = 14, Name = "Santo", Slug = "santo" },
+            new Category { Id = 15, Name = "Diversos", Slug = "diversos" }
         );
 
         // FileArtist (N:N relationship)
@@ -207,12 +225,12 @@ public class AppDbContext : DbContext
 
         // Seed default liturgical times
         modelBuilder.Entity<LiturgicalTime>().HasData(
-            new LiturgicalTime { Id = 1, Name = "Advento" },
-            new LiturgicalTime { Id = 2, Name = "Natal" },
-            new LiturgicalTime { Id = 3, Name = "Quaresma" },
-            new LiturgicalTime { Id = 4, Name = "Páscoa" },
-            new LiturgicalTime { Id = 5, Name = "Tempo Comum" },
-            new LiturgicalTime { Id = 6, Name = "Pentecostes" }
+            new LiturgicalTime { Id = 1, Name = "Advento", Slug = "advento" },
+            new LiturgicalTime { Id = 2, Name = "Natal", Slug = "natal" },
+            new LiturgicalTime { Id = 3, Name = "Quaresma", Slug = "quaresma" },
+            new LiturgicalTime { Id = 4, Name = "Páscoa", Slug = "pascoa" },
+            new LiturgicalTime { Id = 5, Name = "Tempo Comum", Slug = "tempo-comum" },
+            new LiturgicalTime { Id = 6, Name = "Pentecostes", Slug = "pentecostes" }
         );
     }
 }

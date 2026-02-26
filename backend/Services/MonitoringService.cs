@@ -1,4 +1,5 @@
 using Core.Auth.Models;
+using Core.Infrastructure.Events;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Models;
@@ -10,11 +11,13 @@ public class MonitoringService : IMonitoringService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<MonitoringService> _logger;
+    private readonly ISseService _sseService;
 
-    public MonitoringService(AppDbContext context, ILogger<MonitoringService> logger)
+    public MonitoringService(AppDbContext context, ILogger<MonitoringService> logger, ISseService sseService)
     {
         _context = context;
         _logger = logger;
+        _sseService = sseService;
     }
 
     public async Task LogSecurityEventAsync(
@@ -45,7 +48,8 @@ public class MonitoringService : IMonitoringService
             _context.SystemEvents.Add(systemEvent);
             await _context.SaveChangesAsync();
 
-            // Also log to ILogger for critical/high severity events
+            await BroadcastAlertCountAsync();
+
             if (severity == "critical" || severity == "high")
             {
                 _logger.LogWarning(
@@ -352,6 +356,7 @@ public class MonitoringService : IMonitoringService
             {
                 systemEvent.IsRead = true;
                 await _context.SaveChangesAsync();
+                await BroadcastAlertCountAsync();
             }
         }
         catch (Exception ex)
@@ -370,6 +375,31 @@ public class MonitoringService : IMonitoringService
         {
             _logger.LogError(ex, "Error getting unread alert count");
             return 0;
+        }
+    }
+
+    private async Task BroadcastAlertCountAsync()
+    {
+        try
+        {
+            var count = await GetUnreadAlertCountAsync();
+            await _sseService.BroadcastAsync("alert-count", new { count });
+
+            var recentAlerts = count > 0
+                ? (await GetUnreadAlertsAsync()).Take(5).Select(a => new
+                {
+                    id = a.Id,
+                    event_type = a.EventType,
+                    severity = a.Severity,
+                    message = a.Message,
+                    created_date = a.CreatedDate
+                }).ToList()
+                : [];
+            await _sseService.BroadcastAsync("recent-alerts", new { alerts = recentAlerts });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to broadcast alert state via SSE");
         }
     }
 

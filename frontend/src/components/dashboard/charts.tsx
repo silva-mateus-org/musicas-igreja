@@ -8,11 +8,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { dashboardApi, handleApiError } from '@/lib/api'
 import { Skeleton } from '@core/components/ui/skeleton'
 import Link from 'next/link'
+import type { FilterOption } from '@/types'
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1']
 
 export function DashboardCharts() {
-    const [categories, setCategories] = useState<string[]>([])
+    const [categories, setCategories] = useState<FilterOption[]>([])
     const [selectedCategory, setSelectedCategory] = useState<string>('')
     const [topSongs, setTopSongs] = useState<any[]>([])
     const [topArtists, setTopArtists] = useState<any[]>([])
@@ -34,15 +35,13 @@ export function DashboardCharts() {
         try {
             setIsLoading(true)
 
-            // Carregar categorias das sugestões
             const response = await fetch('/api/filters/suggestions')
             const filtersData = await response.json()
-            const categoriesList = filtersData.categories || []
+            const categoriesList: FilterOption[] = filtersData.categories || []
             setCategories(categoriesList)
 
-            // Definir primeira categoria como padrão
             if (categoriesList.length > 0) {
-                setSelectedCategory(categoriesList[0])
+                setSelectedCategory(categoriesList[0].slug)
             }
 
             // Carregar dados paralelos
@@ -115,9 +114,9 @@ export function DashboardCharts() {
                                     <SelectValue placeholder="Selecionar categoria" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map((category) => (
-                                        <SelectItem key={category} value={category}>
-                                            {category}
+                                    {categories.map((cat) => (
+                                        <SelectItem key={cat.slug} value={cat.slug}>
+                                            {cat.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

@@ -12,6 +12,7 @@ import type {
     PaginatedResponse,
     SearchFilters,
     PaginationParams,
+    FilterOption,
     SystemEvent,
     AuditLog,
     SystemMetric,
@@ -409,8 +410,8 @@ export const healthApi = {
 
 // ============ CATEGORIES / LITURGICAL TIMES ============
 export const categoriesApi = {
-    async getCategories(): Promise<{ data: any[] }> {
-        const data = await request<any[]>('/dashboard/get_categories')
+    async getCategories(): Promise<{ data: FilterOption[] }> {
+        const data = await request<FilterOption[]>('/dashboard/get_categories')
         return { data }
     },
     async createCategory(name: string): Promise<ApiResponse> {
@@ -425,8 +426,8 @@ export const categoriesApi = {
 }
 
 export const liturgicalTimesApi = {
-    async getLiturgicalTimes(): Promise<{ data: any[] }> {
-        const data = await request<any[]>('/dashboard/get_liturgical_times')
+    async getLiturgicalTimes(): Promise<{ data: FilterOption[] }> {
+        const data = await request<FilterOption[]>('/dashboard/get_liturgical_times')
         return { data }
     },
     async createLiturgicalTime(name: string): Promise<ApiResponse> {
@@ -471,8 +472,8 @@ export const dashboardApi = {
         return await request<any>('/dashboard/stats', { method: 'GET' })
     },
 
-    async getTopSongsByCategory(category: string): Promise<any> {
-        return await request<any>(`/dashboard/top-songs-by-category?category=${encodeURIComponent(category)}`, { method: 'GET' })
+    async getTopSongsByCategory(categorySlug: string): Promise<any> {
+        return await request<any>(`/dashboard/top-songs-by-category?category=${categorySlug}`, { method: 'GET' })
     },
 
     async getTopArtists(): Promise<any> {
@@ -483,8 +484,8 @@ export const dashboardApi = {
         return await request<any>('/dashboard/uploads-timeline', { method: 'GET' })
     },
 
-    async getArtists(): Promise<string[]> {
-        return await request<string[]>('/dashboard/get_artists', { method: 'GET' })
+    async getArtists(): Promise<FilterOption[]> {
+        return await request<FilterOption[]>('/dashboard/get_artists', { method: 'GET' })
     }
 }
 

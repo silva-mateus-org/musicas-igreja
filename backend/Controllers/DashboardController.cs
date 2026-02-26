@@ -1,3 +1,4 @@
+using Core.Common.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
@@ -103,44 +104,47 @@ public class DashboardController : ControllerBase
     // Prefer using /api/categories, /api/liturgical_times, and /api/filters/suggestions
 
     [HttpGet("get_categories")]
-    public async Task<ActionResult<List<string>>> GetCategories()
+    public async Task<ActionResult<List<FilterOptionDto>>> GetCategories()
     {
         var categories = await _context.Categories
             .OrderBy(c => c.Name)
-            .Select(c => c.Name)
+            .Select(c => new FilterOptionDto(c.Slug, c.Name))
             .ToListAsync();
 
         return Ok(categories);
     }
 
     [HttpGet("get_liturgical_times")]
-    public async Task<ActionResult<List<string>>> GetLiturgicalTimes()
+    public async Task<ActionResult<List<FilterOptionDto>>> GetLiturgicalTimes()
     {
         var times = await _context.LiturgicalTimes
             .OrderBy(l => l.Name)
-            .Select(l => l.Name)
+            .Select(l => new FilterOptionDto(l.Slug, l.Name))
             .ToListAsync();
 
         return Ok(times);
     }
 
     [HttpGet("get_artists")]
-    public async Task<ActionResult<List<string>>> GetArtists()
+    public async Task<ActionResult<List<FilterOptionDto>>> GetArtists()
     {
-        // Get artists from the artists table
         var registeredArtists = await _context.Artists
             .OrderBy(a => a.Name)
-            .Select(a => a.Name)
+            .Select(a => new FilterOptionDto(a.Slug, a.Name))
             .ToListAsync();
 
-        // Also include unique artists from pdf_files for backward compatibility
         var fileArtists = await _context.PdfFiles
             .Where(f => f.Artist != null && f.Artist != "")
             .Select(f => f.Artist!)
             .Distinct()
             .ToListAsync();
 
-        var allArtists = registeredArtists.Union(fileArtists).OrderBy(a => a).ToList();
+        var fileArtistOptions = fileArtists
+            .Where(a => registeredArtists.All(ra => ra.Label != a))
+            .Select(a => new FilterOptionDto(a.ToSlug(), a))
+            .ToList();
+
+        var allArtists = registeredArtists.Concat(fileArtistOptions).OrderBy(a => a.Label).ToList();
         return Ok(allArtists);
     }
 
@@ -164,9 +168,17 @@ public class DashboardController : ControllerBase
         if (string.IsNullOrWhiteSpace(category))
             return BadRequest(new { error = "Categoria é obrigatória" });
 
-        // Get files in category with usage count (how many lists they appear in)
+        var categoryEntity = await _context.Categories
+            .FirstOrDefaultAsync(c => c.Slug == category);
+
+        if (categoryEntity == null)
+            return NotFound(new { error = "Categoria não encontrada" });
+
+        var categoryName = categoryEntity.Name;
+
         var songs = await _context.PdfFiles
-            .Where(f => f.Category == category)
+            .Where(f => f.Category == categoryName ||
+                        f.FileCategories.Any(fc => fc.CategoryId == categoryEntity.Id))
             .Select(f => new
             {
                 id = f.Id,
