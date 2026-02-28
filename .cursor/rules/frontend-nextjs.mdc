@@ -27,9 +27,42 @@ if (hasPermission("music:upload")) { /* show button */ }
 
 - Functional components only, no class components
 - Props typed with interface: `interface ClientCardProps { ... }`
-- Keep components under 150 lines; extract subcomponents when needed
-- Prefer Server Components; use `'use client'` only when needed
+- Use Server Components for layouts, metadata, and static pages
+- Pages with interactivity (forms, tables, upload, real-time) use `'use client'`
 - Use shadcn/ui from `@core/components/ui/` for all base primitives
+
+## Data Fetching
+
+- Use domain API modules (`@/lib/api.ts`) for all HTTP calls -- `musicApi`, `listsApi`, `dashboardApi`, etc.
+- `useAuth().api` and `createApiClient()` are for auth operations only (managed by core)
+- Credentials are included automatically (`credentials: 'include'`)
+- Handle loading, success, and error states for every async operation
+- Show `Skeleton` for loading, toast for errors, `EmptyState` for empty lists
+
+## React Query
+
+- All server state managed via `@tanstack/react-query` (`useQuery` / `useMutation`)
+- Define query key factories per domain: `musicKeys`, `listsKeys`, `dashboardKeys`
+- Custom hooks encapsulate queries: `useMusic(filters)`, `useLists()`, `useDashboard()`
+- Mutations must invalidate related query keys on success
+- Never call API functions directly in components -- always go through hooks
+
+```tsx
+// Hook pattern
+export function useMusic(filters: MusicFilters) {
+  return useQuery({
+    queryKey: musicKeys.list(filters),
+    queryFn: () => musicApi.getFiles(filters),
+  })
+}
+```
+
+## Workspace
+
+- Use `useWorkspace()` from `@/contexts/workspace-context` for active workspace
+- API layer automatically injects `workspace_id` into scoped requests
+- On workspace switch, all queries (except `workspaces`) are invalidated automatically
+- Workspace-scoped query keys should include the workspace ID
 
 ## Forms
 
@@ -37,13 +70,6 @@ if (hasPermission("music:upload")) { /* show button */ }
 - Zod schema defined at component top or in a shared types file
 - Validation messages in pt-BR: `z.string().min(1, "Nome é obrigatório")`
 - Error messages from API: use `errorCode` to map to pt-BR via centralized mapper
-
-## Data Fetching
-
-- Use the core API client (`useAuth().api`) or `createApiClient()` for HTTP calls
-- Credentials are included automatically (`credentials: 'include'`)
-- Handle loading, success, and error states for every async operation
-- Show `Skeleton` for loading, toast for errors, `EmptyState` for empty lists
 
 ## Styling
 
@@ -60,5 +86,6 @@ if (hasPermission("music:upload")) { /* show button */ }
 
 ## File Size Limits
 
-- Components: max 150 lines
-- If exceeded, extract into subcomponents or hooks
+- Reusable components: max 200 lines
+- Page components (`app/**/page.tsx`): max 300 lines
+- If exceeded, extract into subcomponents or custom hooks

@@ -9,9 +9,10 @@ alwaysApply: false
 ## Core System Integration
 
 This project uses `core-system` as a git submodule. Shared modules:
-- `Core.Auth` -- session-based auth, RBAC with string permissions, rate limiting
-- `Core.FileManagement` -- file upload/storage with deduplication
-- `Core.Infrastructure` -- MySQL via Pomelo, entity configurations
+- `Core.Common` -- base entities (`BaseEntity`, `IAuditableEntity`), `Result<T>` pattern, extensions
+- `Core.Auth` -- session-based auth, RBAC with string permissions, rate limiting, audit middleware
+- `Core.FileManagement` -- file upload/storage with SHA-256 deduplication
+- `Core.Infrastructure` -- EF Core + PostgreSQL via Npgsql, entity configurations, SSE (`AddCoreSse`)
 
 ```csharp
 // Permission checks use CoreAuthHelper
@@ -25,19 +26,27 @@ if (check is not null) return check;
 - No business logic in controllers
 - Routes: `[Route("api/[controller]")]` in kebab-case
 - Return proper status codes: 200, 201, 204, 400, 401, 403, 404, 429
+- Never resolve services via `HttpContext.RequestServices` -- use constructor injection only
 
 ## Services
 
 - One interface + one implementation per service
+- Interfaces live in `Services/Interfaces/`; implementations in `Services/`
 - Services contain business logic; controllers do not
-- Pass `CancellationToken` through the call chain when available
+- All async methods MUST accept `CancellationToken cancellationToken = default` and propagate it to every downstream async call
 - Never use `.Result` or `.Wait()` -- always `await`
+
+## Workspace-Aware Queries
+
+- All workspace-scoped entities (`PdfFile`, `Category`, `MergeList`, `CustomFilterGroup`) must be filtered by `WorkspaceId`
+- Services receive `workspaceId` as a parameter -- never assume a default in the service layer
+- Global entities (`Artist`) are shared across workspaces and do not filter by `WorkspaceId`
 
 ## EF Core
 
 - Use `Include()` only when needed; avoid N+1
 - Apply pagination on listings (`Skip`/`Take`)
-- Use async methods (`ToListAsync`, `FirstOrDefaultAsync`)
+- Use async methods (`ToListAsync`, `FirstOrDefaultAsync`) and pass `CancellationToken`
 - Entity configurations via `IEntityTypeConfiguration<T>` or `ApplyCore*Entities()`
 
 ## Logging

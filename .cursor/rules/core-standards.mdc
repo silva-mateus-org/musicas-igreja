@@ -33,7 +33,7 @@ alwaysApply: true
 - Do NOT create documentation files (.md) unless explicitly requested
 - Do NOT create backup files or duplicates
 - Keep commits atomic and focused
-- Verify build passes before completing any task (`dotnet build` / `npm run build`)
+- Verify build AND tests pass before completing any task (`dotnet build && dotnet test` / `npm run build && npm test`)
 
 ## Error Handling
 
@@ -48,4 +48,17 @@ alwaysApply: true
 - DTOs: use `record` types for immutability (C#) or `interface`/`type` (TS)
 - No AutoMapper -- use explicit mapping methods
 - All I/O operations must be `async`
-- Constructor injection for DI; never use service locator pattern
+- Constructor injection for DI; never use service locator pattern (`HttpContext.RequestServices` is forbidden)
+
+## Data Fetching (Frontend)
+
+- Use `React Query` (`@tanstack/react-query`) for all server state management
+- Domain API modules in `@/lib/api.ts` for HTTP calls; `useAuth().api` only for auth operations
+- Custom hooks (`useMusic`, `useLists`, `useDashboard`) encapsulate queries and mutations
+- Mutations must invalidate related query keys on success
+
+## Workspace Pattern
+
+- All workspace-scoped data must be filtered by active `WorkspaceId`
+- Backend: services receive `workspaceId` as parameter; never assume a default
+- Frontend: `useWorkspace()` provides active workspace; API layer injects `workspace_id` automatically

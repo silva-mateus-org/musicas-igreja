@@ -22,6 +22,15 @@ backend/obj/
 [Dd]ebug/
 [Rr]elease/
 
+# Sensitive config (never commit real credentials)
+backend/appsettings.Development.json
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+*.pfx
+*.pem
+*.key
+
 # User-specific files
 *.user
 *.suo
