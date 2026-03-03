@@ -9,9 +9,12 @@ import { Label } from '@core/components/ui/label'
 import { Badge } from '@core/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@core/components/ui/dropdown-menu'
 import { PageHeader } from '@/components/ui/page-header'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useToast } from '@core/hooks/use-toast'
@@ -29,11 +32,10 @@ import {
     Lock,
     Loader2,
     Filter,
-    ChevronDown,
-    ChevronRight,
     Save,
     Merge,
-    X
+    X,
+    MoreHorizontal
 } from 'lucide-react'
 
 const PRESET_COLORS = [
@@ -190,14 +192,10 @@ export default function WorkspacesPage() {
         }
     }, [toast])
 
-    const toggleWorkspaceFilters = (wsId: number) => {
-        if (expandedWorkspace === wsId) {
-            setExpandedWorkspace(null)
-        } else {
-            setExpandedWorkspace(wsId)
-            if (!filterGroups[wsId]) {
-                loadFilterGroups(wsId)
-            }
+    const openFilterSheet = (wsId: number) => {
+        setExpandedWorkspace(wsId)
+        if (!filterGroups[wsId]) {
+            loadFilterGroups(wsId)
         }
     }
 
@@ -363,6 +361,18 @@ export default function WorkspacesPage() {
         }
     }
 
+    const handleToggleShowAsTab = async (groupId: number, showAsTab: boolean) => {
+        try {
+            await customFiltersApi.toggleShowAsTab(groupId, showAsTab)
+            if (expandedWorkspace) {
+                await loadFilterGroups(expandedWorkspace)
+            }
+            toast({ title: 'Sucesso', description: showAsTab ? 'Filtro será exibido como aba' : 'Filtro removido das abas' })
+        } catch (error) {
+            toast({ title: 'Erro', description: handleApiError(error), variant: 'destructive' })
+        }
+    }
+
     const handleMergeValues = async (workspaceId: number) => {
         if (!mergeDialog || !mergeTargetId) return
         try {
@@ -401,10 +411,12 @@ export default function WorkspacesPage() {
                     title="Workspaces"
                     description="Gerencie os contextos de organização musical e seus filtros personalizados"
                 >
-                    <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Novo Workspace
-                    </Button>
+                    <SimpleTooltip label="Criar novo workspace">
+                        <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Novo Workspace
+                        </Button>
+                    </SimpleTooltip>
                 </PageHeader>
 
                 {isLoading ? (
@@ -416,255 +428,254 @@ export default function WorkspacesPage() {
                         description="Crie seu primeiro workspace para começar a organizar suas músicas."
                     />
                 ) : (
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {workspaces.map(ws => (
-                            <Card key={ws.id} className="relative overflow-hidden">
-                                <div
-                                    className="absolute top-0 left-0 right-0 h-1"
-                                    style={{ backgroundColor: ws.color || '#3b82f6' }}
-                                />
-                                <CardHeader className="pb-3">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="h-10 w-10 rounded-lg flex items-center justify-center"
-                                                style={{ backgroundColor: `${ws.color || '#3b82f6'}20` }}
-                                            >
-                                                <Layers className="h-5 w-5" style={{ color: ws.color || '#3b82f6' }} />
+                            <Card key={ws.id} className="relative overflow-hidden border-l-4" style={{ borderLeftColor: ws.color || '#3b82f6' }}>
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <CardTitle className="text-sm font-semibold truncate">{ws.name}</CardTitle>
+                                                <Badge variant={ws.is_active ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                                                    {ws.is_active ? 'Ativo' : 'Inativo'}
+                                                </Badge>
                                             </div>
-                                            <div>
-                                                <CardTitle className="text-lg">{ws.name}</CardTitle>
-                                                {ws.description && (
-                                                    <CardDescription className="text-xs mt-0.5">{ws.description}</CardDescription>
-                                                )}
-                                            </div>
+                                            {ws.description && (
+                                                <CardDescription className="text-xs mt-0.5 line-clamp-1">{ws.description}</CardDescription>
+                                            )}
                                         </div>
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(ws)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                                onClick={() => setDeleteDialog({ open: true, workspace: ws })}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
+                                        <DropdownMenu>
+                                            <SimpleTooltip label="Ações do workspace">
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                            </SimpleTooltip>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openEditDialog(ws)}>
+                                                    <Edit className="h-3.5 w-3.5 mr-2" />
+                                                    Editar
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => openFilterSheet(ws.id)}>
+                                                    <Filter className="h-3.5 w-3.5 mr-2" />
+                                                    Filtros ({ws.filter_group_count})
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    className="text-destructive focus:text-destructive"
+                                                    onClick={() => setDeleteDialog({ open: true, workspace: ws })}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                    Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="pt-0 space-y-4">
-                                    <div className="grid grid-cols-4 gap-3 text-center">
-                                        <div className="rounded-lg bg-muted/50 p-2">
-                                            <Music className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                                            <p className="text-lg font-bold">{ws.music_count}</p>
-                                            <p className="text-xs text-muted-foreground">Músicas</p>
-                                        </div>
-                                        <div className="rounded-lg bg-muted/50 p-2">
-                                            <FolderOpen className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                                            <p className="text-lg font-bold">{ws.category_count}</p>
-                                            <p className="text-xs text-muted-foreground">Categorias</p>
-                                        </div>
-                                        <div className="rounded-lg bg-muted/50 p-2">
-                                            <List className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                                            <p className="text-lg font-bold">{ws.list_count}</p>
-                                            <p className="text-xs text-muted-foreground">Listas</p>
-                                        </div>
-                                        <div className="rounded-lg bg-muted/50 p-2">
-                                            <Filter className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-                                            <p className="text-lg font-bold">{ws.filter_group_count}</p>
-                                            <p className="text-xs text-muted-foreground">Filtros</p>
-                                        </div>
+                                <CardContent className="px-4 pb-3 pt-1">
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                            <Music className="h-3 w-3" />
+                                            <span className="font-medium text-foreground">{ws.music_count}</span> músicas
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <FolderOpen className="h-3 w-3" />
+                                            <span className="font-medium text-foreground">{ws.category_count}</span> cats
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <List className="h-3 w-3" />
+                                            <span className="font-medium text-foreground">{ws.list_count}</span> listas
+                                        </span>
                                     </div>
-
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <Badge variant={ws.is_active ? 'default' : 'secondary'} className="text-xs">
-                                            {ws.is_active ? 'Ativo' : 'Inativo'}
-                                        </Badge>
-                                    </div>
-
-                                    {/* Filter Groups Section */}
-                                    <Collapsible open={expandedWorkspace === ws.id} onOpenChange={() => toggleWorkspaceFilters(ws.id)}>
-                                        <CollapsibleTrigger asChild>
-                                            <Button variant="outline" size="sm" className="w-full justify-between gap-2">
-                                                <span className="flex items-center gap-2">
-                                                    <Filter className="h-4 w-4" />
-                                                    Grupos de Filtro ({ws.filter_group_count})
-                                                </span>
-                                                {expandedWorkspace === ws.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                            </Button>
-                                        </CollapsibleTrigger>
-                                        <CollapsibleContent className="mt-3">
-                                            {loadingGroups === ws.id ? (
-                                                <div className="py-4 text-center text-muted-foreground text-sm">
-                                                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                                                    Carregando filtros...
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {(filterGroups[ws.id] || []).map(group => (
-                                                        <div key={group.id} className="border rounded-lg p-3 space-y-2">
-                                                            <div className="flex items-center justify-between">
-                                                                {editingGroup?.id === group.id ? (
-                                                                    <div className="flex items-center gap-2 flex-1">
-                                                                        <Input
-                                                                            value={editingGroup.name}
-                                                                            onChange={e => setEditingGroup({ ...editingGroup, name: e.target.value })}
-                                                                            className="h-8 text-sm"
-                                                                            onKeyDown={e => { if (e.key === 'Enter') handleUpdateGroup(ws.id) }}
-                                                                            autoFocus
-                                                                        />
-                                                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleUpdateGroup(ws.id)} disabled={savingEntity}>
-                                                                            <Save className="h-3.5 w-3.5" />
-                                                                        </Button>
-                                                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingGroup(null)}>
-                                                                            <X className="h-3.5 w-3.5" />
-                                                                        </Button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <span className="font-medium text-sm">{group.name}</span>
-                                                                        <div className="flex gap-0.5">
-                                                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingGroup({ id: group.id, name: group.name })}>
-                                                                                <Edit className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                size="icon" variant="ghost"
-                                                                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                                                                onClick={() => handleDeleteGroup(group.id, ws.id)}
-                                                                                disabled={savingEntity}
-                                                                            >
-                                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Values */}
-                                                            <div className="flex flex-wrap gap-1.5">
-                                                                {group.values.map(val => (
-                                                                    <div key={val.id} className="group relative">
-                                                                        {editingValue?.id === val.id ? (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <Input
-                                                                                    value={editingValue.name}
-                                                                                    onChange={e => setEditingValue({ ...editingValue, name: e.target.value })}
-                                                                                    className="h-7 text-xs w-32"
-                                                                                    onKeyDown={e => { if (e.key === 'Enter') handleUpdateValue(ws.id) }}
-                                                                                    autoFocus
-                                                                                />
-                                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleUpdateValue(ws.id)} disabled={savingEntity}>
-                                                                                    <Save className="h-3 w-3" />
-                                                                                </Button>
-                                                                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingValue(null)}>
-                                                                                    <X className="h-3 w-3" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <Badge
-                                                                                variant="secondary"
-                                                                                className="text-xs cursor-default pr-1 gap-1"
-                                                                            >
-                                                                                {val.name}
-                                                                                <span className="text-muted-foreground">({val.file_count})</span>
-                                                                                <span className="hidden group-hover:inline-flex gap-0.5 ml-1">
-                                                                                    <button
-                                                                                        className="hover:text-primary"
-                                                                                        onClick={() => setEditingValue({ id: val.id, name: val.name })}
-                                                                                    >
-                                                                                        <Edit className="h-3 w-3" />
-                                                                                    </button>
-                                                                                    {group.values.length > 1 && (
-                                                                                        <button
-                                                                                            className="hover:text-primary"
-                                                                                            onClick={() => {
-                                                                                                setMergeDialog({ open: true, sourceId: val.id, groupId: group.id })
-                                                                                                setMergeTargetId('')
-                                                                                            }}
-                                                                                        >
-                                                                                            <Merge className="h-3 w-3" />
-                                                                                        </button>
-                                                                                    )}
-                                                                                    <button
-                                                                                        className="hover:text-destructive"
-                                                                                        onClick={() => handleDeleteValue(val.id, ws.id)}
-                                                                                    >
-                                                                                        <Trash2 className="h-3 w-3" />
-                                                                                    </button>
-                                                                                </span>
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-
-                                                            {/* Add value */}
-                                                            {addingValueForGroup === group.id ? (
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    <Input
-                                                                        value={newValueName}
-                                                                        onChange={e => setNewValueName(e.target.value)}
-                                                                        placeholder="Nome do valor..."
-                                                                        className="h-7 text-xs"
-                                                                        onKeyDown={e => { if (e.key === 'Enter') handleCreateValue(group.id, ws.id) }}
-                                                                        autoFocus
-                                                                    />
-                                                                    <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleCreateValue(group.id, ws.id)} disabled={savingEntity}>
-                                                                        Adicionar
-                                                                    </Button>
-                                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setAddingValueForGroup(null); setNewValueName('') }}>
-                                                                        <X className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            ) : (
-                                                                <Button
-                                                                    size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground"
-                                                                    onClick={() => { setAddingValueForGroup(group.id); setNewValueName('') }}
-                                                                >
-                                                                    <Plus className="h-3 w-3" /> Adicionar valor
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    ))}
-
-                                                    {/* Add group */}
-                                                    {addingGroupForWs === ws.id ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <Input
-                                                                value={newGroupName}
-                                                                onChange={e => setNewGroupName(e.target.value)}
-                                                                placeholder="Nome do grupo (ex: Tempo Litúrgico, Estilo...)"
-                                                                className="h-8 text-sm"
-                                                                onKeyDown={e => { if (e.key === 'Enter') handleCreateGroup(ws.id) }}
-                                                                autoFocus
-                                                            />
-                                                            <Button size="sm" onClick={() => handleCreateGroup(ws.id)} disabled={savingEntity}>
-                                                                Criar
-                                                            </Button>
-                                                            <Button size="icon" variant="ghost" onClick={() => { setAddingGroupForWs(null); setNewGroupName('') }}>
-                                                                <X className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            variant="outline" size="sm" className="gap-1.5 w-full"
-                                                            onClick={() => { setAddingGroupForWs(ws.id); setNewGroupName('') }}
-                                                        >
-                                                            <Plus className="h-3.5 w-3.5" />
-                                                            Novo Grupo de Filtro
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </CollapsibleContent>
-                                    </Collapsible>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
                 )}
+
+                {/* Filter Groups Sheet */}
+                <Sheet open={expandedWorkspace !== null} onOpenChange={(open) => { if (!open) setExpandedWorkspace(null) }}>
+                    <SheetContent className="w-full sm:max-w-lg overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+                        <SheetHeader>
+                            <SheetTitle className="flex items-center gap-2">
+                                <Filter className="h-4 w-4" />
+                                Grupos de Filtro
+                            </SheetTitle>
+                            <SheetDescription>
+                                {workspaces.find(w => w.id === expandedWorkspace)?.name || ''}
+                            </SheetDescription>
+                        </SheetHeader>
+                        {expandedWorkspace && (
+                            <div className="mt-4 space-y-3">
+                                {loadingGroups === expandedWorkspace ? (
+                                    <div className="py-8 text-center text-muted-foreground text-sm">
+                                        <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                                        Carregando filtros...
+                                    </div>
+                                ) : (
+                                    <>
+                                        {(filterGroups[expandedWorkspace] || []).map(group => (
+                                            <div key={group.id} className="border rounded-lg p-3 space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    {editingGroup?.id === group.id ? (
+                                                        <div className="flex items-center gap-2 flex-1">
+                                                            <Input
+                                                                value={editingGroup.name}
+                                                                onChange={e => setEditingGroup({ ...editingGroup, name: e.target.value })}
+                                                                className="h-8 text-sm"
+                                                                onKeyDown={e => { if (e.key === 'Enter') handleUpdateGroup(expandedWorkspace) }}
+                                                                autoFocus
+                                                            />
+                                                            <SimpleTooltip label="Salvar">
+                                                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleUpdateGroup(expandedWorkspace)} disabled={savingEntity}>
+                                                                    <Save className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            </SimpleTooltip>
+                                                            <SimpleTooltip label="Cancelar">
+                                                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingGroup(null)}>
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            </SimpleTooltip>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <span className="font-medium text-sm">{group.name}</span>
+                                                            <div className="flex gap-0.5">
+                                                                <SimpleTooltip label="Editar grupo">
+                                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingGroup({ id: group.id, name: group.name })}>
+                                                                        <Edit className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                </SimpleTooltip>
+                                                                <SimpleTooltip label="Excluir grupo">
+                                                                    <Button
+                                                                        size="icon" variant="ghost"
+                                                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                                                        onClick={() => handleDeleteGroup(group.id, expandedWorkspace)}
+                                                                        disabled={savingEntity}
+                                                                    >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                </SimpleTooltip>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center justify-between">
+                                                    <Label htmlFor={`tab-toggle-${group.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                                                        Exibir como aba na página de músicas
+                                                    </Label>
+                                                    <Switch
+                                                        id={`tab-toggle-${group.id}`}
+                                                        checked={group.show_as_tab}
+                                                        onCheckedChange={(checked) => handleToggleShowAsTab(group.id, checked)}
+                                                    />
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {group.values.map(val => (
+                                                        <div key={val.id} className="group relative">
+                                                            {editingValue?.id === val.id ? (
+                                                                <div className="flex items-center gap-1">
+                                                                    <Input
+                                                                        value={editingValue.name}
+                                                                        onChange={e => setEditingValue({ ...editingValue, name: e.target.value })}
+                                                                        className="h-7 text-xs w-32"
+                                                                        onKeyDown={e => { if (e.key === 'Enter') handleUpdateValue(expandedWorkspace) }}
+                                                                        autoFocus
+                                                                    />
+                                                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleUpdateValue(expandedWorkspace)} disabled={savingEntity}>
+                                                                        <Save className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingValue(null)}>
+                                                                        <X className="h-3 w-3" />
+                                                                    </Button>
+                                                                </div>
+                                                            ) : (
+                                                                <Badge variant="secondary" className="text-xs cursor-default pr-1 gap-1">
+                                                                    {val.name}
+                                                                    <span className="text-muted-foreground">({val.file_count})</span>
+                                                                    <span className="hidden group-hover:inline-flex gap-0.5 ml-1">
+                                                                        <SimpleTooltip label="Editar valor">
+                                                                            <button className="hover:text-primary" onClick={() => setEditingValue({ id: val.id, name: val.name })}>
+                                                                                <Edit className="h-3 w-3" />
+                                                                            </button>
+                                                                        </SimpleTooltip>
+                                                                        {group.values.length > 1 && (
+                                                                            <SimpleTooltip label="Consolidar valor">
+                                                                                <button className="hover:text-primary" onClick={() => { setMergeDialog({ open: true, sourceId: val.id, groupId: group.id }); setMergeTargetId('') }}>
+                                                                                    <Merge className="h-3 w-3" />
+                                                                                </button>
+                                                                            </SimpleTooltip>
+                                                                        )}
+                                                                        <SimpleTooltip label="Excluir valor">
+                                                                            <button className="hover:text-destructive" onClick={() => handleDeleteValue(val.id, expandedWorkspace)}>
+                                                                                <Trash2 className="h-3 w-3" />
+                                                                            </button>
+                                                                        </SimpleTooltip>
+                                                                    </span>
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {addingValueForGroup === group.id ? (
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Input
+                                                            value={newValueName}
+                                                            onChange={e => setNewValueName(e.target.value)}
+                                                            placeholder="Nome do valor..."
+                                                            className="h-7 text-xs"
+                                                            onKeyDown={e => { if (e.key === 'Enter') handleCreateValue(group.id, expandedWorkspace) }}
+                                                            autoFocus
+                                                        />
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleCreateValue(group.id, expandedWorkspace)} disabled={savingEntity}>
+                                                            Adicionar
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setAddingValueForGroup(null); setNewValueName('') }}>
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground" onClick={() => { setAddingValueForGroup(group.id); setNewValueName('') }}>
+                                                        <Plus className="h-3 w-3" /> Adicionar valor
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {addingGroupForWs === expandedWorkspace ? (
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    value={newGroupName}
+                                                    onChange={e => setNewGroupName(e.target.value)}
+                                                    placeholder="Nome do grupo (ex: Tempo Litúrgico, Estilo...)"
+                                                    className="h-8 text-sm"
+                                                    onKeyDown={e => { if (e.key === 'Enter') handleCreateGroup(expandedWorkspace) }}
+                                                    autoFocus
+                                                />
+                                                <Button size="sm" onClick={() => handleCreateGroup(expandedWorkspace)} disabled={savingEntity}>
+                                                    Criar
+                                                </Button>
+                                                <Button size="icon" variant="ghost" onClick={() => { setAddingGroupForWs(null); setNewGroupName('') }}>
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <SimpleTooltip label="Criar novo grupo de filtro">
+                                                <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => { setAddingGroupForWs(expandedWorkspace); setNewGroupName('') }}>
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                    Novo Grupo de Filtro
+                                                </Button>
+                                            </SimpleTooltip>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </SheetContent>
+                </Sheet>
             </div>
 
             <WorkspaceFormDialog

@@ -9,6 +9,7 @@ public interface ICustomFilterService
     Task<int> CreateGroupAsync(int workspaceId, EntityDto dto);
     Task<bool> UpdateGroupAsync(int id, EntityDto dto);
     Task<bool> DeleteGroupAsync(int id);
+    Task<bool> ToggleShowAsTabAsync(int groupId, bool showAsTab);
 
     Task<List<EntityDetailDto>> GetValuesWithDetailsAsync(int groupId);
     Task<int> CreateValueAsync(int groupId, EntityDto dto);

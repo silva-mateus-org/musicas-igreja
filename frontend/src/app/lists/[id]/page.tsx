@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@core/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
 import { Badge } from '@core/components/ui/badge'
 import { Separator } from '@core/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
 import { listsApi, handleApiError } from '@/lib/api'
+import { useListDetail } from '@/hooks/use-lists'
+import { LoadingOverlay } from '@/components/ui/loading-spinner'
+import { ErrorState } from '@/components/ui/error-state'
 import type { MusicList } from '@/types'
 import {
     List,
@@ -31,6 +34,7 @@ import { useAuth } from '@core/contexts/auth-context'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import { DuplicateListDialog } from '@/components/lists/duplicate-list-dialog'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function ListDetailsPage() {
     const router = useRouter()
@@ -41,32 +45,11 @@ export default function ListDetailsPage() {
     const canDelete = hasPermission('music:delete')
     const listId = parseInt(params.id as string)
 
-    const [list, setList] = useState<MusicList | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState('')
+    const { data: list, isLoading, error: queryError, refetch } = useListDetail(listId)
     const [isGeneratingReport, setIsGeneratingReport] = useState(false)
     const [reportCopied, setReportCopied] = useState(false)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
-
-    const loadList = async () => {
-        try {
-            setIsLoading(true)
-            setError('')
-            const data = await listsApi.getList(listId)
-            setList(data)
-        } catch (error) {
-            setError(handleApiError(error))
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    useEffect(() => {
-        if (listId) {
-            loadList()
-        }
-    }, [listId])
 
     const handleDeleteClick = () => {
         setDeleteDialogOpen(true)
@@ -205,29 +188,18 @@ export default function ListDetailsPage() {
     if (isLoading) {
         return (
             <MainLayout>
-                <div className="flex items-center justify-center min-h-[400px]">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                        <p className="mt-4 text-muted-foreground">Carregando lista...</p>
-                    </div>
-                </div>
+                <LoadingOverlay message="Carregando lista..." />
             </MainLayout>
         )
     }
 
-    if (error || !list) {
+    if (queryError || !list) {
         return (
             <MainLayout>
-                <div className="text-center py-12">
-                    <h1 className="text-2xl font-bold text-destructive mb-4">Erro ao carregar lista</h1>
-                    <p className="text-muted-foreground mb-6">{error || 'Lista não encontrada'}</p>
-                    <Button asChild>
-                        <Link href="/lists">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Voltar às listas
-                        </Link>
-                    </Button>
-                </div>
+                <ErrorState
+                    message={(queryError as Error)?.message || 'Lista não encontrada'}
+                    onRetry={() => refetch()}
+                />
             </MainLayout>
         )
     }
@@ -239,21 +211,19 @@ export default function ListDetailsPage() {
                 <div className="flex flex-col gap-4">
                     {/* Navigation and Title */}
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="sm" asChild className="self-start shrink-0">
-                                        <Link href="/lists">
-                                            <ArrowLeft className="h-4 w-4 mr-2" />
-                                            Voltar
-                                        </Link>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Voltar para lista de listas</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="sm" asChild className="self-start shrink-0">
+                                    <Link href="/lists">
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Voltar
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Voltar para lista de listas</p>
+                            </TooltipContent>
+                        </Tooltip>
                         <div className="flex-1 min-w-0">
                             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
                                 <List className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
@@ -266,8 +236,7 @@ export default function ListDetailsPage() {
                     </div>
 
                     {/* Actions - Responsive Grid */}
-                    <TooltipProvider>
-                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
@@ -313,7 +282,7 @@ export default function ListDetailsPage() {
                                         <DuplicateListDialog
                                             listId={list.id}
                                             listName={list.name}
-                                            onSuccess={loadList}
+                                            onSuccess={() => refetch()}
                                             trigger={
                                                 <Button variant="outline" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm">
                                                     <Copy className="h-4 w-4" />
@@ -356,7 +325,6 @@ export default function ListDetailsPage() {
                                 </Tooltip>
                             )}
                         </div>
-                    </TooltipProvider>
                 </div>
 
                 {/* Info Cards */}
@@ -473,7 +441,6 @@ export default function ListDetailsPage() {
                                                 </td>
                                                 <td className="py-3 px-2">
                                                     <div className="flex gap-1 justify-end">
-                                                        <TooltipProvider>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
@@ -492,41 +459,40 @@ export default function ListDetailsPage() {
                                                                 </TooltipTrigger>
                                                                 <TooltipContent><p>Visualizar PDF</p></TooltipContent>
                                                             </Tooltip>
-<Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownloadPdf(item.music_id, item.music?.title || '')}>
-                                                                                        <Download className="h-4 w-4" />
-                                                                                    </Button>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent><p>Baixar PDF</p></TooltipContent>
-                                                                            </Tooltip>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    {item.music?.youtube_link ? (
-                                                                                        <Button 
-                                                                                            variant="ghost" 
-                                                                                            size="icon" 
-                                                                                            className="h-8 w-8 text-destructive hover:text-destructive" 
-                                                                                            onClick={() => openYouTube(item.music!.youtube_link!)}
-                                                                                        >
-                                                                                            <Youtube className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    ) : (
-                                                                                        <Button 
-                                                                                            variant="ghost" 
-                                                                                            size="icon" 
-                                                                                            className="h-8 w-8" 
-                                                                                            disabled
-                                                                                        >
-                                                                                            <Youtube className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    )}
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    <p>{item.music?.youtube_link ? 'Abrir YouTube' : 'Sem link do YouTube'}</p>
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                        </TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownloadPdf(item.music_id, item.music?.title || '')}>
+                                                                        <Download className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Baixar PDF</p></TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    {item.music?.youtube_link ? (
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
+                                                                            className="h-8 w-8 text-destructive hover:text-destructive" 
+                                                                            onClick={() => openYouTube(item.music!.youtube_link!)}
+                                                                        >
+                                                                            <Youtube className="h-4 w-4" />
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
+                                                                            className="h-8 w-8" 
+                                                                            disabled
+                                                                        >
+                                                                            <Youtube className="h-4 w-4" />
+                                                                        </Button>
+                                                                    )}
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{item.music?.youtube_link ? 'Abrir YouTube' : 'Sem link do YouTube'}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -541,12 +507,14 @@ export default function ListDetailsPage() {
                                 <p className="text-muted-foreground mb-4">
                                     Esta lista ainda não possui músicas
                                 </p>
-                                <Button asChild>
-                                    <Link href={`/lists/${list.id}/edit`}>
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Adicionar Músicas
-                                    </Link>
-                                </Button>
+                                <SimpleTooltip label="Adicionar músicas à lista">
+                                    <Button asChild>
+                                        <Link href={`/lists/${list.id}/edit`}>
+                                            <Edit className="h-4 w-4 mr-2" />
+                                            Adicionar Músicas
+                                        </Link>
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                         )}
                     </CardContent>

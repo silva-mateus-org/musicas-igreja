@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
 import { Badge } from '@core/components/ui/badge'
 import { FileText, Edit3, Check, X, Plus, AlertTriangle, Loader2, Copy, CheckCircle2, HelpCircle, Sparkles } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useToast } from '@core/hooks/use-toast'
 import { formatFileSize } from '@/lib/utils'
 import { getActiveWorkspaceId } from '@/lib/api'
@@ -88,14 +89,14 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                 const response = await fetch(`/api/filters/suggestions?workspace_id=${getActiveWorkspaceId()}`)
                 const data = await response.json()
                 setSuggestions({
-                    categories: data.categories || [],
+                    categories: (data.categories || []).map((c: any) => typeof c === 'string' ? c : c.label || c.name || '').filter(Boolean),
                     customFilterGroups: (data.custom_filter_groups || []).map((g: any) => ({
                         id: g.id,
                         name: g.name,
                         slug: g.slug,
                         values: (g.values || []).map((v: any) => ({ name: v.name, slug: v.slug })),
                     })),
-                    artists: data.artists || [],
+                    artists: (data.artists || []).map((a: any) => typeof a === 'string' ? a : a.label || a.name || '').filter(Boolean),
                     musical_keys: data.musical_keys || DEFAULT_MUSICAL_KEYS
                 })
             } catch (error) {
@@ -349,48 +350,50 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                         <CardTitle className="text-sm flex items-center gap-2">
                             <Copy className="h-4 w-4" />
                             Aplicar a Todos os Arquivos
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs">
-                                        <p>Selecione os valores e clique em &quot;Aplicar&quot; para adicionar a todos os arquivos.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                    <p>Selecione os valores e clique em &quot;Aplicar&quot; para adicionar a todos os arquivos.</p>
+                                </TooltipContent>
+                            </Tooltip>
                         </CardTitle>
                         <div className="flex items-center gap-2">
                             {hasBatchValues && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setBatchValues({
-                                        categories: [],
-                                        custom_filters: {},
-                                        artist: '',
-                                        musical_key: ''
-                                    })}
-                                    className="text-xs text-muted-foreground"
-                                >
-                                    <X className="h-3 w-3 mr-1" />
-                                    Limpar
-                                </Button>
+                                <SimpleTooltip label="Limpar valores em lote">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setBatchValues({
+                                            categories: [],
+                                            custom_filters: {},
+                                            artist: '',
+                                            musical_key: ''
+                                        })}
+                                        className="text-xs text-muted-foreground"
+                                    >
+                                        <X className="h-3 w-3 mr-1" />
+                                        Limpar
+                                    </Button>
+                                </SimpleTooltip>
                             )}
-                            <Button
-                                size="sm"
-                                onClick={applyBatchValues}
-                                disabled={!hasBatchValues}
-                                className="gap-2"
-                            >
-                                <Check className="h-4 w-4" />
-                                Aplicar a Todos
-                                {hasBatchValues && (
-                                    <Badge variant="secondary" className="ml-1 text-xs">
-                                        {metadata.length}
-                                    </Badge>
-                                )}
-                            </Button>
+                            <SimpleTooltip label="Aplicar a todos os arquivos">
+                                <Button
+                                    size="sm"
+                                    onClick={applyBatchValues}
+                                    disabled={!hasBatchValues}
+                                    className="gap-2"
+                                >
+                                    <Check className="h-4 w-4" />
+                                    Aplicar a Todos
+                                    {hasBatchValues && (
+                                        <Badge variant="secondary" className="ml-1 text-xs">
+                                            {metadata.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </SimpleTooltip>
                         </div>
                     </div>
                 </CardHeader>
@@ -530,14 +533,18 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                     {metadata.length} arquivo(s) • {metadata.filter(isFormValid).length} válido(s)
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={expandAll} className="text-xs gap-1">
-                        <Plus className="h-3 w-3" />
-                        Expandir Todos
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
-                        <X className="h-3 w-3" />
-                        Recolher Todos
-                    </Button>
+                    <SimpleTooltip label="Expandir todos">
+                        <Button variant="outline" size="sm" onClick={expandAll} className="text-xs gap-1">
+                            <Plus className="h-3 w-3" />
+                            Expandir Todos
+                        </Button>
+                    </SimpleTooltip>
+                    <SimpleTooltip label="Recolher todos">
+                        <Button variant="outline" size="sm" onClick={collapseAll} className="text-xs gap-1">
+                            <X className="h-3 w-3" />
+                            Recolher Todos
+                        </Button>
+                    </SimpleTooltip>
                 </div>
             </div>
 
@@ -561,35 +568,31 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                                                 </Badge>
                                             )}
                                             {item.duplicateStatus === 'unique' && (
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Badge variant="outline" className="text-xs gap-1 border-green-500 text-green-600">
-                                                                <CheckCircle2 className="h-3 w-3" />
-                                                                <span className="hidden sm:inline">Único</span>
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Nenhum arquivo duplicado encontrado</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Badge variant="outline" className="text-xs gap-1 border-green-500 text-green-600">
+                                                            <CheckCircle2 className="h-3 w-3" />
+                                                            <span className="hidden sm:inline">Único</span>
+                                                        </Badge>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Nenhum arquivo duplicado encontrado</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             )}
                                             {item.duplicateStatus === 'duplicate' && (
-                                                <TooltipProvider>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-600">
-                                                                <AlertTriangle className="h-3 w-3" />
-                                                                <span className="hidden sm:inline">Possível duplicado</span>
-                                                                <span className="sm:hidden">Dup.</span>
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{item.duplicateMessage}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Badge variant="outline" className="text-xs gap-1 border-amber-500 text-amber-600">
+                                                            <AlertTriangle className="h-3 w-3" />
+                                                            <span className="hidden sm:inline">Possível duplicado</span>
+                                                            <span className="sm:hidden">Dup.</span>
+                                                        </Badge>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{item.duplicateMessage}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
                                             )}
                                             {item.duplicateStatus === 'error' && (
                                                 <Badge variant="outline" className="text-xs gap-1 border-gray-400 text-gray-500">
@@ -614,23 +617,27 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => toggleExpanded(index)}
-                                        className="text-xs sm:text-sm gap-1"
-                                    >
-                                        <Edit3 className="h-4 w-4" />
-                                        <span>{expandedItems.has(index) ? 'Recolher' : 'Editar'}</span>
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => onRemoveFile(index)}
-                                        className="text-red-600 hover:text-red-700"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                                    <SimpleTooltip label={expandedItems.has(index) ? 'Recolher' : 'Editar metadados'}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => toggleExpanded(index)}
+                                            className="text-xs sm:text-sm gap-1"
+                                        >
+                                            <Edit3 className="h-4 w-4" />
+                                            <span>{expandedItems.has(index) ? 'Recolher' : 'Editar'}</span>
+                                        </Button>
+                                    </SimpleTooltip>
+                                    <SimpleTooltip label="Remover arquivo">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onRemoveFile(index)}
+                                            className="text-red-600 hover:text-red-700"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </SimpleTooltip>
                                 </div>
                             </div>
                         </CardHeader>
@@ -674,21 +681,23 @@ export function UploadMetadataEditor({ files, onMetadataChange, onRemoveFile }: 
                                                 placeholder="Selecionar categorias"
                                                 className="flex-1"
                                             />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setShowNewCategoryInput(prev => {
-                                                        const newSet = new Set(prev)
-                                                        newSet.add(index)
-                                                        return newSet
-                                                    })
-                                                }}
-                                                className="px-2"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
+                                            <SimpleTooltip label="Adicionar nova categoria">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setShowNewCategoryInput(prev => {
+                                                            const newSet = new Set(prev)
+                                                            newSet.add(index)
+                                                            return newSet
+                                                        })
+                                                    }}
+                                                    className="px-2"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </SimpleTooltip>
                                         </div>
                                         {showNewCategoryInput.has(index) && (
                                             <div className="flex gap-2">

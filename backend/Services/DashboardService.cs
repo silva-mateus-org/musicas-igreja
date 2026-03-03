@@ -17,7 +17,19 @@ public class DashboardService : IDashboardService
     public async Task<DashboardStatsDto> GetStatsAsync(int workspaceId)
     {
         var filesQuery = _context.PdfFiles.Where(f => f.WorkspaceId == workspaceId);
-        var totalMusics = await filesQuery.CountAsync();
+
+        // Combined aggregate: 1 query instead of 4
+        var fileStats = await filesQuery
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                TotalSize = g.Sum(f => f.FileSize ?? 0L),
+                TotalPages = g.Sum(f => f.PageCount ?? 0),
+                WithYoutube = g.Count(f => !string.IsNullOrEmpty(f.YoutubeLink))
+            })
+            .FirstOrDefaultAsync();
+
         var totalLists = await _context.MergeLists.Where(m => m.WorkspaceId == workspaceId).CountAsync();
         var totalCategories = await _context.Categories.Where(c => c.WorkspaceId == workspaceId).CountAsync();
         var totalFilterGroups = await _context.CustomFilterGroups.Where(g => g.WorkspaceId == workspaceId).CountAsync();
@@ -27,48 +39,44 @@ public class DashboardService : IDashboardService
             .Distinct()
             .CountAsync();
 
-        var totalFileSizeBytes = await filesQuery.SumAsync(f => f.FileSize ?? 0);
-        var totalFileSizeMb = totalFileSizeBytes / (1024.0 * 1024.0);
-        var totalPages = await filesQuery.SumAsync(f => f.PageCount ?? 0);
-        var musicsWithYoutube = await filesQuery.CountAsync(f => !string.IsNullOrEmpty(f.YoutubeLink));
-
-        double avgMusicsPerList = 0;
-        if (totalLists > 0)
-        {
-            var listIds = await _context.MergeLists.Where(m => m.WorkspaceId == workspaceId).Select(m => m.Id).ToListAsync();
-            var totalItems = await _context.MergeListItems.Where(mli => listIds.Contains(mli.MergeListId)).CountAsync();
-            avgMusicsPerList = (double)totalItems / totalLists;
-        }
-
-        LargestListDto? largestList = null;
         var largestListData = await _context.MergeLists
             .Where(m => m.WorkspaceId == workspaceId)
             .Select(m => new { m.Name, Count = m.Items.Count })
             .OrderByDescending(x => x.Count)
             .FirstOrDefaultAsync();
-        if (largestListData != null && largestListData.Count > 0)
-            largestList = new LargestListDto { Name = largestListData.Name, Count = largestListData.Count };
 
-        MostPopularCategoryDto? mostPopularCategory = null;
         var categoryData = await _context.FileCategories
             .Where(fc => fc.PdfFile.WorkspaceId == workspaceId)
             .GroupBy(fc => new { fc.Category.Name })
             .Select(g => new { Name = g.Key.Name, Count = g.Count() })
             .OrderByDescending(x => x.Count)
             .FirstOrDefaultAsync();
-        if (categoryData != null)
-            mostPopularCategory = new MostPopularCategoryDto { Name = categoryData.Name, Count = categoryData.Count };
+
+        var avgMusicsPerList = await _context.MergeLists
+            .Where(m => m.WorkspaceId == workspaceId)
+            .Select(m => (double?)m.Items.Count)
+            .AverageAsync() ?? 0;
+
+        var totalFileSizeMb = (fileStats?.TotalSize ?? 0) / (1024.0 * 1024.0);
+
+        LargestListDto? largestList = largestListData is { Count: > 0 }
+            ? new LargestListDto { Name = largestListData.Name, Count = largestListData.Count }
+            : null;
+
+        MostPopularCategoryDto? mostPopularCategory = categoryData != null
+            ? new MostPopularCategoryDto { Name = categoryData.Name, Count = categoryData.Count }
+            : null;
 
         return new DashboardStatsDto
         {
-            TotalMusics = totalMusics,
+            TotalMusics = fileStats?.Total ?? 0,
             TotalLists = totalLists,
             TotalCategories = totalCategories,
             TotalFilterGroups = totalFilterGroups,
             TotalArtists = totalArtists,
             TotalFileSizeMb = Math.Round(totalFileSizeMb, 2),
-            TotalPages = totalPages,
-            MusicsWithYoutube = musicsWithYoutube,
+            TotalPages = fileStats?.TotalPages ?? 0,
+            MusicsWithYoutube = fileStats?.WithYoutube ?? 0,
             AvgMusicsPerList = Math.Round(avgMusicsPerList, 2),
             LargestList = largestList,
             MostPopularCategory = mostPopularCategory

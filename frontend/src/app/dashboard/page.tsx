@@ -1,43 +1,36 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@core/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { LoadingOverlay } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
-import { dashboardApi, handleApiError } from '@/lib/api'
+import { EmptyState } from '@/components/ui/empty-state'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { DashboardCharts } from '@/components/dashboard/charts'
 import { QuickActions } from '@/components/dashboard/quick-actions'
-import { useWorkspace } from '@/contexts/workspace-context'
-import type { DashboardStats } from '@/types'
-import { BarChart3, RefreshCw } from 'lucide-react'
+import { useDashboardStats } from '@/hooks/use-dashboard'
+import { useAuth } from '@core/contexts/auth-context'
+import { BarChart3, RefreshCw, Lock } from 'lucide-react'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function DashboardPage() {
-    const { activeWorkspace } = useWorkspace()
-    const [stats, setStats] = useState<DashboardStats | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState('')
+    const { isAuthenticated } = useAuth()
+    const { data: stats, isLoading, error, refetch } = useDashboardStats()
 
-    const loadStats = useCallback(async () => {
-        try {
-            setIsLoading(true)
-            setError('')
-            const data = await dashboardApi.getStats()
-            setStats(data)
-        } catch (error) {
-            setError(handleApiError(error))
-        } finally {
-            setIsLoading(false)
-        }
-    }, [])
-
-    useEffect(() => {
-        loadStats()
-    }, [activeWorkspace?.id, loadStats])
+    if (!isAuthenticated) {
+        return (
+            <MainLayout>
+                <EmptyState
+                    icon={Lock}
+                    title="Acesso Restrito"
+                    description="Você precisa estar logado para acessar o dashboard."
+                    className="min-h-[400px]"
+                />
+            </MainLayout>
+        )
+    }
 
     if (isLoading) {
         return (
@@ -50,7 +43,7 @@ export default function DashboardPage() {
     if (error) {
         return (
             <MainLayout>
-                <ErrorState message={error} onRetry={loadStats} />
+                <ErrorState message={(error as Error).message} onRetry={() => refetch()} />
             </MainLayout>
         )
     }
@@ -69,10 +62,12 @@ export default function DashboardPage() {
                             description={PAGE_INSTRUCTIONS.dashboard.description}
                             sections={PAGE_INSTRUCTIONS.dashboard.sections}
                         />
-                        <Button onClick={loadStats} variant="outline" size="sm" className="gap-2">
-                            <RefreshCw className="h-4 w-4" />
-                            <span className="hidden sm:inline">Atualizar</span>
-                        </Button>
+                        <SimpleTooltip label="Recarregar dados do dashboard">
+                            <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
+                                <RefreshCw className="h-4 w-4" />
+                                <span className="hidden sm:inline">Atualizar</span>
+                            </Button>
+                        </SimpleTooltip>
                     </div>
                 </PageHeader>
 

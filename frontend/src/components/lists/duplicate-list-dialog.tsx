@@ -8,6 +8,7 @@ import { Input } from '@core/components/ui/input'
 import { Label } from '@core/components/ui/label'
 import { Copy, Loader2 } from 'lucide-react'
 import { listsApi, handleApiError } from '@/lib/api'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useToast } from '@core/hooks/use-toast'
 
 interface DuplicateListDialogProps {
@@ -66,9 +67,11 @@ export function DuplicateListDialog({ listId, listName, trigger, onSuccess }: Du
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {trigger || (
-                    <Button variant="ghost" size="icon" title="Duplicar lista">
-                        <Copy className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Duplicar lista">
+                        <Button variant="ghost" size="icon">
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </DialogTrigger>
 

@@ -13,7 +13,7 @@ import { Badge } from '@core/components/ui/badge'
 import { Separator } from '@core/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Checkbox } from '@core/components/ui/checkbox'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@core/components/ui/popover'
 import { ScrollArea } from '@core/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -49,6 +49,7 @@ import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
 import Link from 'next/link'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface FilterSuggestions {
     categories: string[]
@@ -121,7 +122,11 @@ export default function EditListPage() {
         try {
             const response = await fetch(`/api/filters/suggestions?workspace_id=${getActiveWorkspaceId()}`)
             const data = await response.json()
-            setSuggestions(data)
+            setSuggestions({
+                categories: (data.categories || []).map((c: any) => typeof c === 'string' ? c : c.label || c.name || '').filter(Boolean),
+                artists: (data.artists || []).map((a: any) => typeof a === 'string' ? a : a.label || a.name || '').filter(Boolean),
+                musical_keys: data.musical_keys || []
+            })
         } catch (error) {
             console.error('Erro ao carregar sugestões:', error)
         }
@@ -477,21 +482,19 @@ export default function EditListPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="outline" size="sm" asChild className="self-start shrink-0">
-                                            <Link href={`/lists/${list.id}`}>
-                                                <ArrowLeft className="h-4 w-4 mr-2" />
-                                                Voltar
-                                            </Link>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Voltar para visualização da lista</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="sm" asChild className="self-start shrink-0">
+                                        <Link href={`/lists/${list.id}`}>
+                                            <ArrowLeft className="h-4 w-4 mr-2" />
+                                            Voltar
+                                        </Link>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Voltar para visualização da lista</p>
+                                </TooltipContent>
+                            </Tooltip>
                             <div className="min-w-0">
                                 <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
                                     <List className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
@@ -503,31 +506,29 @@ export default function EditListPage() {
                             </div>
                         </div>
 
-                        <TooltipProvider>
-                            <div className="flex gap-2 shrink-0 items-center">
-                                <InstructionsModal
-                                    title={PAGE_INSTRUCTIONS.listEdit.title}
-                                    description={PAGE_INSTRUCTIONS.listEdit.description}
-                                    sections={PAGE_INSTRUCTIONS.listEdit.sections}
-                                />
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            onClick={handleSave}
-                                            disabled={isSaving || !name.trim()}
-                                            size="sm"
-                                            className="gap-2"
-                                        >
-                                            <Save className="h-4 w-4" />
-                                            <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Salvar alterações da lista</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                        </TooltipProvider>
+                        <div className="flex gap-2 shrink-0 items-center">
+                            <InstructionsModal
+                                title={PAGE_INSTRUCTIONS.listEdit.title}
+                                description={PAGE_INSTRUCTIONS.listEdit.description}
+                                sections={PAGE_INSTRUCTIONS.listEdit.sections}
+                            />
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        onClick={handleSave}
+                                        disabled={isSaving || !name.trim()}
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        <span>{isSaving ? 'Salvando...' : 'Salvar'}</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Salvar alterações da lista</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
                     </div>
                 </div>
 
@@ -696,7 +697,6 @@ export default function EditListPage() {
                                                                             </td>
                                                                             <td className="py-2 px-1">
                                                                                 <div className="flex gap-0.5 justify-end">
-                                                                                    <TooltipProvider>
                                                                                         <Tooltip>
                                                                                             <TooltipTrigger asChild>
                                                                                                 <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
@@ -720,7 +720,6 @@ export default function EditListPage() {
                                                                                             </TooltipTrigger>
                                                                                             <TooltipContent><p>Remover</p></TooltipContent>
                                                                                         </Tooltip>
-                                                                                    </TooltipProvider>
                                                                                 </div>
                                                                             </td>
                                                                         </tr>
@@ -797,31 +796,35 @@ export default function EditListPage() {
                                     {/* Dropdown de Categorias */}
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" className="justify-between min-w-[160px]">
-                                                <span className="flex items-center gap-2">
-                                                    <Filter className="h-4 w-4" />
-                                                    Categorias
-                                                </span>
-                                                {selectedCategories.length > 0 && (
-                                                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                                                        {selectedCategories.length}
-                                                    </Badge>
-                                                )}
-                                            </Button>
+                                            <SimpleTooltip label="Filtrar por categorias">
+                                                <Button variant="outline" className="justify-between min-w-[160px]">
+                                                    <span className="flex items-center gap-2">
+                                                        <Filter className="h-4 w-4" />
+                                                        Categorias
+                                                    </span>
+                                                    {selectedCategories.length > 0 && (
+                                                        <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                                                            {selectedCategories.length}
+                                                        </Badge>
+                                                    )}
+                                                </Button>
+                                            </SimpleTooltip>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-56 p-0" align="start">
                                             <div className="p-2 border-b">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm font-medium">Categorias</span>
                                                     {selectedCategories.length > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setSelectedCategories([])}
-                                                        >
-                                                            Limpar
-                                                        </Button>
+                                                        <SimpleTooltip label="Limpar seleção">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setSelectedCategories([])}
+                                                            >
+                                                                Limpar
+                                                            </Button>
+                                                        </SimpleTooltip>
                                                     )}
                                                 </div>
                                             </div>
@@ -858,31 +861,35 @@ export default function EditListPage() {
                                     {/* Dropdown de Artistas */}
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button variant="outline" className="justify-between min-w-[140px]">
-                                                <span className="flex items-center gap-2">
-                                                    <User className="h-4 w-4" />
-                                                    Artistas
-                                                </span>
-                                                {selectedArtists.length > 0 && (
-                                                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                                                        {selectedArtists.length}
-                                                    </Badge>
-                                                )}
-                                            </Button>
+                                            <SimpleTooltip label="Filtrar por artistas">
+                                                <Button variant="outline" className="justify-between min-w-[140px]">
+                                                    <span className="flex items-center gap-2">
+                                                        <User className="h-4 w-4" />
+                                                        Artistas
+                                                    </span>
+                                                    {selectedArtists.length > 0 && (
+                                                        <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                                                            {selectedArtists.length}
+                                                        </Badge>
+                                                    )}
+                                                </Button>
+                                            </SimpleTooltip>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-56 p-0" align="start">
                                             <div className="p-2 border-b">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm font-medium">Artistas</span>
                                                     {selectedArtists.length > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setSelectedArtists([])}
-                                                        >
-                                                            Limpar
-                                                        </Button>
+                                                        <SimpleTooltip label="Limpar seleção">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setSelectedArtists([])}
+                                                            >
+                                                                Limpar
+                                                            </Button>
+                                                        </SimpleTooltip>
                                                     )}
                                                 </div>
                                             </div>
@@ -930,41 +937,47 @@ export default function EditListPage() {
                                         {selectedCategories.map((cat) => (
                                             <Badge key={cat} variant="secondary" className="gap-1 pr-1">
                                                 {cat}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 ml-1 hover:bg-transparent"
-                                                    onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== cat))}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
+                                                <SimpleTooltip label="Remover filtro">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 ml-1 hover:bg-transparent"
+                                                        onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== cat))}
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </SimpleTooltip>
                                             </Badge>
                                         ))}
                                         {selectedArtists.map((artist) => (
                                             <Badge key={artist} variant="default" className="gap-1 pr-1">
                                                 <User className="h-3 w-3" />
                                                 {artist}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-4 w-4 ml-1 hover:bg-transparent"
-                                                    onClick={() => setSelectedArtists(selectedArtists.filter(a => a !== artist))}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
+                                                <SimpleTooltip label="Remover filtro">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 ml-1 hover:bg-transparent"
+                                                        onClick={() => setSelectedArtists(selectedArtists.filter(a => a !== artist))}
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </SimpleTooltip>
                                             </Badge>
                                         ))}
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 px-2 text-xs text-muted-foreground"
-                                            onClick={() => {
-                                                setSelectedCategories([])
-                                                setSelectedArtists([])
-                                            }}
-                                        >
-                                            Limpar todos
-                                        </Button>
+                                        <SimpleTooltip label="Limpar todos os filtros">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-2 text-xs text-muted-foreground"
+                                                onClick={() => {
+                                                    setSelectedCategories([])
+                                                    setSelectedArtists([])
+                                                }}
+                                            >
+                                                Limpar todos
+                                            </Button>
+                                        </SimpleTooltip>
                                     </div>
                                 )}
 
@@ -1016,7 +1029,6 @@ export default function EditListPage() {
                                                                 </td>
                                                                                 <td className="py-2 px-1">
                                                                                     <div className="flex gap-0.5 justify-end">
-                                                                                        <TooltipProvider>
                                                                                             <Tooltip>
                                                                                                 <TooltipTrigger asChild>
                                                                                                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
@@ -1053,7 +1065,6 @@ export default function EditListPage() {
                                                                                                 </TooltipTrigger>
                                                                                                 <TooltipContent><p>Adicionar à lista</p></TooltipContent>
                                                                                             </Tooltip>
-                                                                                        </TooltipProvider>
                                                                                     </div>
                                                                                 </td>
                                                             </tr>

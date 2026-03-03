@@ -12,7 +12,7 @@ import {
     DialogTrigger,
 } from '@core/components/ui/dialog'
 import { ScrollArea } from '@core/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface InstructionSection {
@@ -40,25 +40,23 @@ export function InstructionsModal({
 }: InstructionsModalProps) {
     return (
         <Dialog>
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <DialogTrigger asChild>
-                            <Button
-                                variant={buttonVariant}
-                                size={buttonSize}
-                                className={cn('h-8 w-8', className)}
-                            >
-                                <Info className="h-4 w-4" />
-                                <span className="sr-only">Instruções</span>
-                            </Button>
-                        </DialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Ver instruções</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant={buttonVariant}
+                            size={buttonSize}
+                            className={cn('h-8 w-8', className)}
+                        >
+                            <Info className="h-4 w-4" />
+                            <span className="sr-only">Instruções</span>
+                        </Button>
+                    </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Ver instruções</p>
+                </TooltipContent>
+            </Tooltip>
             <DialogContent className="sm:max-w-[600px] max-h-[85vh]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">

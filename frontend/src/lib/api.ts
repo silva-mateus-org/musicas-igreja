@@ -411,6 +411,9 @@ export const customFiltersApi = {
     async deleteGroup(id: number): Promise<ApiResponse> {
         return await request<ApiResponse>(`/custom_filters/groups/${id}`, { method: 'DELETE' })
     },
+    async toggleShowAsTab(groupId: number, showAsTab: boolean): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/groups/${groupId}/show-as-tab`, { method: 'PATCH', body: JSON.stringify({ show_as_tab: showAsTab }) })
+    },
     async getValues(groupId: number): Promise<{ values: any[] }> {
         return await request<{ values: any[] }>(`/custom_filters/groups/${groupId}/values`)
     },
@@ -442,14 +445,41 @@ export const downloadFile = (blob: Blob, filename: string) => {
 
 // ============ ADMIN / DISCOVERY API ============
 export const adminApi = {
+    async verifyPdfs(): Promise<any> {
+        return await request<any>('/admin/verify-pdfs', { method: 'GET' })
+    },
+    async fixPdfNames(fileIds: number[]): Promise<any> {
+        return await request<any>('/admin/fix-pdf-names', {
+            method: 'POST',
+            body: JSON.stringify({ file_ids: fileIds })
+        })
+    },
     async discoverEntities(): Promise<any> {
-        return await request<any>('/admin/discovery', { method: 'GET' })
+        return await request<any>('/admin/discover-entities', { method: 'GET' })
     },
     async registerEntities(entities: any): Promise<any> {
-        return await request<any>('/admin/discovery', { method: 'POST', body: JSON.stringify(entities) })
+        return await request<any>('/admin/register-discovered-entities', { method: 'POST', body: JSON.stringify(entities) })
     },
     async cleanupEntities(): Promise<any> {
-        return await request<any>('/admin/cleanup', { method: 'POST' })
+        return await request<any>('/admin/cleanup-entities', { method: 'POST' })
+    },
+    async findDuplicates(): Promise<any> {
+        return await request<any>('/admin/find-duplicates', { method: 'GET' })
+    },
+    async deleteDuplicate(fileId: number): Promise<any> {
+        return await request<any>('/admin/delete-duplicate', { method: 'POST', body: JSON.stringify({ file_id: fileId }) })
+    },
+    async replaceDuplicates(keepFileId: number, removeFileIds: number[]): Promise<any> {
+        return await request<any>('/admin/replace-duplicates', {
+            method: 'POST',
+            body: JSON.stringify({ keep_file_id: keepFileId, remove_file_ids: removeFileIds })
+        })
+    },
+    async scanLegacyFiles(): Promise<any> {
+        return await request<any>('/admin/scan-legacy-files', { method: 'GET' })
+    },
+    async cleanupLegacyFiles(): Promise<any> {
+        return await request<any>('/admin/cleanup-legacy-files', { method: 'POST' })
     },
 }
 

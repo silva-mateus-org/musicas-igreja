@@ -3,6 +3,7 @@ using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
 using MusicasIgreja.Api;
 using MusicasIgreja.Api.DTOs;
+using MusicasIgreja.Api.Models;
 using MusicasIgreja.Api.Services;
 using MusicasIgreja.Api.Services.Interfaces;
 
@@ -198,37 +199,27 @@ public class FilesController : ControllerBase
     [HttpGet("{id}/download")]
     public async Task<IActionResult> DownloadFile(int id)
     {
-        var dto = await _musicService.GetMusicByIdAsync(id);
-        if (dto == null)
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });
 
-        var absolutePath = _fileService.GetAbsolutePath($"organized/{dto.Filename}");
-        if (!System.IO.File.Exists(absolutePath))
-        {
-            var searchPath = FindFileByName(dto.Filename);
-            if (searchPath == null)
-                return NotFound(new { success = false, error = "Arquivo físico não encontrado" });
-            absolutePath = searchPath;
-        }
+        var absolutePath = ResolveFilePath(file);
+        if (absolutePath == null)
+            return NotFound(new { success = false, error = "Arquivo físico não encontrado" });
 
-        return PhysicalFile(absolutePath, "application/pdf", dto.Filename);
+        return PhysicalFile(absolutePath, "application/pdf", file.Filename);
     }
 
     [HttpGet("{id}/stream")]
     public async Task<IActionResult> StreamFile(int id)
     {
-        var dto = await _musicService.GetMusicByIdAsync(id);
-        if (dto == null)
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });
 
-        var absolutePath = _fileService.GetAbsolutePath($"organized/{dto.Filename}");
-        if (!System.IO.File.Exists(absolutePath))
-        {
-            var searchPath = FindFileByName(dto.Filename);
-            if (searchPath == null)
-                return NotFound(new { success = false, error = "Arquivo físico não encontrado" });
-            absolutePath = searchPath;
-        }
+        var absolutePath = ResolveFilePath(file);
+        if (absolutePath == null)
+            return NotFound(new { success = false, error = "Arquivo físico não encontrado" });
 
         return PhysicalFile(absolutePath, "application/pdf");
     }
@@ -293,6 +284,13 @@ public class FilesController : ControllerBase
         return Ok(new { success = true, groups, total_categories = groups.Count });
     }
 
+    [HttpGet("grouped/by-custom-filter/{groupSlug}")]
+    public async Task<ActionResult<object>> GetFilesGroupedByCustomFilter(string groupSlug, [FromQuery] int workspace_id = 1)
+    {
+        var groups = await _musicService.GetGroupedByCustomFilterAsync(workspace_id, groupSlug);
+        return Ok(new { success = true, groups, total_groups = groups.Count });
+    }
+
     private Dictionary<string, List<string>>? ParseCustomFilters()
     {
         const string prefix = "custom_filter_";
@@ -310,11 +308,27 @@ public class FilesController : ControllerBase
         return result.Count > 0 ? result : null;
     }
 
-    private string? FindFileByName(string filename)
+    private string? ResolveFilePath(PdfFile file)
     {
+        // Try stored FilePath first (most reliable)
+        if (!string.IsNullOrEmpty(file.FilePath))
+        {
+            var storedPath = _fileService.GetAbsolutePath(file.FilePath);
+            if (System.IO.File.Exists(storedPath)) return storedPath;
+        }
+
+        // Fallback: organized/{Filename}
+        var organizedPath = _fileService.GetAbsolutePath($"organized/{file.Filename}");
+        if (System.IO.File.Exists(organizedPath)) return organizedPath;
+
+        // Fallback: recursive search by filename
         var baseDir = _fileService.GetAbsolutePath("organized");
-        if (!Directory.Exists(baseDir)) return null;
-        var files = Directory.GetFiles(baseDir, filename, SearchOption.AllDirectories);
-        return files.FirstOrDefault();
+        if (Directory.Exists(baseDir))
+        {
+            var found = Directory.GetFiles(baseDir, file.Filename, SearchOption.AllDirectories);
+            if (found.Length > 0) return found[0];
+        }
+
+        return null;
     }
 }

@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
 import { usersApi, rolesApi, handleApiError } from '@/lib/api'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import {
     Users,
     Plus,
@@ -309,13 +310,17 @@ export default function UsersPage() {
                                         </CardDescription>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" onClick={loadUsers}>
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            Novo Usuário
-                                        </Button>
+                                        <SimpleTooltip label="Recarregar usuários">
+                                            <Button variant="outline" size="sm" onClick={loadUsers}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </SimpleTooltip>
+                                        <SimpleTooltip label="Criar novo usuário">
+                                            <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Novo Usuário
+                                            </Button>
+                                        </SimpleTooltip>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -379,35 +384,38 @@ export default function UsersPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex justify-end gap-1">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => openResetDialog(targetUser)}
-                                                                        title="Resetar senha"
-                                                                    >
-                                                                        <KeyRound className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleToggleActive(targetUser)}
-                                                                        title={targetUser.is_active ? 'Desativar' : 'Ativar'}
-                                                                    >
-                                                                        {targetUser.is_active ? (
-                                                                            <UserX className="h-4 w-4 text-amber-600" />
-                                                                        ) : (
-                                                                            <UserCheck className="h-4 w-4 text-green-600" />
-                                                                        )}
-                                                                    </Button>
-                                                                    {user?.id !== targetUser.id && (
+                                                                    <SimpleTooltip label="Resetar senha">
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
-                                                                            onClick={() => openDeleteDialog(targetUser)}
-                                                                            title="Excluir permanentemente"
+                                                                            onClick={() => openResetDialog(targetUser)}
                                                                         >
-                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                            <KeyRound className="h-4 w-4" />
                                                                         </Button>
+                                                                    </SimpleTooltip>
+                                                                    <SimpleTooltip label={targetUser.is_active ? 'Desativar' : 'Ativar'}>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => handleToggleActive(targetUser)}
+                                                                        >
+                                                                            {targetUser.is_active ? (
+                                                                                <UserX className="h-4 w-4 text-amber-600" />
+                                                                            ) : (
+                                                                                <UserCheck className="h-4 w-4 text-green-600" />
+                                                                            )}
+                                                                        </Button>
+                                                                    </SimpleTooltip>
+                                                                    {user?.id !== targetUser.id && (
+                                                                        <SimpleTooltip label="Excluir permanentemente">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => openDeleteDialog(targetUser)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                                            </Button>
+                                                                        </SimpleTooltip>
                                                                     )}
                                                                 </div>
                                                             </TableCell>

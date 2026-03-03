@@ -18,6 +18,7 @@ import { rolesApi, handleApiError } from '@/lib/api'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { PageHeader } from '@/components/ui/page-header'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { cn } from '@/lib/utils'
 import {
     Shield,
@@ -310,10 +311,12 @@ export default function RolesPage() {
                         <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-lg">Roles</CardTitle>
-                                <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Nova
-                                </Button>
+                                <SimpleTooltip label="Criar nova role">
+                                    <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Nova
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                             <div className="relative mt-2">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

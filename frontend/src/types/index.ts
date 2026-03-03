@@ -43,6 +43,7 @@ export interface CustomFilterGroup {
     name: string
     slug: string
     sort_order: number
+    show_as_tab: boolean
     values: CustomFilterValue[]
 }
 

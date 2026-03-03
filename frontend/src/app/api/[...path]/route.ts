@@ -43,21 +43,27 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
 
         const resContentType = response.headers.get('content-type') || ''
 
+        const setCookies = response.headers.getSetCookie()
+
         if (resContentType.includes('application/pdf') || resContentType.includes('octet-stream')) {
-            return new NextResponse(response.body, {
+            const res = new NextResponse(response.body, {
                 status: response.status,
                 headers: {
                     'Content-Type': resContentType,
                     'Content-Disposition': response.headers.get('content-disposition') || '',
                 },
             })
+            setCookies.forEach(cookie => res.headers.append('Set-Cookie', cookie))
+            return res
         }
 
         const data = await response.text()
-        return new NextResponse(data, {
+        const res = new NextResponse(data, {
             status: response.status,
             headers: { 'Content-Type': resContentType.includes('json') ? 'application/json' : resContentType || 'application/json' },
         })
+        setCookies.forEach(cookie => res.headers.append('Set-Cookie', cookie))
+        return res
     } catch (error: any) {
         console.error(`[PROXY] Error forwarding ${request.method} /api/${path}:`, error.message)
         return NextResponse.json(

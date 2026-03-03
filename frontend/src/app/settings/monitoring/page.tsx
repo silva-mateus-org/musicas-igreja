@@ -14,6 +14,7 @@ import { AlertCircle, AlertTriangle, Info, Activity, Database, HardDrive, Users,
 import { useToast } from '@core/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function MonitoringPage() {
     const { toast } = useToast()
@@ -135,10 +136,12 @@ export default function MonitoringPage() {
                             description={PAGE_INSTRUCTIONS.monitoring.description}
                             sections={PAGE_INSTRUCTIONS.monitoring.sections}
                         />
-                        <Button onClick={loadData} disabled={isLoading}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                            Atualizar
-                        </Button>
+                        <SimpleTooltip label="Recarregar alertas">
+                            <Button onClick={loadData} disabled={isLoading}>
+                                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                                Atualizar
+                            </Button>
+                        </SimpleTooltip>
                     </div>
                 </div>
 

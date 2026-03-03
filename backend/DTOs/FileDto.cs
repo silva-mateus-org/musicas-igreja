@@ -86,6 +86,11 @@ public record EntityDto
     public string? Description { get; init; }
 }
 
+public record ShowAsTabDto
+{
+    public bool ShowAsTab { get; init; }
+}
+
 public record EntityDetailDto(
     int Id,
     string Name,

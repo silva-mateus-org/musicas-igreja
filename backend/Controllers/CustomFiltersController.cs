@@ -79,6 +79,19 @@ public class CustomFiltersController : ControllerBase
         }
     }
 
+    [HttpPatch("groups/{id}/show-as-tab")]
+    public async Task<ActionResult<object>> ToggleShowAsTab(int id, [FromBody] ShowAsTabDto dto)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageCategories))
+            return StatusCode(403, new { error = "Sem permissão" });
+
+        var success = await _filterService.ToggleShowAsTabAsync(id, dto.ShowAsTab);
+        if (!success) return NotFound(new { success = false, error = "Grupo não encontrado" });
+        return Ok(new { success = true });
+    }
+
     [HttpDelete("groups/{id}")]
     public async Task<ActionResult<object>> DeleteGroup(int id)
     {

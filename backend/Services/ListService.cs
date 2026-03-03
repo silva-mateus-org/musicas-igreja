@@ -29,7 +29,7 @@ public class ListService : IListService
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(l => l.Name.Contains(search));
+            query = query.Where(l => EF.Functions.ILike(AppDbContext.Unaccent(l.Name), AppDbContext.Unaccent($"%{search}%")));
 
         query = (sortBy?.ToLower(), sortOrder?.ToLower()) switch
         {

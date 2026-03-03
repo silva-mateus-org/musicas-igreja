@@ -17,7 +17,8 @@ import { ErrorState } from '@/components/ui/error-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
-import { request, handleApiError } from '@/lib/api'
+import { request, customFiltersApi, handleApiError } from '@/lib/api'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
     FolderOpen,
     User,
@@ -30,9 +31,12 @@ import {
     Save,
     Merge,
     AlertTriangle,
-    Lock
+    Lock,
+    Filter,
+    ChevronDown
 } from 'lucide-react'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface EntityItem {
     id: number
@@ -47,10 +51,25 @@ interface EntitySection {
     error: string | null
 }
 
+interface FilterGroup {
+    id: number
+    name: string
+    slug: string
+    values: FilterValue[]
+}
+
+interface FilterValue {
+    id: number
+    name: string
+    slug: string
+    file_count?: number
+}
+
 interface DeleteDialogState {
     open: boolean
-    type: 'category' | 'artist'
+    type: 'category' | 'artist' | 'filter_value'
     item: EntityItem | null
+    groupId?: number
 }
 
 export default function ManagePage() {
@@ -61,15 +80,20 @@ export default function ManagePage() {
 
     const [categories, setCategories] = useState<EntitySection>({ items: [], isLoading: false, error: null })
     const [artists, setArtists] = useState<EntitySection>({ items: [], isLoading: false, error: null })
+    const [filterGroups, setFilterGroups] = useState<FilterGroup[]>([])
+    const [filtersLoading, setFiltersLoading] = useState(false)
+    const [filtersError, setFiltersError] = useState<string | null>(null)
+    const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set())
 
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-    const [addingType, setAddingType] = useState<'category' | 'artist'>('category')
+    const [addingType, setAddingType] = useState<'category' | 'artist' | 'filter_value'>('category')
+    const [addingGroupId, setAddingGroupId] = useState<number | null>(null)
     const [newItemName, setNewItemName] = useState('')
     const [isAdding, setIsAdding] = useState(false)
 
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
     const [editingItem, setEditingItem] = useState<EntityItem | null>(null)
-    const [editingType, setEditingType] = useState<'category' | 'artist'>('category')
+    const [editingType, setEditingType] = useState<'category' | 'artist' | 'filter_value'>('category')
     const [editedName, setEditedName] = useState('')
     const [isEditing, setIsEditing] = useState(false)
 
@@ -77,8 +101,9 @@ export default function ManagePage() {
     const [isDeleting, setIsDeleting] = useState(false)
 
     const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
-    const [mergeType, setMergeType] = useState<'category' | 'artist'>('category')
+    const [mergeType, setMergeType] = useState<'category' | 'artist' | 'filter_value'>('category')
     const [mergeSource, setMergeSource] = useState<EntityItem | null>(null)
+    const [mergeGroupId, setMergeGroupId] = useState<number | null>(null)
     const [mergeTargetId, setMergeTargetId] = useState<string>('')
     const [isMerging, setIsMerging] = useState(false)
 
@@ -111,10 +136,24 @@ export default function ManagePage() {
         }
     }, [])
 
+    const loadFilters = useCallback(async () => {
+        try {
+            setFiltersLoading(true)
+            setFiltersError(null)
+            const data = await customFiltersApi.getGroups()
+            setFilterGroups(data.groups || [])
+        } catch (error) {
+            setFiltersError(handleApiError(error))
+        } finally {
+            setFiltersLoading(false)
+        }
+    }, [])
+
     useEffect(() => {
         loadCategories()
         loadArtists()
-    }, [loadCategories, loadArtists])
+        loadFilters()
+    }, [loadCategories, loadArtists, loadFilters])
 
     const handleAdd = async () => {
         if (!newItemName.trim()) {
@@ -129,15 +168,18 @@ export default function ManagePage() {
         setIsAdding(true)
 
         try {
-            const endpoints: Record<string, string> = {
-                category: '/categories',
-                artist: '/artists'
+            if (addingType === 'filter_value' && addingGroupId) {
+                await customFiltersApi.createValue(addingGroupId, newItemName.trim())
+            } else {
+                const endpoints: Record<string, string> = {
+                    category: '/categories',
+                    artist: '/artists'
+                }
+                await request<any>(endpoints[addingType], {
+                    method: 'POST',
+                    body: JSON.stringify({ name: newItemName.trim() }),
+                })
             }
-
-            await request<any>(endpoints[addingType], {
-                method: 'POST',
-                body: JSON.stringify({ name: newItemName.trim() }),
-            })
 
             toast({
                 title: 'Sucesso',
@@ -148,7 +190,8 @@ export default function ManagePage() {
             setNewItemName('')
 
             if (addingType === 'category') loadCategories()
-            else loadArtists()
+            else if (addingType === 'artist') loadArtists()
+            else loadFilters()
         } catch (error: any) {
             toast({
                 title: 'Erro',
@@ -166,15 +209,18 @@ export default function ManagePage() {
         setIsEditing(true)
 
         try {
-            const endpoints: Record<string, string> = {
-                category: `/categories/${editingItem.id}`,
-                artist: `/artists/${editingItem.id}`
+            if (editingType === 'filter_value') {
+                await customFiltersApi.updateValue(editingItem.id, editedName.trim())
+            } else {
+                const endpoints: Record<string, string> = {
+                    category: `/categories/${editingItem.id}`,
+                    artist: `/artists/${editingItem.id}`
+                }
+                await request<any>(endpoints[editingType], {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: editedName.trim() }),
+                })
             }
-
-            await request<any>(endpoints[editingType], {
-                method: 'PUT',
-                body: JSON.stringify({ name: editedName.trim() }),
-            })
 
             toast({
                 title: 'Sucesso',
@@ -186,7 +232,8 @@ export default function ManagePage() {
             setEditedName('')
 
             if (editingType === 'category') loadCategories()
-            else loadArtists()
+            else if (editingType === 'artist') loadArtists()
+            else loadFilters()
         } catch (error: any) {
             toast({
                 title: 'Erro',
@@ -204,12 +251,15 @@ export default function ManagePage() {
         setIsMerging(true)
 
         try {
-            const endpoints: Record<string, string> = {
-                category: `/categories/${mergeSource.id}/merge/${mergeTargetId}`,
-                artist: `/artists/${mergeSource.id}/merge/${mergeTargetId}`
+            if (mergeType === 'filter_value') {
+                await customFiltersApi.mergeValues(mergeSource.id, parseInt(mergeTargetId))
+            } else {
+                const endpoints: Record<string, string> = {
+                    category: `/categories/${mergeSource.id}/merge/${mergeTargetId}`,
+                    artist: `/artists/${mergeSource.id}/merge/${mergeTargetId}`
+                }
+                await request<any>(endpoints[mergeType], { method: 'POST' })
             }
-
-            await request<any>(endpoints[mergeType], { method: 'POST' })
 
             toast({
                 title: 'Sucesso',
@@ -221,7 +271,8 @@ export default function ManagePage() {
             setMergeTargetId('')
 
             if (mergeType === 'category') loadCategories()
-            else loadArtists()
+            else if (mergeType === 'artist') loadArtists()
+            else loadFilters()
         } catch (error: any) {
             toast({
                 title: 'Erro',
@@ -239,11 +290,15 @@ export default function ManagePage() {
         setIsDeleting(true)
 
         try {
-            const endpoints: Record<string, string> = {
-                category: `/categories/${deleteDialog.item.id}`,
-                artist: `/artists/${deleteDialog.item.id}`
+            if (deleteDialog.type === 'filter_value') {
+                await customFiltersApi.deleteValue(deleteDialog.item.id)
+            } else {
+                const endpoints: Record<string, string> = {
+                    category: `/categories/${deleteDialog.item.id}`,
+                    artist: `/artists/${deleteDialog.item.id}`
+                }
+                await request<any>(endpoints[deleteDialog.type], { method: 'DELETE' })
             }
-            await request<any>(endpoints[deleteDialog.type], { method: 'DELETE' })
 
             toast({
                 title: 'Sucesso',
@@ -253,7 +308,8 @@ export default function ManagePage() {
             setDeleteDialog({ open: false, type: 'category', item: null })
 
             if (deleteDialog.type === 'category') loadCategories()
-            else loadArtists()
+            else if (deleteDialog.type === 'artist') loadArtists()
+            else loadFilters()
         } catch (error: any) {
             toast({
                 title: 'Erro',
@@ -265,34 +321,46 @@ export default function ManagePage() {
         }
     }
 
-    const openAddDialog = (type: 'category' | 'artist') => {
+    const openAddDialog = (type: 'category' | 'artist' | 'filter_value', groupId?: number) => {
         setAddingType(type)
+        setAddingGroupId(groupId ?? null)
         setNewItemName('')
         setIsAddDialogOpen(true)
     }
 
-    const openEditDialog = (item: EntityItem, type: 'category' | 'artist') => {
+    const openEditDialog = (item: EntityItem, type: 'category' | 'artist' | 'filter_value') => {
         setEditingItem(item)
         setEditingType(type)
         setEditedName(item.name)
         setIsEditDialogOpen(true)
     }
 
-    const openMergeDialog = (item: EntityItem, type: 'category' | 'artist') => {
+    const openMergeDialog = (item: EntityItem, type: 'category' | 'artist' | 'filter_value', groupId?: number) => {
         setMergeSource(item)
         setMergeType(type)
+        setMergeGroupId(groupId ?? null)
         setMergeTargetId('')
         setIsMergeDialogOpen(true)
     }
 
-    const openDeleteDialog = (item: EntityItem, type: 'category' | 'artist') => {
+    const openDeleteDialog = (item: EntityItem, type: 'category' | 'artist' | 'filter_value') => {
         setDeleteDialog({ open: true, type, item })
     }
 
-    const getEntityTypeLabel = (type: 'category' | 'artist') => {
-        const labels = {
+    const toggleGroup = (groupId: number) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev)
+            if (next.has(groupId)) next.delete(groupId)
+            else next.add(groupId)
+            return next
+        })
+    }
+
+    const getEntityTypeLabel = (type: 'category' | 'artist' | 'filter_value') => {
+        const labels: Record<string, string> = {
             category: 'Categoria',
-            artist: 'Artista'
+            artist: 'Artista',
+            filter_value: 'Valor do Filtro'
         }
         return labels[type]
     }
@@ -308,6 +376,11 @@ export default function ManagePage() {
             case 'artist':
                 items = artists.items
                 break
+            case 'filter_value': {
+                const group = filterGroups.find(g => g.id === mergeGroupId)
+                items = (group?.values || []).map(v => ({ id: v.id, name: v.name, file_count: v.file_count }))
+                break
+            }
         }
         return items.filter(item => item.id !== mergeSource.id)
     }
@@ -446,7 +519,7 @@ export default function ManagePage() {
                 </Card>
 
                 <Tabs defaultValue="categories">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="categories" className="gap-1">
                             <FolderOpen className="h-4 w-4 hidden sm:block" />
                             Categorias
@@ -454,6 +527,10 @@ export default function ManagePage() {
                         <TabsTrigger value="artists" className="gap-1">
                             <User className="h-4 w-4 hidden sm:block" />
                             Artistas
+                        </TabsTrigger>
+                        <TabsTrigger value="filters" className="gap-1">
+                            <Filter className="h-4 w-4 hidden sm:block" />
+                            Filtros
                         </TabsTrigger>
                     </TabsList>
 
@@ -471,13 +548,17 @@ export default function ManagePage() {
                                         </CardDescription>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="icon" onClick={loadCategories}>
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" onClick={() => openAddDialog('category')}>
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            Adicionar
-                                        </Button>
+                                        <SimpleTooltip label="Recarregar dados">
+                                            <Button variant="outline" size="icon" onClick={loadCategories}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </SimpleTooltip>
+                                        <SimpleTooltip label="Adicionar nova entidade">
+                                            <Button size="sm" onClick={() => openAddDialog('category')}>
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Adicionar
+                                            </Button>
+                                        </SimpleTooltip>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -506,13 +587,17 @@ export default function ManagePage() {
                                         </CardDescription>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="icon" onClick={loadArtists}>
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" onClick={() => openAddDialog('artist')}>
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            Adicionar
-                                        </Button>
+                                        <SimpleTooltip label="Recarregar dados">
+                                            <Button variant="outline" size="icon" onClick={loadArtists}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </SimpleTooltip>
+                                        <SimpleTooltip label="Adicionar nova entidade">
+                                            <Button size="sm" onClick={() => openAddDialog('artist')}>
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Adicionar
+                                            </Button>
+                                        </SimpleTooltip>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -522,6 +607,135 @@ export default function ManagePage() {
                                     'artist',
                                     <User className="h-4 w-4 text-muted-foreground" />,
                                     loadArtists
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="filters">
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Filter className="h-5 w-5" />
+                                            Filtros Personalizados
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Gerencie os valores dos filtros personalizados
+                                        </CardDescription>
+                                    </div>
+                                    <SimpleTooltip label="Recarregar dados">
+                                        <Button variant="outline" size="icon" onClick={loadFilters}>
+                                            <RefreshCw className="h-4 w-4" />
+                                        </Button>
+                                    </SimpleTooltip>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {filtersLoading ? (
+                                    <LoadingSpinner size="md" className="py-8" />
+                                ) : filtersError ? (
+                                    <ErrorState message={filtersError} onRetry={loadFilters} />
+                                ) : filterGroups.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <p>Nenhum grupo de filtro encontrado</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {filterGroups.map((group) => (
+                                            <Collapsible
+                                                key={group.id}
+                                                open={expandedGroups.has(group.id)}
+                                                onOpenChange={() => toggleGroup(group.id)}
+                                            >
+                                                <div className="border rounded-lg">
+                                                    <CollapsibleTrigger asChild>
+                                                        <button className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors rounded-lg">
+                                                            <div className="flex items-center gap-2">
+                                                                <Filter className="h-4 w-4 text-muted-foreground" />
+                                                                <span className="font-medium">{group.name}</span>
+                                                                <Badge variant="secondary" className="text-xs">
+                                                                    {group.values.length} valor{group.values.length !== 1 ? 'es' : ''}
+                                                                </Badge>
+                                                            </div>
+                                                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedGroups.has(group.id) ? 'rotate-180' : ''}`} />
+                                                        </button>
+                                                    </CollapsibleTrigger>
+                                                    <CollapsibleContent>
+                                                        <div className="border-t px-3 pb-3 pt-2 space-y-2">
+                                                            <div className="flex justify-end">
+                                                                <SimpleTooltip label="Adicionar valor ao grupo">
+                                                                    <Button size="sm" variant="outline" onClick={() => openAddDialog('filter_value', group.id)}>
+                                                                        <Plus className="h-4 w-4 mr-1" />
+                                                                        Adicionar Valor
+                                                                    </Button>
+                                                                </SimpleTooltip>
+                                                            </div>
+                                                            {group.values.length === 0 ? (
+                                                                <p className="text-center text-sm text-muted-foreground py-4">
+                                                                    Nenhum valor neste grupo
+                                                                </p>
+                                                            ) : (
+                                                                group.values.map((value) => (
+                                                                    <div
+                                                                        key={value.id}
+                                                                        className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors"
+                                                                    >
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-sm">{value.name}</span>
+                                                                            {value.file_count !== undefined && (
+                                                                                <Badge variant="secondary" className="text-xs">
+                                                                                    {value.file_count} música{value.file_count !== 1 ? 's' : ''}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex gap-1">
+                                                                            {canEdit ? (
+                                                                                <>
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-7 w-7"
+                                                                                        onClick={() => openEditDialog({ id: value.id, name: value.name, file_count: value.file_count }, 'filter_value')}
+                                                                                        title="Editar nome"
+                                                                                    >
+                                                                                        <Edit className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-7 w-7"
+                                                                                        onClick={() => openMergeDialog({ id: value.id, name: value.name, file_count: value.file_count }, 'filter_value', group.id)}
+                                                                                        title="Consolidar com outro"
+                                                                                    >
+                                                                                        <Merge className="h-3.5 w-3.5" />
+                                                                                    </Button>
+                                                                                    {canDelete && (
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-7 w-7 text-destructive hover:text-destructive"
+                                                                                            onClick={() => openDeleteDialog({ id: value.id, name: value.name, file_count: value.file_count }, 'filter_value')}
+                                                                                            title="Excluir"
+                                                                                        >
+                                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                </>
+                                                                            ) : (
+                                                                                <Lock className="h-4 w-4 text-muted-foreground" />
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    </CollapsibleContent>
+                                                </div>
+                                            </Collapsible>
+                                        ))}
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>

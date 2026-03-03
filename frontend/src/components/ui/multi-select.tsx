@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, ChevronsUpDown, X, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, removeAccents } from '@/lib/utils'
 import { Badge } from '@core/components/ui/badge'
 import { Button } from '@core/components/ui/button'
 import {
@@ -86,7 +86,7 @@ export function MultiSelect({
     }
 
     const filteredOptions = normalized.filter(option =>
-        option.label.toLowerCase().includes(searchValue.toLowerCase()) &&
+        removeAccents(option.label.toLowerCase()).includes(removeAccents(searchValue.toLowerCase())) &&
         !value.includes(option.value)
     )
 
@@ -125,7 +125,7 @@ export function MultiSelect({
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                     <CommandInput
                         placeholder="Buscar..."
                         value={searchValue}

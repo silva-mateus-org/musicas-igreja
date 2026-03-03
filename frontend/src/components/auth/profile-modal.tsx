@@ -13,6 +13,7 @@ import { Badge } from '@core/components/ui/badge'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
 import { Loader2, User, Eye, EyeOff, Lock } from 'lucide-react'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 const profileSchema = z.object({
     fullName: z.string().min(2, 'O nome deve ter pelo menos 2 caracteres'),
@@ -223,15 +224,17 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                                     autoComplete="current-password"
                                     className={passwordForm.formState.errors.currentPassword ? 'border-destructive' : ''}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3"
-                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                >
-                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
+                                <SimpleTooltip label="Mostrar/ocultar senha">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-0 top-0 h-full px-3"
+                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    >
+                                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                             {passwordForm.formState.errors.currentPassword && (
                                 <p className="text-sm text-destructive">{passwordForm.formState.errors.currentPassword.message}</p>
@@ -250,15 +253,17 @@ export function ProfileModal({ open, onOpenChange }: ProfileModalProps) {
                                     autoComplete="new-password"
                                     className={passwordForm.formState.errors.newPassword ? 'border-destructive' : ''}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                >
-                                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
+                                <SimpleTooltip label="Mostrar/ocultar senha">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-0 top-0 h-full px-3"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                             {passwordForm.formState.errors.newPassword && (
                                 <p className="text-sm text-destructive">{passwordForm.formState.errors.newPassword.message}</p>

@@ -19,6 +19,7 @@ import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
 import { musicApi, handleApiError, getActiveWorkspaceId } from '@/lib/api'
 import { UploadZone } from '@/components/upload/upload-zone'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 const CATEGORIES = ['Adoração', 'Louvor', 'Comunhão', 'Entrada', 'Ofertório', 'Final', 'Santíssimo', 'Missa']
 const MUSICAL_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm']
@@ -91,14 +92,14 @@ export default function EditMusicPage() {
             const response = await fetch(`/api/filters/suggestions?workspace_id=${getActiveWorkspaceId()}`)
             const data = await response.json()
             setSuggestions({
-                categories: data.categories || CATEGORIES,
+                categories: (data.categories || CATEGORIES).map((c: any) => typeof c === 'string' ? c : c.label || c.name || '').filter(Boolean),
                 customFilterGroups: (data.custom_filter_groups || []).map((g: any) => ({
                     id: g.id,
                     name: g.name,
                     slug: g.slug,
                     values: (g.values || []).map((v: any) => ({ name: v.name, slug: v.slug })),
                 })),
-                artists: data.artists || [],
+                artists: (data.artists || []).map((a: any) => typeof a === 'string' ? a : a.label || a.name || '').filter(Boolean),
                 musical_keys: data.musical_keys || MUSICAL_KEYS
             })
         } catch (error) {
@@ -242,10 +243,12 @@ export default function EditMusicPage() {
                 <div className="flex flex-col gap-4">
                     {/* Navigation */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                        <Button variant="outline" size="sm" onClick={handleCancelClick} className="self-start shrink-0">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Voltar
-                        </Button>
+                        <SimpleTooltip label="Voltar para detalhes da música">
+                            <Button variant="outline" size="sm" onClick={handleCancelClick} className="self-start shrink-0">
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Voltar
+                            </Button>
+                        </SimpleTooltip>
                         <div className="text-sm text-muted-foreground truncate">
                             <Link href="/music" className="hover:text-primary">Músicas</Link>
                             <span className="mx-2">/</span>
@@ -257,11 +260,13 @@ export default function EditMusicPage() {
                     
                     {/* Actions */}
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                            <Eye className="h-4 w-4" />
-                            <span className="hidden sm:inline">Visualizar PDF</span>
-                            <span className="sm:hidden">Ver PDF</span>
-                        </Button>
+                        <SimpleTooltip label="Abrir PDF em nova aba">
+                            <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">Visualizar PDF</span>
+                                <span className="sm:hidden">Ver PDF</span>
+                            </Button>
+                        </SimpleTooltip>
                         <Button variant="outline" size="sm" onClick={handleCancelClick} disabled={saving} className="gap-1 sm:gap-2 text-xs sm:text-sm">
                             <X className="h-4 w-4" />
                             <span>Cancelar</span>

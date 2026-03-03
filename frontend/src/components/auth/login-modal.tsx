@@ -11,6 +11,7 @@ import { Label } from '@core/components/ui/label'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
 import { LogIn, Loader2, Music, Key, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 // Zod schemas for validation
 const loginSchema = z.object({
@@ -163,15 +164,17 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                                     autoComplete="new-password"
                                     className={changePasswordForm.formState.errors.newPassword ? 'border-destructive' : ''}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                >
-                                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
+                                <SimpleTooltip label="Mostrar/ocultar senha">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-0 top-0 h-full px-3"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                             {changePasswordForm.formState.errors.newPassword && (
                                 <p className="text-sm text-destructive">{changePasswordForm.formState.errors.newPassword.message}</p>

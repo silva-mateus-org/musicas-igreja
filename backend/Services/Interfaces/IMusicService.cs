@@ -11,6 +11,8 @@ public interface IMusicService
 
     Task<FileDto?> GetMusicByIdAsync(int id);
 
+    Task<PdfFile?> GetFileRecordByIdAsync(int id);
+
     Task<PdfFile> UploadMusicAsync(int workspaceId, IFormFile file, FileUploadDto metadata);
 
     Task<bool> UpdateMusicAsync(int id, FileUpdateDto dto);
@@ -20,6 +22,8 @@ public interface IMusicService
     Task<List<GroupedFilesDto>> GetGroupedByArtistAsync(int workspaceId);
 
     Task<List<GroupedFilesDto>> GetGroupedByCategoryAsync(int workspaceId);
+
+    Task<List<GroupedFilesDto>> GetGroupedByCustomFilterAsync(int workspaceId, string groupSlug);
 
     Task<PdfFile> ReplacePdfAsync(int id, IFormFile replacementPdf);
 }

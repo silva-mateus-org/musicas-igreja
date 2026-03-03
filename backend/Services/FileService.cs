@@ -21,8 +21,10 @@ public class FileService : IFileService
         _context = context;
         _configuration = configuration;
         _logger = logger;
-        _organizedFolder = configuration["Storage:OrganizedFolder"] 
-            ?? Path.Combine(Directory.GetCurrentDirectory(), "organized");
+        var configuredFolder = configuration["Storage:OrganizedFolder"] ?? "organized";
+        _organizedFolder = Path.IsPathRooted(configuredFolder)
+            ? configuredFolder
+            : Path.Combine(Directory.GetCurrentDirectory(), configuredFolder);
         
         Directory.CreateDirectory(_organizedFolder);
     }
@@ -307,10 +309,7 @@ public class FileService : IFileService
             // Extract clean word for comparison (remove special characters)
             var cleanWord = Regex.Replace(word, @"[^\w]", "").ToLower();
 
-            // First word always capitalized
-            // Words with more than 2 letters always capitalized
-            // Small words (1-2 letters) only lowercase if not first and in the list
-            if (i == 0 || cleanWord.Length > 2 || !smallWords.Contains(cleanWord))
+            if (i == 0 || !smallWords.Contains(cleanWord))
             {
                 // Title case: first letter uppercase, rest lowercase
                 var formattedWord = char.ToUpper(word[0]) + (word.Length > 1 ? word[1..].ToLower() : "");

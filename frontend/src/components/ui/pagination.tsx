@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@core/components/ui/button'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useMobile } from '@core/hooks/use-mobile'
 import {
     ChevronLeft,
@@ -61,7 +62,11 @@ export function Pagination({
     const pluralLabel = total !== 1 ? `${itemLabel}s` : itemLabel
 
     return (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div
+            role="navigation"
+            aria-label="Paginação"
+            className="flex flex-col sm:flex-row items-center justify-between gap-4"
+        >
             {showInfo && (
                 <div className="text-sm text-muted-foreground order-2 sm:order-1">
                     <span className="hidden sm:inline">
@@ -76,26 +81,30 @@ export function Pagination({
             )}
 
             <div className="flex items-center gap-1 sm:gap-2 order-1 sm:order-2">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onPageChange(1)}
-                    disabled={page === 1}
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                >
-                    <ChevronsLeft className="h-4 w-4" />
-                    <span className="sr-only">Primeira página</span>
-                </Button>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onPageChange(page - 1)}
-                    disabled={page === 1}
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                >
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="sr-only">Página anterior</span>
-                </Button>
+                <SimpleTooltip label="Primeira página">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onPageChange(1)}
+                        disabled={page === 1}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
+                    >
+                        <ChevronsLeft className="h-4 w-4" />
+                        <span className="sr-only">Primeira página</span>
+                    </Button>
+                </SimpleTooltip>
+                <SimpleTooltip label="Página anterior">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onPageChange(page - 1)}
+                        disabled={page === 1}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className="sr-only">Página anterior</span>
+                    </Button>
+                </SimpleTooltip>
 
                 <div className="flex items-center gap-1">
                     {getPageNumbers().map((pageNum) => (
@@ -105,32 +114,38 @@ export function Pagination({
                             size="icon"
                             onClick={() => onPageChange(pageNum)}
                             className="h-8 w-8 sm:h-9 sm:w-9"
+                            aria-current={pageNum === page ? 'page' : undefined}
+                            aria-label={`Página ${pageNum}`}
                         >
                             {pageNum}
                         </Button>
                     ))}
                 </div>
 
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onPageChange(page + 1)}
-                    disabled={page === pages}
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                >
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="sr-only">Próxima página</span>
-                </Button>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onPageChange(pages)}
-                    disabled={page === pages}
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                >
-                    <ChevronsRight className="h-4 w-4" />
-                    <span className="sr-only">Última página</span>
-                </Button>
+                <SimpleTooltip label="Próxima página">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onPageChange(page + 1)}
+                        disabled={page === pages}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                        <span className="sr-only">Próxima página</span>
+                    </Button>
+                </SimpleTooltip>
+                <SimpleTooltip label="Última página">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onPageChange(pages)}
+                        disabled={page === pages}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
+                    >
+                        <ChevronsRight className="h-4 w-4" />
+                        <span className="sr-only">Última página</span>
+                    </Button>
+                </SimpleTooltip>
             </div>
         </div>
     )

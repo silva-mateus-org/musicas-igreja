@@ -281,58 +281,50 @@ public class MonitoringService : IMonitoringService
     {
         try
         {
-            var health = new Dictionary<string, object>();
+            var yesterday = DateTime.UtcNow.AddDays(-1);
+            var lastWeek = DateTime.UtcNow.AddDays(-7);
 
-            // Database stats
             var totalFiles = await _context.PdfFiles.CountAsync();
             var totalUsers = await _context.Set<CoreUser>().CountAsync();
             var activeUsers = await _context.Set<CoreUser>().CountAsync(u => u.IsActive);
-
-            // Recent activity (last 24h)
-            var yesterday = DateTime.UtcNow.AddDays(-1);
             var recentUploads = await _context.PdfFiles.CountAsync(f => f.UploadDate >= yesterday);
             var recentLogins = await _context.AuditLogs
                 .CountAsync(a => a.Action == "login" && a.CreatedDate >= yesterday);
             var recentFailedLogins = await _context.SystemEvents
                 .CountAsync(e => e.EventType == "login_failed" && e.CreatedDate >= yesterday);
-
-            // Storage metrics
             var totalFileSize = await _context.PdfFiles.SumAsync(f => (long?)f.FileSize) ?? 0;
-            var totalFileSizeMb = totalFileSize / (1024.0 * 1024.0);
-
-            // Critical events (last 7 days)
-            var lastWeek = DateTime.UtcNow.AddDays(-7);
             var criticalEvents = await _context.SystemEvents
                 .CountAsync(e => e.Severity == "critical" && e.CreatedDate >= lastWeek);
 
-            health["database"] = new
-            {
-                total_files = totalFiles,
-                total_users = totalUsers,
-                active_users = activeUsers,
-                status = "connected"
-            };
+            var totalFileSizeMb = totalFileSize / (1024.0 * 1024.0);
 
-            health["activity"] = new
+            var health = new Dictionary<string, object>
             {
-                recent_uploads = recentUploads,
-                recent_logins = recentLogins,
-                recent_failed_logins = recentFailedLogins
+                ["database"] = new
+                {
+                    total_files = totalFiles,
+                    total_users = totalUsers,
+                    active_users = activeUsers,
+                    status = "connected"
+                },
+                ["activity"] = new
+                {
+                    recent_uploads = recentUploads,
+                    recent_logins = recentLogins,
+                    recent_failed_logins = recentFailedLogins
+                },
+                ["storage"] = new
+                {
+                    total_size_mb = Math.Round(totalFileSizeMb, 2),
+                    total_files = totalFiles
+                },
+                ["security"] = new
+                {
+                    critical_events_last_week = criticalEvents,
+                    failed_logins_24h = recentFailedLogins
+                },
+                ["timestamp"] = DateTime.UtcNow
             };
-
-            health["storage"] = new
-            {
-                total_size_mb = Math.Round(totalFileSizeMb, 2),
-                total_files = totalFiles
-            };
-
-            health["security"] = new
-            {
-                critical_events_last_week = criticalEvents,
-                failed_logins_24h = recentFailedLogins
-            };
-
-            health["timestamp"] = DateTime.UtcNow;
 
             return health;
         }

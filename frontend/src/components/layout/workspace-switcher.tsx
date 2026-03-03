@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from '@core/components/ui/dropdown-menu'
 import { ChevronsUpDown, Check, Settings, Layers } from 'lucide-react'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import Link from 'next/link'
 
 export function WorkspaceSwitcher() {
@@ -43,21 +44,23 @@ export function WorkspaceSwitcher() {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    className="w-full justify-between gap-2 px-3 py-2 h-auto font-normal"
-                >
-                    <div className="flex items-center gap-2 min-w-0">
-                        <div
-                            className="h-3 w-3 rounded-full shrink-0"
-                            style={{ backgroundColor: activeWorkspace.color || '#3b82f6' }}
-                        />
-                        <span className="text-sm font-medium truncate">{activeWorkspace.name}</span>
-                    </div>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Button>
-            </DropdownMenuTrigger>
+            <SimpleTooltip label="Trocar workspace" side="right">
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        className="w-full justify-between gap-2 px-3 py-2 h-auto font-normal"
+                    >
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div
+                                className="h-3 w-3 rounded-full shrink-0"
+                                style={{ backgroundColor: activeWorkspace.color || '#3b82f6' }}
+                            />
+                            <span className="text-sm font-medium truncate">{activeWorkspace.name}</span>
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Button>
+                </DropdownMenuTrigger>
+            </SimpleTooltip>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
                 {workspaces.map((ws) => (
                     <DropdownMenuItem

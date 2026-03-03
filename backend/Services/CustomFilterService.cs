@@ -28,6 +28,7 @@ public class CustomFilterService : ICustomFilterService
                 Name = g.Name,
                 Slug = g.Slug,
                 SortOrder = g.SortOrder,
+                ShowAsTab = g.ShowAsTab,
                 Values = g.Values.OrderBy(v => v.SortOrder).Select(v => new CustomFilterValueDto
                 {
                     Id = v.Id,
@@ -50,6 +51,7 @@ public class CustomFilterService : ICustomFilterService
                 Name = g.Name,
                 Slug = g.Slug,
                 SortOrder = g.SortOrder,
+                ShowAsTab = g.ShowAsTab,
                 Values = g.Values.OrderBy(v => v.SortOrder).Select(v => new CustomFilterValueDto
                 {
                     Id = v.Id,
@@ -60,6 +62,16 @@ public class CustomFilterService : ICustomFilterService
                 }).ToList()
             })
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<bool> ToggleShowAsTabAsync(int groupId, bool showAsTab)
+    {
+        var group = await _context.CustomFilterGroups.FindAsync(groupId);
+        if (group == null) return false;
+
+        group.ShowAsTab = showAsTab;
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     public async Task<int> CreateGroupAsync(int workspaceId, EntityDto dto)

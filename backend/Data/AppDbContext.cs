@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Core.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Models;
@@ -9,6 +10,9 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
+
+    [DbFunction("unaccent", IsBuiltIn = true)]
+    public static string Unaccent(string text) => throw new NotSupportedException("Call via EF Core query only");
 
     public override int SaveChanges()
     {
@@ -212,6 +216,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name").IsRequired();
             entity.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(200).IsRequired();
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.Property(e => e.ShowAsTab).HasColumnName("show_as_tab").HasDefaultValue(false);
             entity.Property(e => e.CreatedDate).HasColumnName("created_date");
             entity.Property(e => e.WorkspaceId).HasColumnName("workspace_id");
             entity.HasIndex(e => new { e.WorkspaceId, e.Slug }).IsUnique();

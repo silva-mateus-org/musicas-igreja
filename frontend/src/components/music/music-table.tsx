@@ -23,6 +23,7 @@ import {
     Calendar
 } from 'lucide-react'
 import { useAuth } from '@core/contexts/auth-context'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { AddToListModal } from './add-to-list-modal'
 import { useState } from 'react'
 

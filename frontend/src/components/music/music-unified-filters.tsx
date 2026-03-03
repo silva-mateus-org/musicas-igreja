@@ -10,8 +10,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { MultiSelect } from '@/components/ui/multi-select'
 import { dashboardApi, categoriesApi, customFiltersApi, handleApiError, getActiveWorkspaceId } from '@/lib/api'
 import type { SearchFilters, FilterOption } from '@/types'
-import { Search, X, Filter, ChevronDown, RotateCcw, ArrowUpDown, Music2, Hash, Youtube } from 'lucide-react'
+import { Search, X, Filter, ChevronDown, ChevronUp, RotateCcw, ArrowUpDown, Music2, Hash, Youtube } from 'lucide-react'
 import { debounce } from '@/lib/utils'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface SortOption {
     field: string
@@ -216,7 +217,7 @@ export function MusicUnifiedFilters({
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Buscar por título ou nome da música..."
+                            placeholder="Título da música..."
                             value={searchTerm}
                             onChange={(e) => handleSearchChange(e.target.value)}
                             className="pl-10 pr-10"
@@ -235,47 +236,63 @@ export function MusicUnifiedFilters({
 
                     {/* Quick Filters (always visible on desktop) */}
                     <div className="hidden lg:flex gap-2">
-                        <MultiSelect
-                            options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
-                            value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
-                            onChange={(values) => handleFilterChange('category', values)}
-                            placeholder="Categoria"
-                            className="w-52"
-                        />
+                        <SimpleTooltip label="Filtrar por categoria">
+                            <div>
+                                <MultiSelect
+                                    options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
+                                    value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
+                                    onChange={(values) => handleFilterChange('category', values)}
+                                    placeholder="Categoria"
+                                    className="w-52"
+                                />
+                            </div>
+                        </SimpleTooltip>
 
-                        <MultiSelect
-                            options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
-                            value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
-                            onChange={(values) => handleFilterChange('artist', values)}
-                            placeholder="Artista"
-                            className="w-52"
-                        />
+                        <SimpleTooltip label="Filtrar por artista">
+                            <div>
+                                <MultiSelect
+                                    options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
+                                    value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
+                                    onChange={(values) => handleFilterChange('artist', values)}
+                                    placeholder="Artista"
+                                    className="w-52"
+                                />
+                            </div>
+                        </SimpleTooltip>
                     </div>
 
                     {/* Sort Dropdown */}
                     {sortBy && onSortChange && (
-                        <Select 
-                            value={`${sortBy.field}:${sortBy.order}`}
-                            onValueChange={(v) => {
-                                const [field, order] = v.split(':')
-                                onSortChange({ field, order: order as 'asc' | 'desc' })
-                            }}
-                        >
-                            <SelectTrigger className="w-auto min-w-[180px] gap-2">
-                                <ArrowUpDown className="h-4 w-4" />
-                                <SelectValue placeholder="Ordenar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {sortFields.flatMap(field => [
-                                    <SelectItem key={`${field.value}:asc`} value={`${field.value}:asc`}>
-                                        {field.label} - Crescente
-                                    </SelectItem>,
-                                    <SelectItem key={`${field.value}:desc`} value={`${field.value}:desc`}>
-                                        {field.label} - Decrescente
-                                    </SelectItem>
-                                ])}
-                            </SelectContent>
-                        </Select>
+                        <SimpleTooltip label="Ordenar resultados">
+                            <div>
+                                <Select 
+                                    value={`${sortBy.field}:${sortBy.order}`}
+                                    onValueChange={(v) => {
+                                        const [field, order] = v.split(':')
+                                        onSortChange({ field, order: order as 'asc' | 'desc' })
+                                    }}
+                                >
+                                    <SelectTrigger className="w-auto min-w-[180px] gap-2">
+                                        <ArrowUpDown className="h-4 w-4" />
+                                        <SelectValue placeholder="Ordenar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sortFields.flatMap(field => [
+                                            <SelectItem key={`${field.value}:asc`} value={`${field.value}:asc`}>
+                                                <span className="flex items-center gap-1.5">
+                                                    {field.label} <ChevronUp className="h-3.5 w-3.5" />
+                                                </span>
+                                            </SelectItem>,
+                                            <SelectItem key={`${field.value}:desc`} value={`${field.value}:desc`}>
+                                                <span className="flex items-center gap-1.5">
+                                                    {field.label} <ChevronDown className="h-3.5 w-3.5" />
+                                                </span>
+                                            </SelectItem>
+                                        ])}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </SimpleTooltip>
                     )}
 
                     {/* Advanced Filters Toggle */}
@@ -297,14 +314,15 @@ export function MusicUnifiedFilters({
                     )}
 
                     {hasActiveFilters && (
-                        <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={clearAllFilters}
-                            title="Limpar todos os filtros"
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                        </Button>
+                        <SimpleTooltip label="Limpar todos os filtros">
+                            <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={clearAllFilters}
+                            >
+                                <RotateCcw className="h-4 w-4" />
+                            </Button>
+                        </SimpleTooltip>
                     )}
                 </div>
 
@@ -316,81 +334,100 @@ export function MusicUnifiedFilters({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                     {/* Category (mobile/tablet) */}
                                      <div className="lg:hidden">
-                                         <MultiSelect
-                                             options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
-                                             value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
-                                             onChange={(values) => handleFilterChange('category', values)}
-                                             placeholder="Categoria"
-                                             className="w-full"
-                                         />
+                                         <SimpleTooltip label="Filtrar por categoria">
+                                             <div>
+                                                 <MultiSelect
+                                                     options={options.categories.map(o => ({ value: o.slug, label: o.label }))}
+                                                     value={Array.isArray(filters.category) ? filters.category : filters.category ? [filters.category] : []}
+                                                     onChange={(values) => handleFilterChange('category', values)}
+                                                     placeholder="Categoria"
+                                                     className="w-full"
+                                                 />
+                                             </div>
+                                         </SimpleTooltip>
                                      </div>
 
                                      {/* Artist (mobile/tablet) */}
                                      <div className="lg:hidden">
-                                         <MultiSelect
-                                             options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
-                                             value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
-                                             onChange={(values) => handleFilterChange('artist', values)}
-                                             placeholder="Artista"
-                                             className="w-full"
-                                         />
+                                         <SimpleTooltip label="Filtrar por artista">
+                                             <div>
+                                                 <MultiSelect
+                                                     options={options.artists.map(o => ({ value: o.slug, label: o.label }))}
+                                                     value={Array.isArray(filters.artist) ? filters.artist : filters.artist ? [filters.artist] : []}
+                                                     onChange={(values) => handleFilterChange('artist', values)}
+                                                     placeholder="Artista"
+                                                     className="w-full"
+                                                 />
+                                             </div>
+                                         </SimpleTooltip>
                                      </div>
 
                                     {/* Dynamic Custom Filter Groups */}
                                     {options.customFilterGroups.map(group => (
-                                         <MultiSelect
-                                             key={group.slug}
-                                             options={group.values.map(v => ({ value: v.slug, label: v.label }))}
-                                             value={filters.custom_filters?.[group.slug] || []}
-                                             onChange={(values) => {
-                                                 const newCustomFilters = { ...(filters.custom_filters || {}) }
-                                                 if (values.length > 0) {
-                                                     newCustomFilters[group.slug] = values
-                                                 } else {
-                                                     delete newCustomFilters[group.slug]
-                                                 }
-                                                 handleFilterChange('custom_filters', Object.keys(newCustomFilters).length > 0 ? newCustomFilters : undefined)
-                                             }}
-                                             placeholder={group.name}
-                                             className="w-full"
-                                         />
+                                         <SimpleTooltip key={group.slug} label={`Filtrar por ${group.name}`}>
+                                             <div>
+                                                 <MultiSelect
+                                                     options={group.values.map(v => ({ value: v.slug, label: v.label }))}
+                                                     value={filters.custom_filters?.[group.slug] || []}
+                                                     onChange={(values) => {
+                                                         const newCustomFilters = { ...(filters.custom_filters || {}) }
+                                                         if (values.length > 0) {
+                                                             newCustomFilters[group.slug] = values
+                                                         } else {
+                                                             delete newCustomFilters[group.slug]
+                                                         }
+                                                         handleFilterChange('custom_filters', Object.keys(newCustomFilters).length > 0 ? newCustomFilters : undefined)
+                                                     }}
+                                                     placeholder={group.name}
+                                                     className="w-full"
+                                                 />
+                                             </div>
+                                         </SimpleTooltip>
                                     ))}
 
                                     {/* Musical Key */}
-                                     <Select 
-                                         value={filters.musical_key || '__all__'} 
-                                         onValueChange={(v) => handleFilterChange('musical_key', v === '__all__' ? undefined : v)}
-                                     >
-                                        <SelectTrigger className="gap-2">
-                                            <Hash className="h-4 w-4 shrink-0" />
-                                            <SelectValue placeholder="Tom" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="__all__">Todos tons</SelectItem>
-                                            {options.musicalKeys.map(key => (
-                                                <SelectItem key={key} value={key}>{key}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                     <SimpleTooltip label="Filtrar por tonalidade">
+                                         <div>
+                                             <Select 
+                                                 value={filters.musical_key || '__all__'} 
+                                                 onValueChange={(v) => handleFilterChange('musical_key', v === '__all__' ? undefined : v)}
+                                             >
+                                                <SelectTrigger className="gap-2">
+                                                    <Hash className="h-4 w-4 shrink-0" />
+                                                    <SelectValue placeholder="Tom" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">Todos tons</SelectItem>
+                                                    {options.musicalKeys.map(key => (
+                                                        <SelectItem key={key} value={key}>{key}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                         </div>
+                                     </SimpleTooltip>
 
                                     {/* YouTube Filter */}
-                                     <Select 
-                                         value={filters.has_youtube === undefined ? '__all__' : filters.has_youtube.toString()} 
-                                        onValueChange={(v) => {
-                                             if (v === '__all__') handleFilterChange('has_youtube', undefined)
-                                            else handleFilterChange('has_youtube', v === 'true')
-                                        }}
-                                    >
-                                        <SelectTrigger className="gap-2">
-                                            <Youtube className="h-4 w-4 shrink-0" />
-                                            <SelectValue placeholder="YouTube" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="__all__">Todos</SelectItem>
-                                            <SelectItem value="true">Com YouTube</SelectItem>
-                                            <SelectItem value="false">Sem YouTube</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                     <SimpleTooltip label="Filtrar por link do YouTube">
+                                         <div>
+                                             <Select 
+                                                 value={filters.has_youtube === undefined ? '__all__' : filters.has_youtube.toString()} 
+                                                onValueChange={(v) => {
+                                                     if (v === '__all__') handleFilterChange('has_youtube', undefined)
+                                                    else handleFilterChange('has_youtube', v === 'true')
+                                                }}
+                                            >
+                                                <SelectTrigger className="gap-2">
+                                                    <Youtube className="h-4 w-4 shrink-0" />
+                                                    <SelectValue placeholder="YouTube" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="__all__">Todos</SelectItem>
+                                                    <SelectItem value="true">Com YouTube</SelectItem>
+                                                    <SelectItem value="false">Sem YouTube</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                         </div>
+                                     </SimpleTooltip>
                                 </div>
                             </div>
                         </CollapsibleContent>
@@ -407,47 +444,50 @@ export function MusicUnifiedFilters({
                             if (key === 'custom_filters' && typeof value === 'object' && !Array.isArray(value)) {
                                 return Object.entries(value as Record<string, string[]>).flatMap(([groupSlug, vals]) =>
                                     vals.map((v) => (
-                                        <Badge
-                                            key={`cf:${groupSlug}:${v}`}
-                                            variant="secondary"
-                                            className="gap-1 cursor-pointer hover:bg-destructive/20"
-                                            onClick={() => {
-                                                const newCf = { ...(filters.custom_filters || {}) }
-                                                newCf[groupSlug] = newCf[groupSlug]?.filter(x => x !== v) || []
-                                                if (newCf[groupSlug].length === 0) delete newCf[groupSlug]
-                                                handleFilterChange('custom_filters', Object.keys(newCf).length > 0 ? newCf : undefined)
-                                            }}
-                                        >
-                                            {getCustomFilterGroupName(groupSlug)}: {slugToLabel(v)}
-                                            <X className="h-3 w-3" />
-                                        </Badge>
+                                        <SimpleTooltip key={`cf:${groupSlug}:${v}`} label="Remover filtro">
+                                            <Badge
+                                                variant="secondary"
+                                                className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                                onClick={() => {
+                                                    const newCf = { ...(filters.custom_filters || {}) }
+                                                    newCf[groupSlug] = newCf[groupSlug]?.filter(x => x !== v) || []
+                                                    if (newCf[groupSlug].length === 0) delete newCf[groupSlug]
+                                                    handleFilterChange('custom_filters', Object.keys(newCf).length > 0 ? newCf : undefined)
+                                                }}
+                                            >
+                                                {getCustomFilterGroupName(groupSlug)}: {slugToLabel(v)}
+                                                <X className="h-3 w-3" />
+                                            </Badge>
+                                        </SimpleTooltip>
                                     ))
                                 )
                             }
 
                             if (Array.isArray(value)) {
                                 return value.map((item) => (
-                                    <Badge 
-                                        key={`${key}:${item}`} 
-                                        variant="secondary" 
-                                        className="gap-1 cursor-pointer hover:bg-destructive/20"
-                                        onClick={() => handleFilterValueRemove(key as keyof SearchFilters, item)}
-                                    >
-                                        {getFilterLabel(key, item)}
-                                        <X className="h-3 w-3" />
-                                    </Badge>
+                                    <SimpleTooltip key={`${key}:${item}`} label="Remover filtro">
+                                        <Badge 
+                                            variant="secondary" 
+                                            className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                            onClick={() => handleFilterValueRemove(key as keyof SearchFilters, item)}
+                                        >
+                                            {getFilterLabel(key, item)}
+                                            <X className="h-3 w-3" />
+                                        </Badge>
+                                    </SimpleTooltip>
                                 ))
                             }
                             return (
-                                <Badge 
-                                    key={key} 
-                                    variant="secondary" 
-                                    className="gap-1 cursor-pointer hover:bg-destructive/20"
-                                    onClick={() => clearFilter(key as keyof SearchFilters)}
-                                >
-                                    {getFilterLabel(key, value)}
-                                    <X className="h-3 w-3" />
-                                </Badge>
+                                <SimpleTooltip key={key} label="Remover filtro">
+                                    <Badge 
+                                        variant="secondary" 
+                                        className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                        onClick={() => clearFilter(key as keyof SearchFilters)}
+                                    >
+                                        {getFilterLabel(key, value)}
+                                        <X className="h-3 w-3" />
+                                    </Badge>
+                                </SimpleTooltip>
                             )
                         })}
                     </div>

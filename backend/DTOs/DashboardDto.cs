@@ -97,6 +97,7 @@ public class CustomFilterGroupDto
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public int SortOrder { get; set; }
+    public bool ShowAsTab { get; set; }
     public List<CustomFilterValueDto> Values { get; set; } = new();
 }
 

@@ -54,6 +54,31 @@ jobs:
         name: coverage-report
         path: backend.tests/TestResults/**/coverage.cobertura.xml
 
+  test-core:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore core dependencies
+      working-directory: core/backend
+      run: dotnet restore
+
+    - name: Build core
+      working-directory: core/backend
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Run Core Tests
+      working-directory: core/backend
+      run: dotnet test --no-build --verbosity normal --configuration Release
+
   test-frontend:
     runs-on: ubuntu-latest
 
@@ -79,12 +104,15 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Run Tests
+      run: npm test
+
     - name: Lint
       run: npm run lint
 
   docker-build:
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
+    needs: [test-backend, test-core, test-frontend]
 
     steps:
     - uses: actions/checkout@v4

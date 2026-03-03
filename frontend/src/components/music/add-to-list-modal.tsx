@@ -18,6 +18,7 @@ import {
     Loader2
 } from 'lucide-react'
 import { listsApi } from '@/lib/api'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useToast } from '@core/hooks/use-toast'
 import type { MusicList } from '@/types'
 
@@ -116,9 +117,11 @@ export function AddToListModal({ musicId, musicTitle, trigger, onSuccess }: AddT
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {trigger || (
-                    <Button variant="ghost" size="icon" title="Adicionar à lista">
-                        <ListPlus className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Adicionar à lista">
+                        <Button variant="ghost" size="icon">
+                            <ListPlus className="h-4 w-4" />
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </DialogTrigger>
 

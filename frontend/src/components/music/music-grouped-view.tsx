@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/ca
 import { Button } from '@core/components/ui/button'
 import { Badge } from '@core/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import type { SearchFilters } from '@/types'
 import { 
     ChevronDown, 
@@ -46,6 +47,7 @@ interface GroupedFile {
 }
 
 interface MusicGroup {
+    name?: string
     artist?: string
     category?: string
     count: number
@@ -53,7 +55,8 @@ interface MusicGroup {
 }
 
 interface MusicGroupedViewProps {
-    groupType: 'artist' | 'category'
+    groupType: 'artist' | 'category' | 'custom'
+    groupLabel?: string
     groups: MusicGroup[]
     isLoading: boolean
     error: string | null
@@ -63,6 +66,7 @@ interface MusicGroupedViewProps {
 
 export function MusicGroupedView({ 
     groupType, 
+    groupLabel,
     groups, 
     isLoading, 
     error, 
@@ -170,7 +174,7 @@ export function MusicGroupedView({
     }
 
     const getGroupName = (group: MusicGroup): string => {
-        return group.artist || group.category || 'Sem Nome'
+        return group.name || group.artist || group.category || 'Sem Nome'
     }
 
     const getGroupIcon = () => {
@@ -179,15 +183,20 @@ export function MusicGroupedView({
                 return <User className="h-4 w-4" />
             case 'category':
                 return <FolderOpen className="h-4 w-4" />
+            case 'custom':
+                return <Filter className="h-4 w-4" />
         }
     }
 
     const getGroupLabel = () => {
+        if (groupLabel) return groupLabel
         switch (groupType) {
             case 'artist':
                 return 'artistas'
             case 'category':
                 return 'categorias'
+            case 'custom':
+                return 'grupos'
         }
     }
 
@@ -232,12 +241,16 @@ export function MusicGroupedView({
                     )}
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={expandAll}>
-                        Expandir todos
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={collapseAll}>
-                        Recolher todos
-                    </Button>
+                    <SimpleTooltip label="Expandir todos os grupos">
+                        <Button variant="outline" size="sm" onClick={expandAll}>
+                            Expandir todos
+                        </Button>
+                    </SimpleTooltip>
+                    <SimpleTooltip label="Recolher todos os grupos">
+                        <Button variant="outline" size="sm" onClick={collapseAll}>
+                            Recolher todos
+                        </Button>
+                    </SimpleTooltip>
                 </div>
             </div>
 
@@ -340,7 +353,7 @@ export function MusicGroupedView({
                                                         
                                                         {/* Desktop Action buttons */}
                                                         <div className="hidden sm:flex items-center gap-1 shrink-0">
-                                                            <TooltipProvider>
+                                                            <>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <Button
@@ -436,17 +449,19 @@ export function MusicGroupedView({
                                                                         <TooltipContent>Editar</TooltipContent>
                                                                     </Tooltip>
                                                                 )}
-                                                            </TooltipProvider>
+                                                            </>
                                                         </div>
 
                                                         {/* Mobile Actions - Dropdown */}
                                                         <div className="sm:hidden">
                                                             <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                        <MoreHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
+                                                                <SimpleTooltip label="Mais ações">
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                </SimpleTooltip>
                                                                 <DropdownMenuContent align="end" className="w-48">
                                                                     <DropdownMenuItem asChild>
                                                                         <Link href={`/music/${file.id}`} className="flex items-center">

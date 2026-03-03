@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
 import { Button } from '@core/components/ui/button'
 import {
@@ -23,7 +24,8 @@ export function QuickActions() {
             href: '/upload',
             color: 'text-blue-500',
             buttonText: 'Fazer Upload',
-            variant: 'default' as const
+            variant: 'default' as const,
+            tooltip: 'Fazer upload de novas músicas'
         },
         {
             title: 'Buscar Músicas',
@@ -32,7 +34,8 @@ export function QuickActions() {
             href: '/music',
             color: 'text-green-500',
             buttonText: 'Buscar',
-            variant: 'outline' as const
+            variant: 'outline' as const,
+            tooltip: 'Buscar músicas na biblioteca'
         },
         {
             title: 'Gerenciar Listas',
@@ -59,7 +62,8 @@ export function QuickActions() {
             href: '/reports',
             color: 'text-cyan-500',
             buttonText: 'Ver Relatórios',
-            variant: 'outline' as const
+            variant: 'outline' as const,
+            tooltip: 'Visualizar relatórios'
         },
         {
             title: 'Configurações',
@@ -68,7 +72,8 @@ export function QuickActions() {
             href: '/settings',
             color: 'text-gray-500',
             buttonText: 'Configurar',
-            variant: 'outline' as const
+            variant: 'outline' as const,
+            tooltip: 'Acessar configurações do sistema'
         }
     ]
 
@@ -94,15 +99,17 @@ export function QuickActions() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Button
-                                className="w-full"
-                                variant={action.variant}
-                                asChild
-                            >
-                                <Link href={action.href}>
-                                    {action.buttonText}
-                                </Link>
-                            </Button>
+                            <SimpleTooltip label={action.tooltip}>
+                                <Button
+                                    className="w-full"
+                                    variant={action.variant}
+                                    asChild
+                                >
+                                    <Link href={action.href}>
+                                        {action.buttonText}
+                                    </Link>
+                                </Button>
+                            </SimpleTooltip>
                         </CardContent>
                     </Card>
                 ))}

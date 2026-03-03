@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, removeAccents } from '@/lib/utils'
 import { Button } from '@core/components/ui/button'
 import { Input } from '@core/components/ui/input'
 import {
@@ -48,7 +48,7 @@ export function Autocomplete({
     }, [value])
 
     const filteredOptions = options.filter(option =>
-        option.toLowerCase().includes(searchValue.toLowerCase())
+        removeAccents(option.toLowerCase()).includes(removeAccents(searchValue.toLowerCase()))
     )
 
     const handleSelect = (selectedValue: string) => {
@@ -99,7 +99,7 @@ export function Autocomplete({
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                     <CommandInput
                         placeholder="Buscar..."
                         value={searchValue}

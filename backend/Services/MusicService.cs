@@ -34,11 +34,11 @@ public class MusicService : IMusicService
 
         if (!string.IsNullOrWhiteSpace(query))
         {
-            var qLower = $"%{query}%";
+            var pattern = $"%{query}%";
             q = q.Where(f =>
-                (f.SongName != null && EF.Functions.ILike(f.SongName, qLower)) ||
-                (f.Filename != null && EF.Functions.ILike(f.Filename, qLower)) ||
-                f.FileArtists.Any(fa => fa.Artist.Name != null && EF.Functions.ILike(fa.Artist.Name, qLower)));
+                (f.SongName != null && EF.Functions.ILike(AppDbContext.Unaccent(f.SongName), AppDbContext.Unaccent(pattern))) ||
+                (f.Filename != null && EF.Functions.ILike(AppDbContext.Unaccent(f.Filename), AppDbContext.Unaccent(pattern))) ||
+                f.FileArtists.Any(fa => fa.Artist.Name != null && EF.Functions.ILike(AppDbContext.Unaccent(fa.Artist.Name), AppDbContext.Unaccent(pattern))));
         }
 
         if (categorySlugs is { Count: > 0 })
@@ -111,6 +111,11 @@ public class MusicService : IMusicService
             .Include(f => f.FileArtists).ThenInclude(fa => fa.Artist)
             .FirstOrDefaultAsync(f => f.Id == id);
         return file != null ? MapToFileDto(file) : null;
+    }
+
+    public async Task<PdfFile?> GetFileRecordByIdAsync(int id)
+    {
+        return await _context.PdfFiles.FirstOrDefaultAsync(f => f.Id == id);
     }
 
     public async Task<PdfFile> UploadMusicAsync(int workspaceId, IFormFile file, FileUploadDto metadata)
@@ -281,6 +286,26 @@ public class MusicService : IMusicService
     public async Task<List<GroupedFilesDto>> GetGroupedByCategoryAsync(int workspaceId) =>
         await GetGroupedAsync(workspaceId, _ => true,
             f => f.FileCategories.Select(fc => fc.Category.Name).FirstOrDefault() ?? "Diversos");
+
+    public async Task<List<GroupedFilesDto>> GetGroupedByCustomFilterAsync(int workspaceId, string groupSlug)
+    {
+        var files = await _context.PdfFiles
+            .Where(f => f.WorkspaceId == workspaceId)
+            .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
+            .Include(f => f.FileCustomFilters).ThenInclude(fcf => fcf.FilterValue).ThenInclude(v => v.FilterGroup)
+            .Include(f => f.FileArtists).ThenInclude(fa => fa.Artist)
+            .ToListAsync();
+
+        return files
+            .Where(f => f.FileCustomFilters.Any(fcf => fcf.FilterValue.FilterGroup.Slug == groupSlug))
+            .GroupBy(f => f.FileCustomFilters
+                .Where(fcf => fcf.FilterValue.FilterGroup.Slug == groupSlug)
+                .Select(fcf => fcf.FilterValue.Name)
+                .FirstOrDefault() ?? "Sem valor")
+            .OrderBy(g => g.Key)
+            .Select(g => new GroupedFilesDto(g.Key, g.Count(), g.Select(MapToGroupedItem).ToList()))
+            .ToList();
+    }
 
     private async Task<List<GroupedFilesDto>> GetGroupedAsync(int workspaceId,
         Func<PdfFile, bool> filter, Func<PdfFile, string> groupKey)

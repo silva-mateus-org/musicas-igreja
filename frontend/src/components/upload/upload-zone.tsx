@@ -7,6 +7,7 @@ import { Badge } from '@core/components/ui/badge'
 import { Card } from '@core/components/ui/card'
 import { Upload, FileText, X, AlertCircle, CheckCircle2, File } from 'lucide-react'
 import { formatFileSize, cn } from '@/lib/utils'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface UploadZoneProps {
     onFilesSelected: (files: File[]) => void
@@ -146,9 +147,11 @@ export function UploadZone({
                                                 {fileStatus.status === 'success' ? 'OK' : 'Erro'}
                                             </Badge>
                                             {onRemoveFile && (
-                                                <Button variant="ghost" size="icon" onClick={() => onRemoveFile(index)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
-                                                    <X className="h-4 w-4" />
-                                                </Button>
+                                                <SimpleTooltip label="Remover arquivo">
+                                                    <Button variant="ghost" size="icon" onClick={() => onRemoveFile(index)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </SimpleTooltip>
                                             )}
                                         </div>
                                     </div>

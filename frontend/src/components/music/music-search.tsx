@@ -8,6 +8,7 @@ import { Badge } from '@core/components/ui/badge'
 import type { SearchFilters } from '@/types'
 import { Search, X } from 'lucide-react'
 import { debounce } from '@/lib/utils'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface MusicSearchProps {
     onSearch: (filters: SearchFilters) => void
@@ -85,14 +86,15 @@ export function MusicSearch({ onSearch, initialFilters = {} }: MusicSearchProps)
                     />
                 </div>
                 {(searchTerm || Object.keys(activeFilters).length > 0) && (
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleClearSearch}
-                        title="Limpar busca"
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Limpar busca">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleClearSearch}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </div>
 
