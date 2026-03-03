@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Card } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@core/components/ui/dialog'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Skeleton } from '@core/components/ui/skeleton'
+import { Card } from '@core/components/ui/card'
+import { Separator } from '@core/components/ui/separator'
 import {
     ListPlus,
     Search,
@@ -18,7 +18,8 @@ import {
     Loader2
 } from 'lucide-react'
 import { listsApi } from '@/lib/api'
-import { useToast } from '@/hooks/use-toast'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
+import { useToast } from '@core/hooks/use-toast'
 import type { MusicList } from '@/types'
 
 interface AddToListModalProps {
@@ -116,9 +117,11 @@ export function AddToListModal({ musicId, musicTitle, trigger, onSuccess }: AddT
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {trigger || (
-                    <Button variant="ghost" size="icon" title="Adicionar à lista">
-                        <ListPlus className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Adicionar à lista">
+                        <Button variant="ghost" size="icon">
+                            <ListPlus className="h-4 w-4" />
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </DialogTrigger>
 

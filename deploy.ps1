@@ -86,8 +86,8 @@ Write-Host ""
 # Step 4: Docker Build (optional)
 Write-Host "[4/4] Building Docker Images..." -ForegroundColor Yellow
 try {
-    docker build -t musicas-backend:latest ./backend
-    docker build -t musicas-frontend:latest ./frontend
+    docker build -t musicas-backend:latest -f backend/Dockerfile .
+    docker build -t musicas-frontend:latest -f frontend/Dockerfile .
     Write-Host "Docker images built successfully!" -ForegroundColor Green
 }
 catch {

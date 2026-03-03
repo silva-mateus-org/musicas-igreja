@@ -1,62 +1,68 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Services;
-using MusicasIgreja.Api.Middleware;
+using MusicasIgreja.Api.Services.Interfaces;
+using Core.Auth.Extensions;
+using Core.FileManagement.Extensions;
+using Core.Infrastructure.Extensions;
+using Core.Infrastructure.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// App Instance Service (singleton) - generates unique ID on each startup
-var appInstanceService = new AppInstanceService();
-builder.Services.AddSingleton<IAppInstanceService>(appInstanceService);
-Console.WriteLine($"[Startup] Application instance ID: {appInstanceService.InstanceId} - All previous sessions will be invalidated");
+// Database (PostgreSQL via Core.Infrastructure)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+builder.Services.AddCoreDatabase<AppDbContext>(connectionString);
 
-// Database configuration
-var dbPath = builder.Configuration.GetValue<string>("Database:Path") 
-    ?? Path.Combine(Directory.GetCurrentDirectory(), "data", "musicas.db");
-var dbDirectory = Path.GetDirectoryName(dbPath);
-if (!string.IsNullOrEmpty(dbDirectory))
+// Core.Auth (session, RBAC, rate limiting)
+builder.Services.AddCoreAuth(options =>
 {
-    Directory.CreateDirectory(dbDirectory);
-}
+    options.CookieName = ".MusicasIgreja.Session";
+    options.DefaultRoles = new()
+    {
+        ["viewer"]   = [Permissions.ViewMusic, Permissions.DownloadMusic],
+        ["editor"]   = [Permissions.ViewMusic, Permissions.DownloadMusic, Permissions.EditMetadata, Permissions.ManageLists, Permissions.ManageCategories],
+        ["uploader"] = [Permissions.ViewMusic, Permissions.DownloadMusic, Permissions.EditMetadata, Permissions.UploadMusic, Permissions.ManageLists, Permissions.ManageCategories],
+        ["admin"]    = [Permissions.ViewMusic, Permissions.DownloadMusic, Permissions.EditMetadata, Permissions.UploadMusic, Permissions.DeleteMusic, Permissions.ManageLists, Permissions.ManageCategories, Permissions.ManageUsers, Permissions.ManageRoles, Permissions.AccessAdmin]
+    };
+});
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}", sqliteOptions =>
-        sqliteOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+// Core.FileManagement
+builder.Services.AddCoreFileManagement(options =>
+{
+    options.StoragePath = builder.Configuration.GetValue<string>("Storage:OrganizedFolder") ?? "./organized";
+    options.AllowedExtensions = [".pdf"];
+    options.OrganizeByCategory = true;
+});
 
-// Services
+// Real-time events (SSE)
+builder.Services.AddCoreSse();
+
+// Application services
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IMusicService, MusicService>();
+builder.Services.AddScoped<IListService, ListService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IArtistService, ArtistService>();
+builder.Services.AddScoped<IWorkspaceService, WorkspaceService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ICustomFilterService, CustomFilterService>();
 builder.Services.AddScoped<IMigrationService, MigrationService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 builder.Services.AddScoped<IMonitoringService, MonitoringService>();
 builder.Services.AddScoped<IAlertConfigurationService, AlertConfigurationService>();
 
-// Background Services
+// Background services
 builder.Services.AddHostedService<MetricsCollectorService>();
 
-// Session configuration with sliding expiration
-// Cookie name includes instance ID to invalidate all sessions on server restart
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromHours(24);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.Name = $".MusicasIgreja.Session.{appInstanceService.InstanceId}";
-    // Renovação automática: a sessão é renovada a cada request
-    // O IdleTimeout é resetado automaticamente pelo ASP.NET Core
-});
-
-// Controllers
+// Controllers (include Core.Auth assembly for CoreAuthController)
 builder.Services.AddControllers()
+    .AddApplicationPart(typeof(Core.Auth.Controllers.CoreAuthController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower;
     });
 
-// CORS - allow frontend
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -73,7 +79,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Swagger / OpenAPI
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -82,62 +88,50 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Apply migrations and normalizations on startup
+// Ensure database is created and seed auth roles
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var fileService = scope.ServiceProvider.GetRequiredService<IFileService>();
     var migrationService = scope.ServiceProvider.GetRequiredService<IMigrationService>();
-    var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    
-    // Create database if it doesn't exist
-    if (!File.Exists(dbPath))
-    {
-        logger.LogInformation("Creating database at {DbPath}...", dbPath);
-        context.Database.EnsureCreated();
-    }
-    
-    // Migrate users table schema if needed (from old email-based to new full_name-based)
-    await MigrateUsersTableSchemaAsync(context, logger, authService);
-    
-    // Check and log password hash migration status (legacy SHA256 -> BCrypt)
-    await authService.MigratePasswordHashesAsync();
-    
-    // Run SQL migration scripts (handles table creation and schema updates)
+
+    await context.Database.EnsureCreatedAsync();
     await migrationService.RunMigrationsAsync();
-    
-    // Normalize all file paths to the standard relative format (organized/Category/file.pdf)
-    // This ensures compatibility between Windows (dev) and Linux (production) environments
+
+    // Normalize file paths for cross-platform compatibility
     var filesWithBadPaths = context.PdfFiles
-        .Where(f => f.FilePath.StartsWith("/mnt/") || 
+        .Where(f => f.FilePath.StartsWith("/mnt/") ||
                     f.FilePath.StartsWith("/app/") ||
                     f.FilePath.StartsWith("/organized/") ||
                     (f.FilePath.Length > 2 && f.FilePath.Substring(1, 1) == ":"))
         .ToList();
-    
+
     if (filesWithBadPaths.Any())
     {
         logger.LogInformation("Normalizing {Count} file paths to relative format...", filesWithBadPaths.Count);
-        
+
         foreach (var file in filesWithBadPaths)
         {
             var oldPath = file.FilePath;
             var newPath = fileService.NormalizeToRelativePath(oldPath);
-            
+
             if (oldPath != newPath)
             {
                 logger.LogInformation("Normalizing path: {OldPath} -> {NewPath}", oldPath, newPath);
                 file.FilePath = newPath;
             }
         }
-        
+
         context.SaveChanges();
         logger.LogInformation("File paths normalized successfully.");
     }
 }
 
-// Configure the HTTP request pipeline
+// Seed default roles from Core.Auth configuration
+await app.Services.SeedCoreAuthAsync();
+
+// Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -145,255 +139,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-app.UseSession();
-app.UseMiddleware<AuditMiddleware>(); // Audit middleware for tracking user actions
+app.UseCoreAuth();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
-// Helper function to migrate users and roles tables
-static async Task MigrateUsersTableSchemaAsync(AppDbContext context, ILogger logger, IAuthService authService)
-{
-    try
-    {
-        var connection = context.Database.GetDbConnection();
-        await connection.OpenAsync();
-
-        // Step 1: Create roles table if not exists
-        logger.LogInformation("Checking roles table...");
-        await context.Database.ExecuteSqlRawAsync(@"
-            CREATE TABLE IF NOT EXISTS roles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                display_name TEXT NOT NULL,
-                description TEXT,
-                is_system_role INTEGER NOT NULL DEFAULT 0,
-                priority INTEGER NOT NULL DEFAULT 0,
-                can_view_music INTEGER NOT NULL DEFAULT 1,
-                can_download_music INTEGER NOT NULL DEFAULT 1,
-                can_edit_music_metadata INTEGER NOT NULL DEFAULT 0,
-                can_upload_music INTEGER NOT NULL DEFAULT 0,
-                can_delete_music INTEGER NOT NULL DEFAULT 0,
-                can_manage_lists INTEGER NOT NULL DEFAULT 0,
-                can_manage_categories INTEGER NOT NULL DEFAULT 0,
-                can_manage_users INTEGER NOT NULL DEFAULT 0,
-                can_manage_roles INTEGER NOT NULL DEFAULT 0,
-                can_access_admin INTEGER NOT NULL DEFAULT 0,
-                created_date TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        ");
-
-        // Seed default roles
-        await context.Database.ExecuteSqlRawAsync(@"
-            INSERT OR IGNORE INTO roles (id, name, display_name, description, is_system_role, priority, 
-                can_view_music, can_download_music, can_edit_music_metadata, can_upload_music, can_delete_music,
-                can_manage_lists, can_manage_categories, can_manage_users, can_manage_roles, can_access_admin)
-            VALUES 
-            (1, 'viewer', 'Visualizador', 'Pode visualizar e baixar músicas', 1, 10, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
-            (2, 'editor', 'Editor', 'Pode editar metadados de músicas e gerenciar listas', 1, 20, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0),
-            (3, 'uploader', 'Uploader', 'Pode fazer upload de novas músicas', 1, 30, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0),
-            (4, 'admin', 'Administrador', 'Acesso total ao sistema', 1, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
-        ");
-
-        // Add is_default column to roles table (migration) - only if it doesn't exist
-        using var checkColumnCmd = connection.CreateCommand();
-        checkColumnCmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('roles') WHERE name='is_default'";
-        var columnExists = Convert.ToInt32(await checkColumnCmd.ExecuteScalarAsync()) > 0;
-        
-        if (!columnExists)
-        {
-            logger.LogInformation("Adding is_default column to roles table...");
-            await context.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE roles ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0"
-            );
-            // Set viewer as default role
-            await context.Database.ExecuteSqlRawAsync(
-                "UPDATE roles SET is_default = 1 WHERE name = 'viewer'"
-            );
-            logger.LogInformation("Added is_default column to roles table.");
-        }
-
-        // Step 2: Check users table structure
-        using var checkTableCmd = connection.CreateCommand();
-        checkTableCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='users'";
-        var usersTableExists = await checkTableCmd.ExecuteScalarAsync() != null;
-
-        if (!usersTableExists)
-        {
-            logger.LogInformation("Creating users table...");
-            await context.Database.ExecuteSqlRawAsync(@"
-                CREATE TABLE users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL UNIQUE,
-                    full_name TEXT,
-                    password_hash TEXT NOT NULL,
-                    role_id INTEGER NOT NULL DEFAULT 1,
-                    is_active INTEGER NOT NULL DEFAULT 1,
-                    must_change_password INTEGER NOT NULL DEFAULT 1,
-                    created_date TEXT NOT NULL DEFAULT (datetime('now')),
-                    last_login_date TEXT,
-                    FOREIGN KEY (role_id) REFERENCES roles(id)
-                )
-            ");
-            
-            var adminHash = authService.HashPassword("admin123");
-            await context.Database.ExecuteSqlAsync($@"
-                INSERT INTO users (username, full_name, password_hash, role_id, is_active, must_change_password, created_date)
-                VALUES ('admin', 'Administrador', {adminHash}, 4, 1, 0, datetime('now'))
-            ");
-            logger.LogInformation("Users table created with admin user.");
-            return;
-        }
-
-        // Check current schema
-        using var checkSchemaCmd = connection.CreateCommand();
-        checkSchemaCmd.CommandText = "PRAGMA table_info(users)";
-        
-        var hasRoleColumn = false;
-        var hasRoleIdColumn = false;
-        var hasFullNameColumn = false;
-        var hasMustChangePasswordColumn = false;
-        var hasEmailColumn = false;
-        
-        using (var reader = await checkSchemaCmd.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                var columnName = reader.GetString(1);
-                if (columnName == "role") hasRoleColumn = true;
-                if (columnName == "role_id") hasRoleIdColumn = true;
-                if (columnName == "full_name") hasFullNameColumn = true;
-                if (columnName == "must_change_password") hasMustChangePasswordColumn = true;
-                if (columnName == "email") hasEmailColumn = true;
-            }
-        }
-
-        // Remove legacy email column if it exists (users do not require email)
-        if (hasEmailColumn)
-        {
-            logger.LogInformation("Removing legacy email column from users table...");
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync(@"
-                    BEGIN TRANSACTION;
-                    CREATE TABLE IF NOT EXISTS users_new (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        username TEXT NOT NULL UNIQUE,
-                        full_name TEXT,
-                        password_hash TEXT NOT NULL,
-                        role_id INTEGER NOT NULL DEFAULT 1,
-                        is_active INTEGER NOT NULL DEFAULT 1,
-                        must_change_password INTEGER NOT NULL DEFAULT 1,
-                        created_date TEXT NOT NULL DEFAULT (datetime('now')),
-                        last_login_date TEXT,
-                        FOREIGN KEY (role_id) REFERENCES roles(id)
-                    );
-
-                    INSERT INTO users_new (
-                        id, username, full_name, password_hash, role_id,
-                        is_active, must_change_password, created_date, last_login_date
-                    )
-                    SELECT
-                        id, username, COALESCE(full_name, username), password_hash, role_id,
-                        is_active, COALESCE(must_change_password, 1), created_date, last_login_date
-                    FROM users;
-
-                    DROP TABLE users;
-                    ALTER TABLE users_new RENAME TO users;
-
-                    CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username);
-                    COMMIT;
-                ");
-
-                hasEmailColumn = false;
-                logger.LogInformation("Legacy email column removed successfully.");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to remove legacy email column from users table");
-            }
-        }
-
-        // Add role_id column if it doesn't exist
-        if (!hasRoleIdColumn)
-        {
-            logger.LogInformation("Adding role_id column to users table...");
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE users ADD COLUMN role_id INTEGER NOT NULL DEFAULT 1"
-                );
-                
-                // Migrate old role values to role_id (old: 0-3, new: 1-4)
-                if (hasRoleColumn)
-                {
-                    await context.Database.ExecuteSqlRawAsync(
-                        "UPDATE users SET role_id = role + 1 WHERE role_id = 1"
-                    );
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug("Could not add role_id column: {Message}", ex.Message);
-            }
-        }
-
-        // Add must_change_password column if it doesn't exist
-        if (!hasMustChangePasswordColumn)
-        {
-            logger.LogInformation("Adding must_change_password column...");
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0"
-                );
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug("Could not add must_change_password column: {Message}", ex.Message);
-            }
-        }
-
-        // Add full_name column if it doesn't exist
-        if (!hasFullNameColumn)
-        {
-            logger.LogInformation("Adding full_name column...");
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE users ADD COLUMN full_name TEXT"
-                );
-                // Copy username to full_name for existing users
-                await context.Database.ExecuteSqlRawAsync(
-                    "UPDATE users SET full_name = username WHERE full_name IS NULL"
-                );
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug("Could not add full_name column: {Message}", ex.Message);
-            }
-        }
-
-        // Ensure admin user exists
-        using var checkAdminCmd = connection.CreateCommand();
-        checkAdminCmd.CommandText = "SELECT COUNT(*) FROM users WHERE username = 'admin'";
-        var adminCount = Convert.ToInt32(await checkAdminCmd.ExecuteScalarAsync());
-        
-        if (adminCount == 0)
-        {
-            logger.LogInformation("Seeding admin user...");
-            var adminHash = authService.HashPassword("admin123");
-            await context.Database.ExecuteSqlAsync($@"
-                INSERT INTO users (username, full_name, password_hash, role_id, is_active, must_change_password, created_date)
-                VALUES ('admin', 'Administrador', {adminHash}, 4, 1, 0, datetime('now'))
-            ");
-        }
-        
-        logger.LogInformation("Users and roles migration completed.");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Error during users/roles table migration");
-    }
-}

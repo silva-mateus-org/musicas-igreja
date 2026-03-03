@@ -2,24 +2,26 @@
 
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Switch } from '@/components/ui/switch'
-import { useAuth } from '@/contexts/AuthContext'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
+import { Switch } from '@core/components/ui/switch'
+import { useAuth } from '@core/contexts/auth-context'
 import { alertConfigApi, handleApiError } from '@/lib/api'
 import type { AlertConfiguration } from '@/types'
 import { Settings, Plus, Pencil, Trash2, RefreshCw, AlertCircle, AlertTriangle, Info } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@core/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { AlertConfigForm } from '@/components/monitoring/alert-config-form'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function AlertConfigsPage() {
     const { toast } = useToast()
     const router = useRouter()
-    const { isAdmin } = useAuth()
+    const { hasPermission } = useAuth()
+    const isAdmin = hasPermission('admin:access')
 
     const [configs, setConfigs] = useState<AlertConfiguration[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -176,14 +178,18 @@ export default function AlertConfigsPage() {
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={loadConfigs} variant="outline" disabled={isLoading}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                            Atualizar
-                        </Button>
-                        <Button onClick={handleCreate}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Novo Alerta
-                        </Button>
+                        <SimpleTooltip label="Recarregar configurações">
+                            <Button onClick={loadConfigs} variant="outline" disabled={isLoading}>
+                                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                                Atualizar
+                            </Button>
+                        </SimpleTooltip>
+                        <SimpleTooltip label="Criar nova configuração de alerta">
+                            <Button onClick={handleCreate}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Novo Alerta
+                            </Button>
+                        </SimpleTooltip>
                     </div>
                 </div>
 
@@ -272,20 +278,24 @@ export default function AlertConfigsPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleEdit(config)}
-                                                    >
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setDeletingId(config.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    <SimpleTooltip label="Editar configuração">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleEdit(config)}
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                    </SimpleTooltip>
+                                                    <SimpleTooltip label="Excluir configuração">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setDeletingId(config.id)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </SimpleTooltip>
                                                 </div>
                                             </TableCell>
                                         </TableRow>

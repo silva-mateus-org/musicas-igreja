@@ -1,24 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { dashboardApi, categoriesApi, liturgicalTimesApi, handleApiError } from '@/lib/api'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { Badge } from '@core/components/ui/badge'
+import { dashboardApi, categoriesApi, customFiltersApi, handleApiError } from '@/lib/api'
 import type { SearchFilters } from '@/types'
 import { Filter, RotateCcw, X } from 'lucide-react'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface MusicFiltersProps {
     filters: SearchFilters
     onFiltersChange: (filters: SearchFilters) => void
 }
 
+interface CustomFilterGroupOption {
+    id: number
+    name: string
+    slug: string
+    values: Array<{ name: string; slug: string }>
+}
+
 interface Suggestions {
     artists: string[]
     categories: string[]
-    liturgical_times: string[]
+    customFilterGroups: CustomFilterGroupOption[]
     musical_keys: string[]
 }
 
@@ -27,7 +35,7 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
     const [suggestions, setSuggestions] = useState<Suggestions>({
         artists: [],
         categories: [],
-        liturgical_times: [],
+        customFilterGroups: [],
         musical_keys: ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm'],
     })
     const [isLoading, setIsLoading] = useState(false)
@@ -45,7 +53,7 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
         try {
             setIsLoading(true)
             // Buscar artistas, categorias e tempos reais
-            const [artistsResult, catsResult, timesResult] = await Promise.all([
+            const [artistsResult, catsResult, filterGroupsResult] = await Promise.all([
                 dashboardApi.getArtists().catch((err) => {
                     console.error('Erro ao carregar artistas:', err)
                     return []
@@ -54,22 +62,21 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                     console.error('Erro ao carregar categorias:', err)
                     return { data: [] }
                 }),
-                liturgicalTimesApi.getLiturgicalTimes().catch((err) => {
-                    console.error('Erro ao carregar tempos litúrgicos:', err)
-                    return { data: [] }
+                customFiltersApi.getGroups().catch((err) => {
+                    console.error('Erro ao carregar grupos de filtro:', err)
+                    return []
                 }),
             ])
             
-            // Extrair arrays de forma segura
             const artists = Array.isArray(artistsResult) ? artistsResult : []
             const categories = Array.isArray(catsResult?.data) ? catsResult.data : (Array.isArray(catsResult) ? catsResult : [])
-            const liturgicalTimes = Array.isArray(timesResult?.data) ? timesResult.data : (Array.isArray(timesResult) ? timesResult : [])
+            const filterGroups = Array.isArray(filterGroupsResult) ? filterGroupsResult : []
             
             setSuggestions(prev => ({
                 ...prev,
                 artists,
                 categories,
-                liturgical_times: liturgicalTimes,
+                customFilterGroups: filterGroups,
             }))
         } catch (error) {
             console.error('Erro ao carregar sugestões:', handleApiError(error))
@@ -113,10 +120,12 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                     Filtros Avançados
                 </Label>
                 {hasActiveFilters && (
-                    <Button variant="outline" size="sm" onClick={clearAllFilters} className="gap-2">
-                        <RotateCcw className="h-4 w-4" />
-                        Limpar Filtros
-                    </Button>
+                    <SimpleTooltip label="Limpar todos os filtros">
+                        <Button variant="outline" size="sm" onClick={clearAllFilters} className="gap-2">
+                            <RotateCcw className="h-4 w-4" />
+                            Limpar Filtros
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </div>
 
@@ -126,29 +135,35 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                     <div className="flex items-center justify-between min-h-[24px]">
                         <Label htmlFor="artist">Artista {isLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}</Label>
                         {localFilters.artist && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('artist')} className="h-6 w-6 p-0">
-                                <X className="h-3 w-3" />
-                            </Button>
+                            <SimpleTooltip label="Remover filtro">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('artist')} className="h-6 w-6 p-0">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
-                    <Select value={(Array.isArray(localFilters.artist) ? localFilters.artist[0] : localFilters.artist) || ''} onValueChange={(value) => handleFilterChange('artist', value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecionar artista"} />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="max-h-[300px]">
-                            {isLoading ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Carregando artistas...</div>
-                            ) : suggestions.artists.length === 0 ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Nenhum artista encontrado</div>
-                            ) : (
-                                suggestions.artists.map((artist) => (
-                                    <SelectItem key={artist} value={artist}>
-                                        {artist}
-                                    </SelectItem>
-                                ))
-                            )}
-                        </SelectContent>
-                    </Select>
+                    <SimpleTooltip label="Filtrar por artista">
+                        <div>
+                            <Select value={(Array.isArray(localFilters.artist) ? localFilters.artist[0] : localFilters.artist) || ''} onValueChange={(value) => handleFilterChange('artist', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={isLoading ? "Carregando..." : "Selecionar artista"} />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="max-h-[300px]">
+                                    {isLoading ? (
+                                        <div className="py-2 px-3 text-sm text-muted-foreground">Carregando artistas...</div>
+                                    ) : suggestions.artists.length === 0 ? (
+                                        <div className="py-2 px-3 text-sm text-muted-foreground">Nenhum artista encontrado</div>
+                                    ) : (
+                                        suggestions.artists.map((artist) => (
+                                            <SelectItem key={artist} value={artist}>
+                                                {artist}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SimpleTooltip>
                 </div>
 
                 {/* Category Filter */}
@@ -156,83 +171,116 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                     <div className="flex items-center justify-between min-h-[24px]">
                         <Label htmlFor="category">Categoria {isLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}</Label>
                         {localFilters.category && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('category')} className="h-6 w-6 p-0">
-                                <X className="h-3 w-3" />
-                            </Button>
+                            <SimpleTooltip label="Remover filtro">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('category')} className="h-6 w-6 p-0">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
-                    <Select value={(Array.isArray(localFilters.category) ? localFilters.category[0] : localFilters.category) || ''} onValueChange={(value) => handleFilterChange('category', value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecionar categoria"} />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="max-h-[300px]">
-                            {isLoading ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Carregando categorias...</div>
-                            ) : suggestions.categories.length === 0 ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Nenhuma categoria encontrada</div>
-                            ) : (
-                                suggestions.categories.map((category) => (
-                                    <SelectItem key={category} value={category}>
-                                        {category}
-                                    </SelectItem>
-                                ))
-                            )}
-                        </SelectContent>
-                    </Select>
+                    <SimpleTooltip label="Filtrar por categoria">
+                        <div>
+                            <Select value={(Array.isArray(localFilters.category) ? localFilters.category[0] : localFilters.category) || ''} onValueChange={(value) => handleFilterChange('category', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={isLoading ? "Carregando..." : "Selecionar categoria"} />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="max-h-[300px]">
+                                    {isLoading ? (
+                                        <div className="py-2 px-3 text-sm text-muted-foreground">Carregando categorias...</div>
+                                    ) : suggestions.categories.length === 0 ? (
+                                        <div className="py-2 px-3 text-sm text-muted-foreground">Nenhuma categoria encontrada</div>
+                                    ) : (
+                                        suggestions.categories.map((category) => (
+                                            <SelectItem key={category} value={category}>
+                                                {category}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SimpleTooltip>
                 </div>
 
-                {/* Liturgical Time Filter */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between min-h-[24px]">
-                        <Label htmlFor="liturgical_time">Tempo Litúrgico {isLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}</Label>
-                        {localFilters.liturgical_time && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('liturgical_time')} className="h-6 w-6 p-0">
-                                <X className="h-3 w-3" />
-                            </Button>
-                        )}
-                    </div>
-                    <Select value={(Array.isArray(localFilters.liturgical_time) ? localFilters.liturgical_time[0] : localFilters.liturgical_time) || ''} onValueChange={(value) => handleFilterChange('liturgical_time', value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={isLoading ? "Carregando..." : "Selecionar tempo"} />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="max-h-[300px]">
-                            {isLoading ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Carregando tempos litúrgicos...</div>
-                            ) : suggestions.liturgical_times.length === 0 ? (
-                                <div className="py-2 px-3 text-sm text-muted-foreground">Nenhum tempo litúrgico encontrado</div>
-                            ) : (
-                                suggestions.liturgical_times.map((time) => (
-                                    <SelectItem key={time} value={time}>
-                                        {time}
-                                    </SelectItem>
-                                ))
-                            )}
-                        </SelectContent>
-                    </Select>
-                </div>
+                {/* Dynamic Custom Filter Groups */}
+                {suggestions.customFilterGroups.map(group => {
+                    const selectedValue = localFilters.custom_filters?.[group.slug]?.[0] || ''
+                    return (
+                        <div key={group.slug} className="space-y-2">
+                            <div className="flex items-center justify-between min-h-[24px]">
+                                <Label>{group.name} {isLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}</Label>
+                                {selectedValue && (
+                                    <SimpleTooltip label="Remover filtro">
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                            const newCustomFilters = { ...(localFilters.custom_filters || {}) }
+                                            delete newCustomFilters[group.slug]
+                                            handleFilterChange('custom_filters' as keyof SearchFilters, Object.keys(newCustomFilters).length > 0 ? newCustomFilters as any : undefined as any)
+                                        }} className="h-6 w-6 p-0">
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </SimpleTooltip>
+                                )}
+                            </div>
+                            <SimpleTooltip label={`Filtrar por ${group.name}`}>
+                                <div>
+                                    <Select value={selectedValue} onValueChange={(value) => {
+                                        const newCustomFilters = { ...(localFilters.custom_filters || {}) }
+                                        if (value) {
+                                            newCustomFilters[group.slug] = [value]
+                                        } else {
+                                            delete newCustomFilters[group.slug]
+                                        }
+                                        handleFilterChange('custom_filters' as keyof SearchFilters, Object.keys(newCustomFilters).length > 0 ? newCustomFilters as any : undefined as any)
+                                    }}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={`Selecionar ${group.name.toLowerCase()}`} />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" className="max-h-[300px]">
+                                            {group.values.length === 0 ? (
+                                                <div className="py-2 px-3 text-sm text-muted-foreground">Nenhum valor encontrado</div>
+                                            ) : (
+                                                group.values.map((val) => (
+                                                    <SelectItem key={val.slug} value={val.slug}>
+                                                        {val.name}
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </SimpleTooltip>
+                        </div>
+                    )
+                })}
 
                 {/* Musical Key Filter */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between min-h-[24px]">
                         <Label htmlFor="musical_key">Tonalidade</Label>
                         {localFilters.musical_key && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('musical_key')} className="h-6 w-6 p-0">
-                                <X className="h-3 w-3" />
-                            </Button>
+                            <SimpleTooltip label="Remover filtro">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('musical_key')} className="h-6 w-6 p-0">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
-                    <Select value={localFilters.musical_key || ''} onValueChange={(value) => handleFilterChange('musical_key', value)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecionar tonalidade" />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="max-h-[300px]">
-                            {suggestions.musical_keys.map((key) => (
-                                <SelectItem key={key} value={key}>
-                                    {key}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <SimpleTooltip label="Filtrar por tonalidade">
+                        <div>
+                            <Select value={localFilters.musical_key || ''} onValueChange={(value) => handleFilterChange('musical_key', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecionar tonalidade" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="max-h-[300px]">
+                                    {suggestions.musical_keys.map((key) => (
+                                        <SelectItem key={key} value={key}>
+                                            {key}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SimpleTooltip>
                 </div>
 
                 {/* YouTube Filter */}
@@ -240,29 +288,35 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                     <div className="flex items-center justify-between min-h-[24px]">
                         <Label htmlFor="has_youtube">YouTube</Label>
                         {(localFilters.has_youtube !== undefined && localFilters.has_youtube !== null) && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('has_youtube')} className="h-6 w-6 p-0">
-                                <X className="h-3 w-3" />
-                            </Button>
+                            <SimpleTooltip label="Remover filtro">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('has_youtube')} className="h-6 w-6 p-0">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
-                    <Select
-                        value={localFilters.has_youtube?.toString() || ''}
-                        onValueChange={(value) => {
-                            if (value === '') {
-                                handleFilterChange('has_youtube', '')
-                            } else {
-                                handleFilterChange('has_youtube', value === 'true')
-                            }
-                        }}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Filtrar por YouTube" />
-                        </SelectTrigger>
-                        <SelectContent position="popper" className="max-h-[300px]">
-                            <SelectItem value="true">Com link do YouTube</SelectItem>
-                            <SelectItem value="false">Sem link do YouTube</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SimpleTooltip label="Filtrar por link do YouTube">
+                        <div>
+                            <Select
+                                value={localFilters.has_youtube?.toString() || ''}
+                                onValueChange={(value) => {
+                                    if (value === '') {
+                                        handleFilterChange('has_youtube', '')
+                                    } else {
+                                        handleFilterChange('has_youtube', value === 'true')
+                                    }
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Filtrar por YouTube" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="max-h-[300px]">
+                                    <SelectItem value="true">Com link do YouTube</SelectItem>
+                                    <SelectItem value="false">Sem link do YouTube</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </SimpleTooltip>
                 </div>
             </div>
 
@@ -271,12 +325,16 @@ export function MusicFilters({ filters, onFiltersChange }: MusicFiltersProps) {
                 <div className="flex items-center justify-between min-h-[24px]">
                     <Label htmlFor="title">Busca no Título (customizada)</Label>
                     {localFilters.title && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('title')} className="h-6 w-6 p-0">
-                            <X className="h-3 w-3" />
-                        </Button>
+                        <SimpleTooltip label="Remover filtro">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => clearFilter('title')} className="h-6 w-6 p-0">
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </SimpleTooltip>
                     )}
                 </div>
-                <Input id="title" placeholder="Digite parte do título..." value={localFilters.title || ''} onChange={(e) => handleFilterChange('title', e.target.value)} />
+                <SimpleTooltip label="Buscar por título">
+                    <Input id="title" placeholder="Digite parte do título..." value={localFilters.title || ''} onChange={(e) => handleFilterChange('title', e.target.value)} />
+                </SimpleTooltip>
             </div>
 
             {/* Active Filters Summary */}

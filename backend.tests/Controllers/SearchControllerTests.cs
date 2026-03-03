@@ -7,6 +7,7 @@ using MusicasIgreja.Api.Controllers;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
+using MusicasIgreja.Api.Services;
 
 namespace MusicasIgreja.Api.Tests.Controllers;
 
@@ -14,6 +15,7 @@ public class SearchControllerTests : IDisposable
 {
     private readonly AppDbContext _context;
     private readonly SearchController _controller;
+    private readonly Mock<IFileService> _fileServiceMock;
     private readonly Mock<ILogger<SearchController>> _loggerMock;
 
     public SearchControllerTests()
@@ -23,73 +25,42 @@ public class SearchControllerTests : IDisposable
             .Options;
 
         _context = new AppDbContext(options);
+        _fileServiceMock = new Mock<IFileService>();
         _loggerMock = new Mock<ILogger<SearchController>>();
 
-        _controller = new SearchController(_context, _loggerMock.Object);
+        _controller = new SearchController(_context, _fileServiceMock.Object, _loggerMock.Object);
 
         SeedDatabase();
     }
 
     private void SeedDatabase()
     {
-        _context.PdfFiles.AddRange(
-            new PdfFile
-            {
-                Id = 1,
-                Filename = "Ave Maria - G - Bach.pdf",
-                OriginalName = "avemaria.pdf",
-                SongName = "Ave Maria",
-                Artist = "Johann Sebastian Bach",
-                Category = "Entrada",
-                MusicalKey = "G",
-                FilePath = "organized/Entrada/Ave Maria.pdf",
-                FileHash = "abc123"
-            },
-            new PdfFile
-            {
-                Id = 2,
-                Filename = "Aleluia - D - Handel.pdf",
-                OriginalName = "aleluia.pdf",
-                SongName = "Aleluia",
-                Artist = "George Handel",
-                Category = "Comunhão",
-                MusicalKey = "D",
-                FilePath = "organized/Comunhão/Aleluia.pdf",
-                FileHash = "def456"
-            },
-            new PdfFile
-            {
-                Id = 3,
-                Filename = "Glória - C - Vivaldi.pdf",
-                OriginalName = "gloria.pdf",
-                SongName = "Glória",
-                Artist = "Antonio Vivaldi",
-                Category = "Entrada",
-                MusicalKey = "C",
-                FilePath = "organized/Entrada/Gloria.pdf",
-                FileHash = "ghi789"
-            },
-            new PdfFile
-            {
-                Id = 4,
-                Filename = "Música Católica.pdf",
-                OriginalName = "musica.pdf",
-                SongName = "Música Católica",
-                Artist = "Padre Zezinho",
-                Category = "Diversos",
-                FilePath = "organized/Diversos/Musica.pdf",
-                FileHash = "jkl012"
-            }
-        );
-
-        _context.Artists.AddRange(
+        var artists = new[]
+        {
             new Artist { Id = 1, Name = "Johann Sebastian Bach" },
             new Artist { Id = 2, Name = "George Handel" },
             new Artist { Id = 3, Name = "Antonio Vivaldi" },
             new Artist { Id = 4, Name = "Padre Zezinho" },
             new Artist { Id = 5, Name = "Padre Fábio de Melo" }
-        );
+        };
+        _context.Artists.AddRange(artists);
 
+        var files = new[]
+        {
+            new PdfFile { Id = 1, Filename = "Ave Maria - G - Bach.pdf", OriginalName = "avemaria.pdf", SongName = "Ave Maria", MusicalKey = "G", FilePath = "organized/Ave Maria.pdf", FileHash = "abc123" },
+            new PdfFile { Id = 2, Filename = "Aleluia - D - Handel.pdf", OriginalName = "aleluia.pdf", SongName = "Aleluia", MusicalKey = "D", FilePath = "organized/Aleluia.pdf", FileHash = "def456" },
+            new PdfFile { Id = 3, Filename = "Glória - C - Vivaldi.pdf", OriginalName = "gloria.pdf", SongName = "Glória", MusicalKey = "C", FilePath = "organized/Gloria.pdf", FileHash = "ghi789" },
+            new PdfFile { Id = 4, Filename = "Música Católica.pdf", OriginalName = "musica.pdf", SongName = "Música Católica", FilePath = "organized/Musica.pdf", FileHash = "jkl012" },
+        };
+        _context.PdfFiles.AddRange(files);
+        _context.SaveChanges();
+
+        _context.FileArtists.AddRange(
+            new FileArtist { FileId = 1, ArtistId = 1 },
+            new FileArtist { FileId = 2, ArtistId = 2 },
+            new FileArtist { FileId = 3, ArtistId = 3 },
+            new FileArtist { FileId = 4, ArtistId = 4 }
+        );
         _context.SaveChanges();
     }
 
@@ -108,7 +79,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
         Assert.Empty(response.Suggestions);
     }
 
@@ -119,7 +89,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
         Assert.Empty(response.Suggestions);
     }
 
@@ -130,7 +99,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
         Assert.Single(response.Suggestions);
         Assert.Equal("Ave Maria", response.Suggestions[0].SongName);
     }
@@ -138,13 +106,10 @@ public class SearchControllerTests : IDisposable
     [Fact]
     public async Task GetSearchSuggestions_WithAccent_ShouldMatchWithoutAccent()
     {
-        // Search with accent should still match
         var result = await _controller.GetSearchSuggestions("musica");
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
-        // Should match "Música Católica"
         Assert.Contains(response.Suggestions, s => s.SongName!.Contains("Música"));
     }
 
@@ -155,7 +120,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
         Assert.Single(response.Suggestions);
         Assert.Contains("Bach", response.Suggestions[0].Artist);
     }
@@ -163,18 +127,12 @@ public class SearchControllerTests : IDisposable
     [Fact]
     public async Task GetSearchSuggestions_ShouldLimitTo10Results()
     {
-        // Add more files
         for (int i = 10; i < 25; i++)
         {
             _context.PdfFiles.Add(new PdfFile
             {
-                Id = i,
-                Filename = $"Test Song {i}.pdf",
-                OriginalName = $"test{i}.pdf",
-                SongName = $"Test Song {i}",
-                Category = "Test",
-                FilePath = $"organized/Test/Test{i}.pdf",
-                FileHash = $"hash{i}"
+                Id = i, Filename = $"Test Song {i}.pdf", OriginalName = $"test{i}.pdf",
+                SongName = $"Test Song {i}", FilePath = $"organized/Test{i}.pdf", FileHash = $"hash{i}"
             });
         }
         await _context.SaveChangesAsync();
@@ -183,7 +141,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<SearchSuggestionsResponse>(okResult.Value);
-
         Assert.True(response.Suggestions.Count <= 10);
     }
 
@@ -198,7 +155,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ArtistSearchResponse>(okResult.Value);
-
         Assert.Empty(response.Artists);
     }
 
@@ -209,7 +165,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ArtistSearchResponse>(okResult.Value);
-
         Assert.Equal(2, response.Artists.Count);
         Assert.All(response.Artists, a => Assert.Contains("Padre", a));
     }
@@ -221,7 +176,6 @@ public class SearchControllerTests : IDisposable
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ArtistSearchResponse>(okResult.Value);
-
         Assert.Contains(response.Artists, a => a.Contains("Fábio"));
     }
 

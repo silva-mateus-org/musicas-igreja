@@ -3,32 +3,39 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Textarea } from '@core/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { ArrowLeft, Save, X, Music, User, Tag, Calendar, Link as LinkIcon, Eye, Lock } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
-import { musicApi, handleApiError } from '@/lib/api'
+import { musicApi, handleApiError, getActiveWorkspaceId } from '@/lib/api'
 import { UploadZone } from '@/components/upload/upload-zone'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 const CATEGORIES = ['Adoração', 'Louvor', 'Comunhão', 'Entrada', 'Ofertório', 'Final', 'Santíssimo', 'Missa']
-const LITURGICAL_TIMES = ['Advento', 'Natal', 'Quaresma', 'Páscoa', 'Tempo Comum']
 const MUSICAL_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B', 'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm']
+
+interface CustomFilterGroupOption {
+    id: number
+    name: string
+    slug: string
+    values: Array<{ name: string; slug: string }>
+}
 
 interface FormData {
     song_name: string
     artist: string
     categories: string[]
-    liturgical_times: string[]
+    custom_filters: Record<string, string[]>
     musical_key: string
     youtube_link: string
     observations: string
@@ -36,7 +43,7 @@ interface FormData {
 
 interface FilterSuggestions {
     categories: string[]
-    liturgical_times: string[]
+    customFilterGroups: CustomFilterGroupOption[]
     artists: string[]
     musical_keys: string[]
 }
@@ -45,7 +52,8 @@ export default function EditMusicPage() {
     const params = useParams()
     const router = useRouter()
     const { toast } = useToast()
-    const { canEdit, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
 
     const [music, setMusic] = useState<MusicType | null>(null)
     const [loading, setLoading] = useState(true)
@@ -55,7 +63,7 @@ export default function EditMusicPage() {
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [suggestions, setSuggestions] = useState<FilterSuggestions>({
         categories: CATEGORIES,
-        liturgical_times: LITURGICAL_TIMES,
+        customFilterGroups: [],
         artists: [],
         musical_keys: MUSICAL_KEYS
     })
@@ -64,7 +72,7 @@ export default function EditMusicPage() {
         song_name: '',
         artist: '',
         categories: [],
-        liturgical_times: [],
+        custom_filters: {},
         musical_key: '',
         youtube_link: '',
         observations: '',
@@ -81,12 +89,17 @@ export default function EditMusicPage() {
 
     const loadSuggestions = async () => {
         try {
-            const response = await fetch('/api/filters/suggestions')
+            const response = await fetch(`/api/filters/suggestions?workspace_id=${getActiveWorkspaceId()}`)
             const data = await response.json()
             setSuggestions({
-                categories: data.categories || CATEGORIES,
-                liturgical_times: data.liturgical_times || LITURGICAL_TIMES,
-                artists: data.artists || [],
+                categories: (data.categories || CATEGORIES).map((c: any) => typeof c === 'string' ? c : c.label || c.name || '').filter(Boolean),
+                customFilterGroups: (data.custom_filter_groups || []).map((g: any) => ({
+                    id: g.id,
+                    name: g.name,
+                    slug: g.slug,
+                    values: (g.values || []).map((v: any) => ({ name: v.name, slug: v.slug })),
+                })),
+                artists: (data.artists || []).map((a: any) => typeof a === 'string' ? a : a.label || a.name || '').filter(Boolean),
                 musical_keys: data.musical_keys || MUSICAL_KEYS
             })
         } catch (error) {
@@ -103,7 +116,11 @@ export default function EditMusicPage() {
                 song_name: musicData.title || '',
                 artist: musicData.artist || '',
                 categories: musicData.categories || (musicData.category ? [musicData.category] : []),
-                liturgical_times: musicData.liturgical_times || (musicData.liturgical_time ? [musicData.liturgical_time] : []),
+                custom_filters: musicData.custom_filters
+                    ? Object.fromEntries(
+                        Object.entries(musicData.custom_filters).map(([slug, group]) => [slug, group.values])
+                    )
+                    : {},
                 musical_key: musicData.musical_key || '',
                 youtube_link: musicData.youtube_link || '',
                 observations: musicData.observations || '',
@@ -144,7 +161,7 @@ export default function EditMusicPage() {
                 title: formData.song_name,
                 artist: formData.artist,
                 categories: formData.categories,
-                liturgical_times: formData.liturgical_times,
+                custom_filters: formData.custom_filters,
                 musical_key: formData.musical_key,
                 youtube_link: formData.youtube_link,
                 observations: formData.observations,
@@ -226,10 +243,12 @@ export default function EditMusicPage() {
                 <div className="flex flex-col gap-4">
                     {/* Navigation */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                        <Button variant="outline" size="sm" onClick={handleCancelClick} className="self-start shrink-0">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Voltar
-                        </Button>
+                        <SimpleTooltip label="Voltar para detalhes da música">
+                            <Button variant="outline" size="sm" onClick={handleCancelClick} className="self-start shrink-0">
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Voltar
+                            </Button>
+                        </SimpleTooltip>
                         <div className="text-sm text-muted-foreground truncate">
                             <Link href="/music" className="hover:text-primary">Músicas</Link>
                             <span className="mx-2">/</span>
@@ -241,11 +260,13 @@ export default function EditMusicPage() {
                     
                     {/* Actions */}
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:justify-end">
-                        <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                            <Eye className="h-4 w-4" />
-                            <span className="hidden sm:inline">Visualizar PDF</span>
-                            <span className="sm:hidden">Ver PDF</span>
-                        </Button>
+                        <SimpleTooltip label="Abrir PDF em nova aba">
+                            <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">Visualizar PDF</span>
+                                <span className="sm:hidden">Ver PDF</span>
+                            </Button>
+                        </SimpleTooltip>
                         <Button variant="outline" size="sm" onClick={handleCancelClick} disabled={saving} className="gap-1 sm:gap-2 text-xs sm:text-sm">
                             <X className="h-4 w-4" />
                             <span>Cancelar</span>
@@ -314,25 +335,27 @@ export default function EditMusicPage() {
                                             />
                                         </div>
                                     </div>
-                                    <div>
-                                        <Label htmlFor="liturgical_times">Tempos Litúrgicos</Label>
-                                        <div className="mt-1">
-                                            <MultiSelect
-                                                options={suggestions.liturgical_times}
-                                                value={formData.liturgical_times}
-                                                onChange={(value) => handleInputChange('liturgical_times', value)}
-                                                onCreateNew={(newTime) => {
-                                                    // Adicionar à lista de sugestões localmente
-                                                    setSuggestions(prev => ({
-                                                        ...prev,
-                                                        liturgical_times: [...prev.liturgical_times, newTime].sort()
-                                                    }))
-                                                }}
-                                                placeholder="Selecionar tempos litúrgicos"
-                                                createLabel="Criar tempo litúrgico"
-                                            />
+                                    {suggestions.customFilterGroups.map(group => (
+                                        <div key={group.slug}>
+                                            <Label>{group.name}</Label>
+                                            <div className="mt-1">
+                                                <MultiSelect
+                                                    options={group.values.map(v => v.name)}
+                                                    value={formData.custom_filters[group.slug] || []}
+                                                    onChange={(values) => {
+                                                        const newFilters = { ...formData.custom_filters }
+                                                        if (values.length > 0) {
+                                                            newFilters[group.slug] = values
+                                                        } else {
+                                                            delete newFilters[group.slug]
+                                                        }
+                                                        handleInputChange('custom_filters' as keyof FormData, newFilters as any)
+                                                    }}
+                                                    placeholder={`Selecionar ${group.name.toLowerCase()}`}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
 
                                 <div>

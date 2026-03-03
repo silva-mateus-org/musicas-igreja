@@ -12,6 +12,9 @@ import type {
     PaginatedResponse,
     SearchFilters,
     PaginationParams,
+    FilterOption,
+    Workspace,
+    CustomFilterGroup,
     SystemEvent,
     AuditLog,
     SystemMetric,
@@ -22,6 +25,11 @@ import type {
 } from '@/types'
 
 const BASE = '/api'
+
+let _activeWorkspaceId = 1
+
+export function setActiveWorkspaceId(id: number) { _activeWorkspaceId = id }
+export function getActiveWorkspaceId(): number { return _activeWorkspaceId }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(`${BASE}${path}`, {
@@ -55,23 +63,29 @@ export const musicApi = {
         pagination: PaginationParams = { page: 1, limit: 20 }
     ): Promise<PaginatedResponse<MusicFile>> {
         const params = new URLSearchParams()
+        params.append('workspace_id', String(_activeWorkspaceId))
         params.append('page', String(pagination.page || 1))
         params.append('per_page', String(pagination.limit || 20))
+        if (pagination.sort_by) {
+            const sortMap: Record<string, string> = { title: 'song_name' }
+            params.append('sort_by', sortMap[pagination.sort_by] || pagination.sort_by)
+        }
+        if (pagination.sort_order) params.append('sort_order', pagination.sort_order)
         if (filters.title) params.append('q', filters.title)
         if (filters.category) {
-            // Support both single category and array of categories
             const categories = Array.isArray(filters.category) ? filters.category : [filters.category]
             categories.forEach(cat => params.append('category', cat))
         }
-        if (filters.liturgical_time) {
-            // Support both single time and array of times
-            const times = Array.isArray(filters.liturgical_time) ? filters.liturgical_time : [filters.liturgical_time]
-            times.forEach(time => params.append('liturgical_time', time))
-        }
         if (filters.artist) {
-            // Support both single artist and array of artists
             const artists = Array.isArray(filters.artist) ? filters.artist : [filters.artist]
             artists.forEach(artist => params.append('artist', artist))
+        }
+        if (filters.musical_key) params.append('musical_key', filters.musical_key)
+        if (filters.has_youtube !== undefined) params.append('has_youtube', String(filters.has_youtube))
+        if (filters.custom_filters) {
+            for (const [groupSlug, values] of Object.entries(filters.custom_filters)) {
+                values.forEach(v => params.append(`custom_filter_${groupSlug}`, v))
+            }
         }
 
         const data = await request<{ files: any[]; pagination: { page: number; per_page: number; total: number; total_pages: number } }>(
@@ -79,30 +93,7 @@ export const musicApi = {
         )
 
         const mapped: PaginatedResponse<MusicFile> = {
-            data: (data.files || []).map((f: any) => ({
-                id: f.id,
-                original_name: f.original_name,
-                filename: f.filename,
-                title: f.song_name || f.filename?.replace('.pdf', ''),
-                artist: f.artist || undefined,
-                category: f.primary_category || (Array.isArray(f.categories) ? f.categories[0] : undefined),
-                liturgical_time: f.primary_liturgical_time || undefined,
-                categories: Array.isArray(f.categories) && f.categories.length
-                    ? f.categories
-                    : (f.primary_category ? [f.primary_category] : []),
-                liturgical_times: Array.isArray(f.liturgical_times) && f.liturgical_times.length
-                    ? f.liturgical_times
-                    : (f.primary_liturgical_time ? [f.primary_liturgical_time] : []),
-                musical_key: f.musical_key || undefined,
-                file_size: f.file_size || 0,
-                pages: f.page_count || 0,
-                upload_date: f.upload_date,
-                uploaded_by: 0,
-                youtube_link: f.youtube_link || undefined,
-                observations: f.description || undefined,
-                duplicate_of: undefined,
-                is_duplicate: false,
-            })),
+            data: (data.files || []).map(mapBackendToMusicFile),
             pagination: {
                 page: data.pagination?.page || 1,
                 limit: data.pagination?.per_page || (pagination.limit || 20),
@@ -115,31 +106,7 @@ export const musicApi = {
 
     async getMusic(id: number): Promise<MusicFile> {
         const data = await request<{ success: boolean; file: any }>(`/files/${id}`)
-        const f = data.file
-        return {
-            id: f.id,
-            original_name: f.original_name,
-            filename: f.filename,
-            title: f.song_name || f.filename?.replace('.pdf', ''),
-            artist: f.artist || undefined,
-            category: f.primary_category || (Array.isArray(f.categories) ? f.categories[0] : undefined),
-            liturgical_time: f.primary_liturgical_time || undefined,
-            categories: Array.isArray(f.categories) && f.categories.length
-                ? f.categories
-                : (f.primary_category ? [f.primary_category] : []),
-            liturgical_times: Array.isArray(f.liturgical_times) && f.liturgical_times.length
-                ? f.liturgical_times
-                : (f.primary_liturgical_time ? [f.primary_liturgical_time] : []),
-            musical_key: f.musical_key || undefined,
-            file_size: f.file_size || 0,
-            pages: f.page_count || 0,
-            upload_date: f.upload_date,
-            uploaded_by: 0,
-            youtube_link: f.youtube_link || undefined,
-            observations: f.description || undefined,
-            duplicate_of: undefined,
-            is_duplicate: false,
-        }
+        return mapBackendToMusicFile(data.file)
     },
 
     async updateMusic(id: number, data: Partial<MusicFile>): Promise<ApiResponse> {
@@ -150,7 +117,9 @@ export const musicApi = {
             youtube_link: data.youtube_link,
             description: data.observations,
             categories: data.categories || (data.category ? [data.category] : []),
-            liturgical_times: data.liturgical_times || (data.liturgical_time ? [data.liturgical_time] : []),
+            custom_filters: data.custom_filters
+                ? Object.fromEntries(Object.entries(data.custom_filters).map(([k, v]) => [k, v.values]))
+                : undefined,
         }
         return await request<ApiResponse>(`/files/${id}`, {
             method: 'PUT',
@@ -177,15 +146,12 @@ export const musicApi = {
         metadata?: Array<{
             title?: string
             artist?: string
-            category?: string // Legacy single category
-            liturgical_time?: string // Legacy single liturgical time
-            categories?: string[] // Multiple categories
-            liturgical_times?: string[] // Multiple liturgical times
+            category?: string
+            categories?: string[]
             musical_key?: string
             youtube_link?: string
             observations?: string
             new_categories?: string[]
-            new_liturgical_times?: string[]
             new_artist?: string
         }>
     ): Promise<any> {
@@ -195,9 +161,8 @@ export const musicApi = {
         for (let i = 0; i < arr.length; i++) {
             const form = new FormData()
             form.append('file', arr[i])
+            form.append('workspace_id', String(_activeWorkspaceId))
             const meta = metadata?.[i]
-
-            // File metadata prepared
 
             if (meta?.title) form.append('song_name', meta.title)
             if (meta?.artist) form.append('artist', meta.artist)
@@ -206,31 +171,15 @@ export const musicApi = {
             if (meta?.youtube_link) form.append('youtube_link', meta.youtube_link)
             if (meta?.observations) form.append('description', meta.observations)
 
-            // Enviar múltiplas categorias
             if (meta?.categories?.length) {
                 meta.categories.forEach(cat => form.append('categories', cat))
             } else if (meta?.category) {
-                // Fallback para compatibilidade
                 form.append('categories', meta.category)
             }
 
-            // Enviar múltiplos tempos litúrgicos
-            if (meta?.liturgical_times?.length) {
-                meta.liturgical_times.forEach(time => form.append('liturgical_times', time))
-            } else if (meta?.liturgical_time) {
-                // Fallback para compatibilidade
-                form.append('liturgical_times', meta.liturgical_time)
-            }
-
-            // Adicionar novas categorias e tempos litúrgicos se existirem
             if (meta?.new_categories?.length) {
                 meta.new_categories.forEach(cat => form.append('new_categories', cat))
             }
-            if (meta?.new_liturgical_times?.length) {
-                meta.new_liturgical_times.forEach(time => form.append('new_liturgical_times', time))
-            }
-
-            // Form data ready for upload
 
             try {
                 const res = await fetch(`${BASE}/files`, { 
@@ -288,7 +237,7 @@ export const listsApi = {
     ): Promise<PaginatedResponse<MusicList>> {
         // Fetching lists
 
-        const lists = await request<Array<{ id: number; name: string; observations: string | null; created_date: string; updated_date: string; file_count: number }>>('/merge_lists')
+        const lists = await request<Array<{ id: number; name: string; observations: string | null; created_date: string; updated_date: string; file_count: number }>>(`/merge_lists?workspace_id=${_activeWorkspaceId}`)
         // Lists response received
 
         const mapped = {
@@ -328,8 +277,8 @@ export const listsApi = {
                     original_name: it.file.filename,
                     title: it.file.song_name || it.file.filename?.replace('.pdf', ''),
                     artist: it.file.artist,
-                    category: it.file.category || (it.file.categories?.[0]) || undefined,
-                    liturgical_time: it.file.liturgical_time || (it.file.liturgical_times?.[0]) || undefined,
+                    category: it.file.category,
+                    custom_filters: it.file.custom_filters,
                     musical_key: it.file.musical_key,
                     youtube_link: it.file.youtube_link,
                     file_size: 0,
@@ -342,7 +291,7 @@ export const listsApi = {
     },
 
     async createList(name: string, observations?: string): Promise<{ message: string; list_id: number }> {
-        return await request<{ message: string; list_id: number }>('/merge_lists', {
+        return await request<{ message: string; list_id: number }>(`/merge_lists?workspace_id=${_activeWorkspaceId}`, {
             method: 'POST',
             body: JSON.stringify({ name, observations }),
         })
@@ -407,14 +356,14 @@ export const healthApi = {
     async check(): Promise<any> { return await request<any>('/health') },
 }
 
-// ============ CATEGORIES / LITURGICAL TIMES ============
+// ============ CATEGORIES ============
 export const categoriesApi = {
-    async getCategories(): Promise<{ data: any[] }> {
-        const data = await request<any[]>('/dashboard/get_categories')
+    async getCategories(): Promise<{ data: FilterOption[] }> {
+        const data = await request<FilterOption[]>(`/dashboard/get_categories?workspace_id=${_activeWorkspaceId}`)
         return { data }
     },
     async createCategory(name: string): Promise<ApiResponse> {
-        return await request<ApiResponse>('/categories', { method: 'POST', body: JSON.stringify({ name }) })
+        return await request<ApiResponse>(`/categories?workspace_id=${_activeWorkspaceId}`, { method: 'POST', body: JSON.stringify({ name }) })
     },
     async updateCategory(id: number, name: string): Promise<ApiResponse> {
         return await request<ApiResponse>(`/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
@@ -424,19 +373,61 @@ export const categoriesApi = {
     },
 }
 
-export const liturgicalTimesApi = {
-    async getLiturgicalTimes(): Promise<{ data: any[] }> {
-        const data = await request<any[]>('/dashboard/get_liturgical_times')
-        return { data }
+// ============ WORKSPACES ============
+export const workspacesApi = {
+    async getAll(): Promise<Workspace[]> {
+        return await request<Workspace[]>('/workspaces')
     },
-    async createLiturgicalTime(name: string): Promise<ApiResponse> {
-        return await request<ApiResponse>('/liturgical_times', { method: 'POST', body: JSON.stringify({ name }) })
+    async getById(id: number): Promise<Workspace> {
+        return await request<Workspace>(`/workspaces/${id}`)
     },
-    async updateLiturgicalTime(id: number, name: string): Promise<ApiResponse> {
-        return await request<ApiResponse>(`/liturgical_times/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+    async create(data: { name: string; description?: string; icon?: string; color?: string }): Promise<Workspace> {
+        return await request<Workspace>('/workspaces', { method: 'POST', body: JSON.stringify(data) })
     },
-    async deleteLiturgicalTime(id: number): Promise<ApiResponse> {
-        return await request<ApiResponse>(`/liturgical_times/${id}`, { method: 'DELETE' })
+    async update(id: number, data: Partial<{ name: string; description: string; icon: string; color: string; is_active: boolean; sort_order: number }>): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/workspaces/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+    },
+    async delete(id: number): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/workspaces/${id}`, { method: 'DELETE' })
+    },
+}
+
+// ============ CUSTOM FILTERS ============
+export const customFiltersApi = {
+    async getGroups(workspaceId?: number): Promise<{ groups: CustomFilterGroup[] }> {
+        const wsId = workspaceId ?? _activeWorkspaceId
+        return await request<{ groups: CustomFilterGroup[] }>(`/custom_filters/groups?workspace_id=${wsId}`)
+    },
+    async getGroup(id: number): Promise<CustomFilterGroup> {
+        return await request<CustomFilterGroup>(`/custom_filters/groups/${id}`)
+    },
+    async createGroup(name: string, workspaceId?: number): Promise<{ success: boolean; id: number }> {
+        const wsId = workspaceId ?? _activeWorkspaceId
+        return await request<{ success: boolean; id: number }>(`/custom_filters/groups?workspace_id=${wsId}`, { method: 'POST', body: JSON.stringify({ name }) })
+    },
+    async updateGroup(id: number, name: string): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/groups/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+    },
+    async deleteGroup(id: number): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/groups/${id}`, { method: 'DELETE' })
+    },
+    async toggleShowAsTab(groupId: number, showAsTab: boolean): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/groups/${groupId}/show-as-tab`, { method: 'PATCH', body: JSON.stringify({ show_as_tab: showAsTab }) })
+    },
+    async getValues(groupId: number): Promise<{ values: any[] }> {
+        return await request<{ values: any[] }>(`/custom_filters/groups/${groupId}/values`)
+    },
+    async createValue(groupId: number, name: string): Promise<{ success: boolean; id: number }> {
+        return await request<{ success: boolean; id: number }>(`/custom_filters/groups/${groupId}/values`, { method: 'POST', body: JSON.stringify({ name }) })
+    },
+    async updateValue(id: number, name: string): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/values/${id}`, { method: 'PUT', body: JSON.stringify({ name }) })
+    },
+    async deleteValue(id: number): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/custom_filters/values/${id}`, { method: 'DELETE' })
+    },
+    async mergeValues(sourceId: number, targetId: number): Promise<{ success: boolean; message: string; merged_files: number }> {
+        return await request<{ success: boolean; message: string; merged_files: number }>(`/custom_filters/values/${sourceId}/merge/${targetId}`, { method: 'POST' })
     },
 }
 
@@ -454,78 +445,68 @@ export const downloadFile = (blob: Blob, filename: string) => {
 
 // ============ ADMIN / DISCOVERY API ============
 export const adminApi = {
+    async verifyPdfs(): Promise<any> {
+        return await request<any>('/admin/verify-pdfs', { method: 'GET' })
+    },
+    async fixPdfNames(fileIds: number[]): Promise<any> {
+        return await request<any>('/admin/fix-pdf-names', {
+            method: 'POST',
+            body: JSON.stringify({ file_ids: fileIds })
+        })
+    },
     async discoverEntities(): Promise<any> {
-        return await request<any>('/admin/discovery', { method: 'GET' })
+        return await request<any>('/admin/discover-entities', { method: 'GET' })
     },
     async registerEntities(entities: any): Promise<any> {
-        return await request<any>('/admin/discovery', { method: 'POST', body: JSON.stringify({ entities }) })
+        return await request<any>('/admin/register-discovered-entities', { method: 'POST', body: JSON.stringify(entities) })
     },
     async cleanupEntities(): Promise<any> {
-        return await request<any>('/admin/cleanup', { method: 'POST' })
+        return await request<any>('/admin/cleanup-entities', { method: 'POST' })
+    },
+    async findDuplicates(): Promise<any> {
+        return await request<any>('/admin/find-duplicates', { method: 'GET' })
+    },
+    async deleteDuplicate(fileId: number): Promise<any> {
+        return await request<any>('/admin/delete-duplicate', { method: 'POST', body: JSON.stringify({ file_id: fileId }) })
+    },
+    async replaceDuplicates(keepFileId: number, removeFileIds: number[]): Promise<any> {
+        return await request<any>('/admin/replace-duplicates', {
+            method: 'POST',
+            body: JSON.stringify({ keep_file_id: keepFileId, remove_file_ids: removeFileIds })
+        })
+    },
+    async scanLegacyFiles(): Promise<any> {
+        return await request<any>('/admin/scan-legacy-files', { method: 'GET' })
+    },
+    async cleanupLegacyFiles(): Promise<any> {
+        return await request<any>('/admin/cleanup-legacy-files', { method: 'POST' })
     },
 }
 
 // Dashboard API
 export const dashboardApi = {
     async getStats(): Promise<any> {
-        return await request<any>('/dashboard/stats', { method: 'GET' })
+        return await request<any>(`/dashboard/stats?workspace_id=${_activeWorkspaceId}`)
     },
 
-    async getTopSongsByCategory(category: string): Promise<any> {
-        return await request<any>(`/dashboard/top-songs-by-category?category=${encodeURIComponent(category)}`, { method: 'GET' })
+    async getTopSongsByCategory(categorySlug: string): Promise<any> {
+        return await request<any>(`/dashboard/top-songs-by-category?workspace_id=${_activeWorkspaceId}&category=${categorySlug}`)
     },
 
     async getTopArtists(): Promise<any> {
-        return await request<any>('/dashboard/top-artists', { method: 'GET' })
+        return await request<any>(`/dashboard/top-artists?workspace_id=${_activeWorkspaceId}`)
     },
 
     async getUploadsTimeline(): Promise<any> {
-        return await request<any>('/dashboard/uploads-timeline', { method: 'GET' })
+        return await request<any>(`/dashboard/uploads-timeline?workspace_id=${_activeWorkspaceId}`)
     },
 
-    async getArtists(): Promise<string[]> {
-        return await request<string[]>('/dashboard/get_artists', { method: 'GET' })
-    }
-}
-
-// ============ AUTH ============
-export const authApi = {
-    async login(username: string, password: string): Promise<any> {
-        return await request<any>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ username, password }),
-            credentials: 'include',
-        })
+    async getArtists(): Promise<FilterOption[]> {
+        return await request<FilterOption[]>(`/dashboard/get_artists?workspace_id=${_activeWorkspaceId}`)
     },
 
-    async logout(): Promise<any> {
-        return await request<any>('/auth/logout', {
-            method: 'POST',
-            credentials: 'include',
-        })
-    },
-
-    async getCurrentUser(): Promise<any> {
-        return await request<any>('/auth/me', {
-            method: 'GET',
-            credentials: 'include',
-        })
-    },
-
-    async changePassword(currentPassword: string, newPassword: string): Promise<any> {
-        return await request<any>('/auth/change-password', {
-            method: 'POST',
-            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-            credentials: 'include',
-        })
-    },
-
-    async updateProfile(fullName: string): Promise<any> {
-        return await request<any>('/auth/profile', {
-            method: 'PUT',
-            body: JSON.stringify({ full_name: fullName }),
-            credentials: 'include',
-        })
+    async getCustomFilterGroups(): Promise<CustomFilterGroup[]> {
+        return await request<CustomFilterGroup[]>(`/dashboard/get_custom_filter_groups?workspace_id=${_activeWorkspaceId}`)
     }
 }
 
@@ -787,6 +768,28 @@ export const alertConfigApi = {
             credentials: 'include',
         })
     },
+}
+
+function mapBackendToMusicFile(f: any): MusicFile {
+    return {
+        id: f.id,
+        original_name: f.original_name,
+        filename: f.filename,
+        title: f.song_name || f.filename?.replace('.pdf', ''),
+        artist: f.artist || undefined,
+        category: Array.isArray(f.categories) ? f.categories[0] : undefined,
+        categories: Array.isArray(f.categories) ? f.categories : [],
+        custom_filters: f.custom_filters || undefined,
+        musical_key: f.musical_key || undefined,
+        file_size: f.file_size || 0,
+        pages: f.page_count || 0,
+        upload_date: f.upload_date,
+        uploaded_by: 0,
+        youtube_link: f.youtube_link || undefined,
+        observations: f.description || undefined,
+        duplicate_of: undefined,
+        is_duplicate: false,
+    }
 }
 
 export function handleApiError(error: unknown): string {

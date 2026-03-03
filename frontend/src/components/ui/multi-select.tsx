@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 import { Check, ChevronsUpDown, X, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { cn, removeAccents } from '@/lib/utils'
+import { Badge } from '@core/components/ui/badge'
+import { Button } from '@core/components/ui/button'
 import {
     Command,
     CommandEmpty,
@@ -17,10 +17,16 @@ import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@core/components/ui/popover'
+
+export type SelectOption = string | { value: string; label: string }
+
+function normalizeOption(opt: SelectOption): { value: string; label: string } {
+    return typeof opt === 'string' ? { value: opt, label: opt } : opt
+}
 
 interface MultiSelectProps {
-    options: string[]
+    options: SelectOption[]
     value: string[]
     onChange: (value: string[]) => void
     onCreateNew?: (value: string) => void
@@ -45,6 +51,16 @@ export function MultiSelect({
     const [open, setOpen] = React.useState(false)
     const [searchValue, setSearchValue] = React.useState('')
 
+    const normalized = React.useMemo(() => options.map(normalizeOption), [options])
+
+    const labelMap = React.useMemo(() => {
+        const map = new Map<string, string>()
+        for (const opt of normalized) map.set(opt.value, opt.label)
+        return map
+    }, [normalized])
+
+    const getLabel = (val: string) => labelMap.get(val) ?? val
+
     const handleUnselect = (option: string) => {
         onChange(value.filter((v) => v !== option))
     }
@@ -61,7 +77,7 @@ export function MultiSelect({
     }
 
     const handleCreateNew = () => {
-        if (searchValue.trim() && onCreateNew && !options.includes(searchValue.trim()) && !value.includes(searchValue.trim())) {
+        if (searchValue.trim() && onCreateNew && !normalized.some(o => o.value === searchValue.trim()) && !value.includes(searchValue.trim())) {
             const newValue = searchValue.trim()
             onCreateNew(newValue)
             onChange([...value, newValue])
@@ -69,9 +85,9 @@ export function MultiSelect({
         }
     }
 
-    const filteredOptions = options.filter(option =>
-        option.toLowerCase().includes(searchValue.toLowerCase()) &&
-        !value.includes(option)
+    const filteredOptions = normalized.filter(option =>
+        removeAccents(option.label.toLowerCase()).includes(removeAccents(searchValue.toLowerCase())) &&
+        !value.includes(option.value)
     )
 
     return (
@@ -100,7 +116,7 @@ export function MultiSelect({
                                     handleUnselect(item)
                                 }}
                             >
-                                {item}
+                                {getLabel(item)}
                                 <X className="h-3 w-3 text-muted-foreground hover:text-foreground ml-1" />
                             </Badge>
                         ))}
@@ -109,7 +125,7 @@ export function MultiSelect({
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                     <CommandInput
                         placeholder="Buscar..."
                         value={searchValue}
@@ -135,20 +151,20 @@ export function MultiSelect({
                         <CommandGroup>
                             {filteredOptions.map((option) => (
                                 <CommandItem
-                                    key={option}
-                                    value={option}
-                                    onSelect={() => handleSelect(option)}
+                                    key={option.value}
+                                    value={option.label}
+                                    onSelect={() => handleSelect(option.value)}
                                 >
                                     <Check
                                         className={cn(
                                             "mr-2 h-4 w-4",
-                                            value.includes(option) ? "opacity-100" : "opacity-0"
+                                            value.includes(option.value) ? "opacity-100" : "opacity-0"
                                         )}
                                     />
-                                    {option}
+                                    {option.label}
                                 </CommandItem>
                             ))}
-                            {onCreateNew && searchValue.trim() && !options.includes(searchValue.trim()) && !value.includes(searchValue.trim()) && (
+                            {onCreateNew && searchValue.trim() && !normalized.some(o => o.label === searchValue.trim()) && !value.includes(searchValue.trim()) && (
                                 <CommandItem
                                     value={searchValue}
                                     onSelect={handleCreateNew}

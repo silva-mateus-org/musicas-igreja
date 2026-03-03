@@ -1,5 +1,7 @@
+using Core.Auth.Helpers;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
-using MusicasIgreja.Api.Helpers;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Services;
 
 namespace MusicasIgreja.Api.Controllers;
@@ -9,27 +11,25 @@ namespace MusicasIgreja.Api.Controllers;
 public class MonitoringController : ControllerBase
 {
     private readonly IMonitoringService _monitoringService;
+    private readonly ICoreAuthService _authService;
     private readonly ILogger<MonitoringController> _logger;
 
-    public MonitoringController(IMonitoringService monitoringService, ILogger<MonitoringController> logger)
+    public MonitoringController(IMonitoringService monitoringService, ICoreAuthService authService, ILogger<MonitoringController> logger)
     {
         _monitoringService = monitoringService;
+        _authService = authService;
         _logger = logger;
     }
 
     [HttpGet("alerts")]
     public async Task<ActionResult> GetAlerts()
     {
-        // Check if user is authenticated and is admin
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            var userId = CoreAuthHelper.GetCurrentUserId(HttpContext);
             var alerts = await _monitoringService.GetUnreadAlertsAsync(userId);
 
             return Ok(new
@@ -63,11 +63,8 @@ public class MonitoringController : ControllerBase
     [HttpGet("alerts/count")]
     public async Task<ActionResult> GetAlertCount()
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -84,11 +81,8 @@ public class MonitoringController : ControllerBase
     [HttpPost("alerts/{id}/read")]
     public async Task<ActionResult> MarkAlertAsRead(int id)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -112,11 +106,8 @@ public class MonitoringController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int limit = 50)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -176,11 +167,8 @@ public class MonitoringController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int limit = 50)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -235,11 +223,8 @@ public class MonitoringController : ControllerBase
         [FromQuery] string? end_date = null,
         [FromQuery] int limit = 100)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -278,11 +263,8 @@ public class MonitoringController : ControllerBase
     [HttpGet("health-extended")]
     public async Task<ActionResult> GetHealthExtended()
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {

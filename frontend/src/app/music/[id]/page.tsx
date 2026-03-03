@@ -3,18 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Badge } from '@core/components/ui/badge'
 import { ArrowLeft, Download, Edit, Trash2, ExternalLink, Music, User, Tag, Calendar, PlayCircle, Eye, Plus, RefreshCw } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useToast } from '@core/hooks/use-toast'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@core/components/ui/tooltip'
 import Link from 'next/link'
 import type { MusicFile as MusicType } from '@/types'
 import { musicApi, handleApiError } from '@/lib/api'
+import { useMusicDetail } from '@/hooks/use-music'
 import { AddToListModal } from '@/components/music/add-to-list-modal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { useAuth } from '@/contexts/AuthContext'
+import { LoadingOverlay } from '@/components/ui/loading-spinner'
+import { useAuth } from '@core/contexts/auth-context'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
 function isValidYouTube(url?: string) {
@@ -31,37 +33,29 @@ export default function MusicDetailsPage() {
     const params = useParams()
     const router = useRouter()
     const { toast } = useToast()
-    const { canEdit, canDelete } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canDelete = hasPermission('music:delete')
 
-    const [music, setMusic] = useState<MusicType | null>(null)
-    const [loading, setLoading] = useState(true)
+    const musicId = parseInt(params.id as string)
+    const { data: music, isLoading: loading, error: queryError } = useMusicDetail(musicId)
+
     const [pdfError, setPdfError] = useState(false)
     const [pdfUrl, setPdfUrl] = useState<string | null>(null)
     const [loadingPdf, setLoadingPdf] = useState(true)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
-    const musicId = params.id as string
+    useEffect(() => {
+        if (music?.id) loadPdf(music.id)
+    }, [music?.id])
 
     useEffect(() => {
-        if (musicId) loadMusic()
-    }, [musicId])
-
-    const loadMusic = async () => {
-        try {
-            setLoading(true)
-            const musicData = await musicApi.getMusic(parseInt(musicId))
-            setMusic(musicData)
-
-            // Carregar PDF como blob para evitar problemas de CORS
-            loadPdf(musicData.id)
-        } catch (error) {
-            toast({ title: 'Erro', description: handleApiError(error), variant: 'destructive' })
+        if (queryError) {
+            toast({ title: 'Erro', description: (queryError as Error).message, variant: 'destructive' })
             router.push('/music')
-        } finally {
-            setLoading(false)
         }
-    }
+    }, [queryError, toast, router])
 
     const loadPdf = async (fileId: number) => {
         try {
@@ -141,12 +135,7 @@ export default function MusicDetailsPage() {
     if (loading) {
         return (
             <MainLayout>
-                <div className="flex items-center justify-center h-64">
-                    <div className="text-center">
-                        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <p>Carregando...</p>
-                    </div>
-                </div>
+                <LoadingOverlay message="Carregando música..." />
             </MainLayout>
         )
     }
@@ -194,17 +183,13 @@ export default function MusicDetailsPage() {
                                     </Badge>
                                 ) : null}
 
-                                {music.liturgical_times && music.liturgical_times.length > 0 ? (
-                                    music.liturgical_times.map((time, idx) => (
-                                        <Badge key={idx} variant="outline" className="text-xs sm:text-sm">
-                                            <Calendar className="h-3 w-3 mr-1 shrink-0" />{time}
+                                {music.custom_filters && Object.entries(music.custom_filters).map(([slug, group]) =>
+                                    group.values.map((val, idx) => (
+                                        <Badge key={`${slug}-${idx}`} variant="outline" className="text-xs sm:text-sm">
+                                            <Calendar className="h-3 w-3 mr-1 shrink-0" />{val}
                                         </Badge>
                                     ))
-                                ) : music.liturgical_time ? (
-                                    <Badge variant="outline" className="text-xs sm:text-sm">
-                                        <Calendar className="h-3 w-3 mr-1 shrink-0" />{music.liturgical_time}
-                                    </Badge>
-                                ) : null}
+                                )}
 
                                 {music.musical_key && (
                                     <Badge variant="outline" className="text-xs sm:text-sm">
@@ -277,23 +262,16 @@ export default function MusicDetailsPage() {
                                     </Tooltip>
                                 )}
 
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <AddToListModal
-                                            musicId={music.id}
-                                            musicTitle={music.title || music.original_name}
-                                            trigger={
-                                                <Button variant="default" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
-                                                    <Plus className="h-4 w-4" />
-                                                    <span>Adicionar à lista</span>
-                                                </Button>
-                                            }
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Adicionar música a uma lista</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <AddToListModal
+                                    musicId={music.id}
+                                    musicTitle={music.title || music.original_name}
+                                    trigger={
+                                        <Button variant="default" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
+                                            <Plus className="h-4 w-4" />
+                                            <span>Adicionar à lista</span>
+                                        </Button>
+                                    }
+                                />
                             </div>
                         </TooltipProvider>
                     </div>
@@ -308,12 +286,7 @@ export default function MusicDetailsPage() {
                                 <div className="rounded-lg overflow-hidden border">
                                     {loadingPdf ? (
                                         <div className="w-full h-[80vh] flex items-center justify-center bg-muted">
-                                            <div className="text-center">
-                                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                                                <p className="text-muted-foreground">
-                                                    Carregando PDF...
-                                                </p>
-                                            </div>
+                                            <LoadingOverlay message="Carregando PDF..." />
                                         </div>
                                     ) : pdfError ? (
                                         <div className="w-full h-[80vh] flex items-center justify-center bg-muted">

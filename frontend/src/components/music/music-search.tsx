@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { Badge } from '@core/components/ui/badge'
 import type { SearchFilters } from '@/types'
 import { Search, X } from 'lucide-react'
 import { debounce } from '@/lib/utils'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 interface MusicSearchProps {
     onSearch: (filters: SearchFilters) => void
@@ -60,7 +61,6 @@ export function MusicSearch({ onSearch, initialFilters = {} }: MusicSearchProps)
             title: 'Título',
             artist: 'Artista',
             category: 'Categoria',
-            liturgical_time: 'Tempo Litúrgico',
             musical_key: 'Tonalidade',
             has_youtube: 'Com YouTube'
         }
@@ -86,14 +86,15 @@ export function MusicSearch({ onSearch, initialFilters = {} }: MusicSearchProps)
                     />
                 </div>
                 {(searchTerm || Object.keys(activeFilters).length > 0) && (
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleClearSearch}
-                        title="Limpar busca"
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
+                    <SimpleTooltip label="Limpar busca">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleClearSearch}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </SimpleTooltip>
                 )}
             </div>
 

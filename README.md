@@ -22,22 +22,25 @@ Acesse a aplicação em produção: **[https://cifras.networkmat.uk/](https://ci
 
 ### Backend
 - **C# / ASP.NET Core 9.0** - API RESTful
-- **Entity Framework Core** - ORM para SQLite
-- **BCrypt** - Hash seguro de senhas
-- **iText7** - Manipulação de PDFs
+- **Entity Framework Core + Pomelo** - ORM para MySQL
+- **Core.Auth** - Autenticacao, RBAC com permissoes string-based, rate limiting
+- **Core.FileManagement** - Upload/storage de PDFs com deduplicacao
+- **PdfSharpCore** - Manipulacao de PDFs
 
 ### Frontend
 - **Next.js 14** - Framework React com Server-Side Rendering
-- **TypeScript** - Tipagem estática
+- **TypeScript** - Tipagem estatica
 - **TanStack Query** - Gerenciamento de estado e cache
-- **React Hook Form + Zod** - Validação de formulários
-- **Tailwind CSS** - Estilização
-- **shadcn/ui** - Componentes UI
+- **React Hook Form + Zod** - Validacao de formularios
+- **Tailwind CSS** - Estilizacao
+- **shadcn/ui** - Componentes UI (compartilhados via core)
 
 ### Infraestrutura
-- **Docker / Docker Compose** - Containerização
-- **GitHub Actions** - CI/CD automatizado
-- **SQLite** - Banco de dados
+- **Docker / Docker Compose** - Containerizacao
+- **GitHub Actions** - CI/CD com workflow reutilizavel (homelab-infra)
+- **MySQL 8.0** - Banco de dados (compartilhado via homelab)
+- **Cloudflare Tunnel** - Acesso externo
+- **core-system** - Submodule com codigo compartilhado (auth, file management, UI)
 
 ## 🚀 Instalação e Execução
 
@@ -45,29 +48,21 @@ Acesse a aplicação em produção: **[https://cifras.networkmat.uk/](https://ci
 - [Docker](https://www.docker.com/) e Docker Compose
 - Ou: [.NET 9.0 SDK](https://dotnet.microsoft.com/download) + [Node.js 20+](https://nodejs.org/)
 
-### Opção 1: Docker (Recomendado)
+### Clonar com submodule
 
 ```bash
-# Clone o repositório
-git clone https://github.com/silva-mateus-org/musicas-igreja.git
+git clone --recurse-submodules https://github.com/silva-mateus-org/musicas-igreja.git
 cd musicas-igreja
-
-# Inicie os containers
-docker-compose up -d
-
-# Acesse a aplicação
-# Frontend: http://localhost:3000
-# Backend: http://localhost:5000
 ```
 
-### Opção 2: Desenvolvimento Local
+### Desenvolvimento Local
 
-#### Backend
+#### Backend (requer MySQL rodando)
 ```bash
 cd backend
 dotnet restore
 dotnet run
-# API disponível em http://localhost:5000
+# API disponivel em http://localhost:5000
 ```
 
 #### Frontend
@@ -75,8 +70,22 @@ dotnet run
 cd frontend
 npm install
 npm run dev
-# Interface disponível em http://localhost:3000
+# Interface disponivel em http://localhost:3000
 ```
+
+### Deploy (Servidor / homelab-infra)
+
+O deploy e automatizado via GitHub Actions usando o workflow reutilizavel do `homelab-infra`.
+
+**Setup inicial do servidor:**
+
+1. Clonar homelab-infra em `/opt/homelab/docker`
+2. Criar `.env` com: `GITHUB_USER`, `MUSICAS_DB_USER`, `MUSICAS_DB_PASSWORD`, `MYSQL_ROOT_PASSWORD`, `CLOUDFLARE_TUNNEL_TOKEN`
+3. Criar network: `docker network create homelab`
+4. Iniciar infra base: `docker compose up -d` (MySQL + Cloudflare Tunnel)
+5. Configurar secrets no repositorio GitHub: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`
+
+O push para `main` aciona automaticamente o build e deploy.
 
 ## 🔐 Acesso Padrão
 
@@ -109,30 +118,31 @@ Os testes são executados automaticamente no CI/CD antes de cada deploy.
 musicas-igreja/
 ├── backend/                 # API em C# / ASP.NET Core
 │   ├── Controllers/         # Endpoints da API
-│   ├── Services/            # Lógica de negócio
+│   ├── Services/            # Logica de negocio
 │   ├── Models/              # Modelos de dados
 │   ├── Data/                # Contexto EF Core
-│   └── Migrations/          # Migrações do banco
-├── backend.tests/           # Testes unitários
+│   └── Permissions.cs       # Permissoes do projeto
+├── backend.tests/           # Testes unitarios
 ├── frontend/                # Interface em Next.js
 │   └── src/
-│       ├── app/             # Páginas (App Router)
+│       ├── app/             # Paginas (App Router)
 │       ├── components/      # Componentes React
-│       ├── contexts/        # Context API (Auth, etc)
-│       └── lib/             # Utilitários
+│       └── lib/             # Utilitarios
+├── core/                    # Submodule core-system
+│   ├── backend/src/         # Core.Auth, Core.FileManagement, Core.Infrastructure
+│   └── frontend/            # Componentes UI, auth context, hooks compartilhados
 └── .github/workflows/       # CI/CD
 ```
 
 ## 🔒 Segurança
 
-- ✅ Senhas com hash BCrypt (work factor 12)
-- ✅ Migração automática de senhas legadas (SHA256 → BCrypt)
-- ✅ Invalidação de sessões ao reiniciar servidor
-- ✅ Proteção contra SQL Injection (Entity Framework)
-- ✅ Validação de uploads (apenas PDFs, limite 50MB)
-- ✅ Cookies HttpOnly e SameSite
-- ✅ Controle de permissões granular (RBAC)
-- ✅ Headers de segurança configurados
+- Senhas com hash BCrypt (work factor 12) via Core.Auth
+- Rate limiting por IP+usuario (5 tentativas, lockout 15min)
+- Cookies HttpOnly e SameSite
+- Permissoes granulares string-based (RBAC via Core.Auth)
+- Validacao de uploads (apenas PDFs, limite 50MB)
+- Headers de seguranca configurados
+- Audit logging de acoes via middleware
 
 ## 📄 Licença
 

@@ -10,8 +10,7 @@ export function makeQueryClient() {
                 gcTime: 5 * 60 * 1000,
                 // Retry failed requests once
                 retry: 1,
-                // Refetch on window focus for fresh data
-                refetchOnWindowFocus: true,
+                refetchOnWindowFocus: false,
             },
         },
     })

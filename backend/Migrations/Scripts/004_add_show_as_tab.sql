@@ -1,0 +1,1 @@
+ALTER TABLE custom_filter_groups ADD COLUMN show_as_tab BOOLEAN NOT NULL DEFAULT FALSE;

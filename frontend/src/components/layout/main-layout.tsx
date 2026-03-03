@@ -3,32 +3,36 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@core/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Music, BarChart3, Upload, List, Settings, Menu, Search, FileMusic, FolderOpen, LogOut, LogIn, Users, User, ChevronDown, ChevronRight, Shield, Bell, AlertCircle, AlertTriangle, Info, Settings2 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@core/components/ui/dropdown-menu'
+import { Music, BarChart3, Upload, List, Settings, Menu, Search, FileMusic, FolderOpen, LogOut, LogIn, Users, User, ChevronDown, ChevronRight, Shield, Bell, AlertCircle, AlertTriangle, Info, Settings2, Layers, Filter } from 'lucide-react'
+import { Separator } from '@core/components/ui/separator'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { LoginModal } from '@/components/auth/login-modal'
 import { ProfileModal } from '@/components/auth/profile-modal'
-import { monitoringApi } from '@/lib/api'
+import { WorkspaceSwitcher } from '@/components/layout/workspace-switcher'
+import { useServerEvents } from '@core/hooks/use-server-events'
 import type { SystemEvent } from '@/types'
 
 interface NavigationItem {
     title: string
     href: string
     icon: React.ElementType
-    requiresAuth?: boolean // Requires any login
-    requiresUpload?: boolean // Requires uploader role
-    requiresEdit?: boolean // Requires editor role
-    requiresAdmin?: boolean // Requires admin role
-    children?: NavigationItem[] // Sub-items
+    requiresAuth?: boolean
+    requiresUpload?: boolean
+    requiresEdit?: boolean
+    requiresAdmin?: boolean
+    group?: 'workspace' | 'admin'
+    children?: NavigationItem[]
 }
 
 const navigation: NavigationItem[] = [
-    { title: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { title: 'Dashboard', href: '/dashboard', icon: BarChart3, requiresAuth: true },
     { title: 'Músicas', href: '/music', icon: Music },
     { title: 'Listas', href: '/lists', icon: List },
     { title: 'Upload', href: '/upload', icon: Upload, requiresUpload: true },
@@ -38,12 +42,13 @@ const navigation: NavigationItem[] = [
         icon: Settings, 
         requiresEdit: true,
         children: [
-            { title: 'Gerenciar Entidades', href: '/settings/manage', icon: FolderOpen, requiresEdit: true },
-            { title: 'Monitoramento', href: '/settings/monitoring', icon: Bell, requiresAdmin: true },
-            { title: 'Config. de Alertas', href: '/settings/alert-configs', icon: Settings, requiresAdmin: true },
-            { title: 'Usuários', href: '/settings/users', icon: Users, requiresAdmin: true },
-            { title: 'Roles', href: '/settings/roles', icon: Shield, requiresAdmin: true },
-            { title: 'Sistema', href: '/settings/system', icon: Settings, requiresAdmin: true },
+            { title: 'Gerenciar Entidades', href: '/settings/manage', icon: FolderOpen, requiresEdit: true, group: 'workspace' },
+            { title: 'Filtros Personalizados', href: '/settings/workspaces', icon: Filter, requiresAdmin: true, group: 'workspace' },
+            { title: 'Monitoramento', href: '/settings/monitoring', icon: Bell, requiresAdmin: true, group: 'admin' },
+            { title: 'Config. de Alertas', href: '/settings/alert-configs', icon: Settings, requiresAdmin: true, group: 'admin' },
+            { title: 'Usuários', href: '/settings/users', icon: Users, requiresAdmin: true, group: 'admin' },
+            { title: 'Roles', href: '/settings/roles', icon: Shield, requiresAdmin: true, group: 'admin' },
+            { title: 'Sistema', href: '/settings/system', icon: Settings, requiresAdmin: true, group: 'admin' },
         ]
     },
 ]
@@ -56,14 +61,21 @@ export function MainLayout({ children }: MainLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [loginModalOpen, setLoginModalOpen] = useState(false)
     const [profileModalOpen, setProfileModalOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const pathname = usePathname()
     const router = useRouter()
-    const { user, isAuthenticated, isAdmin, canEdit, canUpload, logout } = useAuth()
+    const { user, isAuthenticated, hasPermission, logout, api } = useAuth()
+
+    useEffect(() => { setMounted(true) }, [])
+
+    // Defer auth checks until client-side mount to avoid hydration mismatch
+    const isAdmin = mounted && hasPermission('admin:access')
+    const canEdit = mounted && (hasPermission('music:edit_metadata') || hasPermission('lists:manage'))
+    const canUpload = mounted && hasPermission('music:upload')
     
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [alertCount, setAlertCount] = useState(0)
     const [recentAlerts, setRecentAlerts] = useState<SystemEvent[]>([])
-    const [loadingAlerts, setLoadingAlerts] = useState(false)
 
     const canAccessItem = (item: NavigationItem) => {
         if (item.requiresAdmin) return isAdmin
@@ -101,6 +113,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         setLoginModalOpen(true)
     }
 
+    const getUserDisplayName = (u: { fullName?: string; full_name?: string; username: string } | null) =>
+        u ? (u.fullName ?? (u as { full_name?: string }).full_name ?? u.username) : ''
+
     const getRoleLabel = (role: string) => {
         const labels: Record<string, string> = {
             admin: 'Administrador',
@@ -111,40 +126,17 @@ export function MainLayout({ children }: MainLayoutProps) {
         return labels[role.toLowerCase()] || role
     }
 
-    // Fetch alerts for admin users
-    const fetchAlerts = async () => {
-        if (!isAdmin) return
-        
-        try {
-            setLoadingAlerts(true)
-            const countResponse = await monitoringApi.getAlertCount()
-            setAlertCount(countResponse.count || 0)
-            
-            if (countResponse.count > 0) {
-                const alertsResponse = await monitoringApi.getAlerts()
-                setRecentAlerts((alertsResponse.data || []).slice(0, 5))
-            }
-        } catch (error: any) {
-            // Silently ignore auth errors (session expired) - these are expected
-            if (error.message !== 'Acesso negado' && error.message !== 'Não autenticado') {
-                console.error('Error fetching alerts:', error)
-            }
-            setAlertCount(0)
-            setRecentAlerts([])
-        } finally {
-            setLoadingAlerts(false)
+    const sseUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000'}/api/events/stream`
+
+    useServerEvents(sseUrl, {
+        'alert-count': (data: { count: number }) => {
+            setAlertCount(data.count || 0)
+            if (data.count === 0) setRecentAlerts([])
+        },
+        'recent-alerts': (data: { alerts: SystemEvent[] }) => {
+            setRecentAlerts((data.alerts || []).slice(0, 5))
         }
-    }
-
-    // Poll for alerts every 30 seconds
-    useEffect(() => {
-        if (!isAdmin) return
-
-        fetchAlerts()
-        const interval = setInterval(fetchAlerts, 30000) // 30 seconds
-
-        return () => clearInterval(interval)
-    }, [isAdmin])
+    }, { enabled: isAdmin })
 
     const getSeverityIcon = (severity: string) => {
         switch (severity) {
@@ -178,10 +170,13 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex h-16 items-center border-b border-border px-4 sm:px-6">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
                     <FileMusic className="h-6 w-6 text-primary" />
-                    <span className="text-lg">Músicas Igreja</span>
+                    <span className="text-lg">Cifras Networkmat</span>
                 </Link>
             </div>
-            <nav className="flex-1 space-y-1 px-3 py-4">
+            <div className="border-b border-border px-2 py-2">
+                <WorkspaceSwitcher />
+            </div>
+            <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Navegação principal">
                 {filteredNavigation.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                     
@@ -218,25 +213,53 @@ export function MainLayout({ children }: MainLayoutProps) {
                                     </button>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="pl-4 space-y-1 mt-1">
-                                    {item.children.map((child) => {
-                                        const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                                    {(() => {
+                                        const workspaceItems = item.children!.filter(c => c.group === 'workspace' && canAccessItem(c))
+                                        const adminItems = item.children!.filter(c => c.group === 'admin' && canAccessItem(c))
+                                        const ungroupedItems = item.children!.filter(c => !c.group && canAccessItem(c))
+                                        
+                                        const renderNavChild = (child: NavigationItem) => {
+                                            const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/')
+                                            return (
+                                                <SimpleTooltip key={child.href} label={child.title} side="right">
+                                                    <Link
+                                                        href={child.href}
+                                                        className={cn(
+                                                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                                                            isChildActive
+                                                                ? 'bg-primary text-primary-foreground'
+                                                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                                        )}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                    >
+                                                        <child.icon className="h-4 w-4" />
+                                                        {child.title}
+                                                    </Link>
+                                                </SimpleTooltip>
+                                            )
+                                        }
+
                                         return (
-                                            <Link
-                                                key={child.href}
-                                                href={child.href}
-                                                className={cn(
-                                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                                    isChildActive
-                                                        ? 'bg-primary text-primary-foreground'
-                                                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                            <>
+                                                {workspaceItems.length > 0 && (
+                                                    <>
+                                                        <p className="text-xs font-medium text-muted-foreground px-3 py-1.5 mt-1">Workspace</p>
+                                                        {workspaceItems.map(renderNavChild)}
+                                                    </>
                                                 )}
-                                                onClick={() => setSidebarOpen(false)}
-                                            >
-                                                <child.icon className="h-4 w-4" />
-                                                {child.title}
-                                            </Link>
+                                                {workspaceItems.length > 0 && adminItems.length > 0 && (
+                                                    <Separator className="my-1.5" />
+                                                )}
+                                                {adminItems.length > 0 && (
+                                                    <>
+                                                        <p className="text-xs font-medium text-muted-foreground px-3 py-1.5">Administração</p>
+                                                        {adminItems.map(renderNavChild)}
+                                                    </>
+                                                )}
+                                                {ungroupedItems.map(renderNavChild)}
+                                            </>
                                         )
-                                    })}
+                                    })()}
                                 </CollapsibleContent>
                             </Collapsible>
                         )
@@ -244,42 +267,45 @@ export function MainLayout({ children }: MainLayoutProps) {
                     
                     // Regular navigation item without children
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                isActive
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                            )}
-                            onClick={() => setSidebarOpen(false)}
-                        >
-                            <item.icon className="h-4 w-4" />
-                            {item.title}
-                        </Link>
+                        <SimpleTooltip key={item.href} label={item.title} side="right">
+                            <Link
+                                href={item.href}
+                                className={cn(
+                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                                    isActive
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                )}
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <item.icon className="h-4 w-4" />
+                                {item.title}
+                            </Link>
+                        </SimpleTooltip>
                     )
                 })}
             </nav>
             <div className="border-t border-border p-4 space-y-3">
-                {isAuthenticated && user ? (
+                {mounted && isAuthenticated && user ? (
                     <>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{user.full_name || user.username}</p>
+                                    <p className="text-sm font-medium truncate">{getUserDisplayName(user)}</p>
                                     <Badge variant="outline" className="text-xs">
-                                        {getRoleLabel(user.role)}
+                                        {getRoleLabel(user.role ?? '')}
                                     </Badge>
                                 </div>
                             </div>
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                        <Settings2 className="h-4 w-4" />
-                                        <span className="sr-only">Configurações do usuário</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                <SimpleTooltip label="Menu do usuário" side="right">
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                            <Settings2 className="h-4 w-4" />
+                                            <span className="sr-only">Configurações do usuário</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </SimpleTooltip>
                                 <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
@@ -297,27 +323,31 @@ export function MainLayout({ children }: MainLayoutProps) {
                         </div>
                     </>
                 ) : (
-                    <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="w-full gap-2" 
-                        onClick={openLoginModal}
-                    >
-                        <LogIn className="h-4 w-4" />
-                        Entrar
-                    </Button>
+                    <SimpleTooltip label="Fazer login no sistema" side="right">
+                        <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="w-full gap-2" 
+                            onClick={openLoginModal}
+                        >
+                            <LogIn className="h-4 w-4" />
+                            Entrar
+                        </Button>
+                    </SimpleTooltip>
                 )}
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                     <span>v3.0</span>
                     <span>•</span>
-                    <a 
-                        href="https://github.com/silva-mateus-org/musicas-igreja" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="hover:underline hover:text-foreground transition-colors"
-                    >
-                        GitHub
-                    </a>
+                    <SimpleTooltip label="Ver repositório no GitHub">
+                        <a 
+                            href="https://github.com/silva-mateus-org/musicas-igreja" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="hover:underline hover:text-foreground transition-colors"
+                        >
+                            GitHub
+                        </a>
+                    </SimpleTooltip>
                 </div>
             </div>
         </div>
@@ -332,44 +362,48 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <SheetContent side="left" className="p-0 w-72">
                     <SidebarContent />
                 </SheetContent>
-            </Sheet>
+            
             <div className="lg:pl-72">
                 <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                     <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
-                        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                        <SimpleTooltip label="Abrir menu">
                             <SheetTrigger asChild>
                                 <Button variant="ghost" size="icon" className="lg:hidden">
                                     <Menu className="h-5 w-5" />
-                                    <span className="sr-only">Toggle sidebar</span>
+                                    <span className="sr-only">Abrir menu</span>
                                 </Button>
                             </SheetTrigger>
-                        </Sheet>
+                        </SimpleTooltip>
                         <div className="flex-1" />
-                        <Button variant="outline" size="sm" asChild className="gap-2">
-                            <Link href="/music">
-                                <Search className="h-4 w-4" />
-                                <span className="hidden sm:inline">Buscar músicas</span>
-                                <span className="sm:hidden">Buscar</span>
-                            </Link>
-                        </Button>
+                        <SimpleTooltip label="Buscar músicas na biblioteca">
+                            <Button variant="outline" size="sm" asChild className="gap-2">
+                                <Link href="/music">
+                                    <Search className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Buscar músicas</span>
+                                    <span className="sm:hidden">Buscar</span>
+                                </Link>
+                            </Button>
+                        </SimpleTooltip>
                         
                         {/* Notification Bell (Admin only) */}
                         {isAdmin && (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="relative">
-                                        <Bell className="h-5 w-5" />
-                                        {alertCount > 0 && (
-                                            <Badge 
-                                                variant="destructive" 
-                                                className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                                            >
-                                                {alertCount > 9 ? '9+' : alertCount}
-                                            </Badge>
-                                        )}
-                                        <span className="sr-only">Notificações</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                <SimpleTooltip label="Notificações">
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="relative">
+                                            <Bell className="h-5 w-5" />
+                                            {alertCount > 0 && (
+                                                <Badge 
+                                                    variant="destructive" 
+                                                    className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                                                >
+                                                    {alertCount > 9 ? '9+' : alertCount}
+                                                </Badge>
+                                            )}
+                                            <span className="sr-only">Notificações</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </SimpleTooltip>
                                 <DropdownMenuContent align="end" className="w-80">
                                     <DropdownMenuLabel className="flex items-center justify-between">
                                         <span>Alertas do Sistema</span>
@@ -378,11 +412,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                                         )}
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    {loadingAlerts ? (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                            Carregando...
-                                        </div>
-                                    ) : recentAlerts.length === 0 ? (
+                                    {recentAlerts.length === 0 ? (
                                         <div className="p-4 text-center text-sm text-muted-foreground">
                                             Nenhum alerta novo
                                         </div>
@@ -420,21 +450,24 @@ export function MainLayout({ children }: MainLayoutProps) {
                             </DropdownMenu>
                         )}
                         
-                        {!isAuthenticated && (
-                            <Button 
-                                variant="default" 
-                                size="sm" 
-                                className="gap-2 hidden sm:flex"
-                                onClick={() => setLoginModalOpen(true)}
-                            >
-                                <LogIn className="h-4 w-4" />
-                                Entrar
-                            </Button>
+                        {mounted && !isAuthenticated && (
+                            <SimpleTooltip label="Fazer login">
+                                <Button 
+                                    variant="default" 
+                                    size="sm" 
+                                    className="gap-2 hidden sm:flex"
+                                    onClick={() => setLoginModalOpen(true)}
+                                >
+                                    <LogIn className="h-4 w-4" />
+                                    Entrar
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
                 </header>
                 <main className="p-4 sm:p-6">{children}</main>
             </div>
+            </Sheet>
             
             <LoginModal open={loginModalOpen} onOpenChange={setLoginModalOpen} />
             <ProfileModal open={profileModalOpen} onOpenChange={setProfileModalOpen} />

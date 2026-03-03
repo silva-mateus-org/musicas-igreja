@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Button } from '@core/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
+import { Badge } from '@core/components/ui/badge'
+import { Skeleton } from '@core/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@core/components/ui/dropdown-menu'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import type { MusicList } from '@/types'
 import {
     Eye,
@@ -23,8 +24,8 @@ import {
     Loader2
 } from 'lucide-react'
 import { listsApi, handleApiError } from '@/lib/api'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import Link from 'next/link'
 import { DuplicateListDialog } from './duplicate-list-dialog'
 
@@ -49,7 +50,9 @@ export function ListsTable({
     onListDeleted
 }: ListsTableProps) {
     const { toast } = useToast()
-    const { canEdit, canDelete } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canDelete = hasPermission('music:delete')
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; list: MusicList | null }>({
         open: false,
         list: null
@@ -257,87 +260,95 @@ export function ListsTable({
                                 <TableCell className="text-right w-auto">
                                     {/* Desktop Actions */}
                                     <div className="hidden sm:flex justify-end gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            asChild
-                                            title="Visualizar lista"
-                                        >
-                                            <Link href={`/lists/${list.id}`}>
-                                                <Eye className="h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                        {canEdit && (
+                                        <SimpleTooltip label="Visualizar lista">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 asChild
-                                                title="Editar lista"
                                             >
-                                                <Link href={`/lists/${list.id}/edit`}>
-                                                    <Edit className="h-4 w-4" />
+                                                <Link href={`/lists/${list.id}`}>
+                                                    <Eye className="h-4 w-4" />
                                                 </Link>
                                             </Button>
+                                        </SimpleTooltip>
+                                        {canEdit && (
+                                            <SimpleTooltip label="Editar lista">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    asChild
+                                                >
+                                                    <Link href={`/lists/${list.id}/edit`}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </SimpleTooltip>
                                         )}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleGenerateReport(list)}
-                                            title="Gerar relatório"
-                                            disabled={generatingReport === list.id}
-                                        >
+                                        <SimpleTooltip label="Gerar relatório">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleGenerateReport(list)}
+                                                disabled={generatingReport === list.id}
+                                            >
                                             {reportCopied === list.id ? (
                                                 <Check className="h-4 w-4 text-primary" />
                                             ) : (
                                                 <ClipboardList className="h-4 w-4" />
                                             )}
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleDownloadPDF(list)}
-                                            title="Baixar PDF"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                        </Button>
+                                            </Button>
+                                        </SimpleTooltip>
+                                        <SimpleTooltip label="Baixar PDF">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDownloadPDF(list)}
+                                            >
+                                                <Download className="h-4 w-4" />
+                                            </Button>
+                                        </SimpleTooltip>
                                         {canEdit && (
                                             <DuplicateListDialog
                                                 listId={list.id}
                                                 listName={list.name}
                                                 onSuccess={() => window.location.reload()}
                                                 trigger={
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title="Duplicar lista"
-                                                    >
-                                                        <Copy className="h-4 w-4" />
-                                                    </Button>
+                                                    <SimpleTooltip label="Duplicar lista">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                        >
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                    </SimpleTooltip>
                                                 }
                                             />
                                         )}
                                         {canDelete && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleDeleteClick(list)}
-                                                title="Excluir lista"
-                                                className="text-destructive hover:text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <SimpleTooltip label="Excluir lista">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDeleteClick(list)}
+                                                    className="text-destructive hover:text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </SimpleTooltip>
                                         )}
                                     </div>
 
                                     {/* Mobile Actions - Dropdown */}
                                     <div className="sm:hidden">
                                         <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    <span className="sr-only">Abrir menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
+                                            <SimpleTooltip label="Mais ações">
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                        <span className="sr-only">Abrir menu</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                            </SimpleTooltip>
                                             <DropdownMenuContent align="end" className="w-56">
                                                 <DropdownMenuItem asChild>
                                                     <Link href={`/lists/${list.id}`} className="flex items-center">

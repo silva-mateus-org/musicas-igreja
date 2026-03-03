@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import type { SearchFilters } from '@/types'
 import { 
     ChevronDown, 
@@ -24,10 +25,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
 import { musicApi, downloadFile } from '@/lib/api'
 import { AddToListModal } from './add-to-list-modal'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@core/components/ui/dropdown-menu'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -41,21 +42,21 @@ interface GroupedFile {
     musical_key?: string | null
     category?: string
     categories?: string[]
-    liturgical_time?: string
-    liturgical_times?: string[]
+    custom_filters?: Record<string, { group_name: string; values: string[] }>
     youtube_link?: string | null
 }
 
 interface MusicGroup {
+    name?: string
     artist?: string
     category?: string
-    liturgical_time?: string
     count: number
     files: GroupedFile[]
 }
 
 interface MusicGroupedViewProps {
-    groupType: 'artist' | 'category' | 'liturgical-time'
+    groupType: 'artist' | 'category' | 'custom'
+    groupLabel?: string
     groups: MusicGroup[]
     isLoading: boolean
     error: string | null
@@ -65,6 +66,7 @@ interface MusicGroupedViewProps {
 
 export function MusicGroupedView({ 
     groupType, 
+    groupLabel,
     groups, 
     isLoading, 
     error, 
@@ -72,7 +74,10 @@ export function MusicGroupedView({
     filters = {}
 }: MusicGroupedViewProps) {
     const router = useRouter()
-    const { canDownloadMusic, canEdit, canManageLists } = useAuth()
+    const { hasPermission } = useAuth()
+    const canDownloadMusic = hasPermission('music:download')
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canManageLists = hasPermission('lists:manage')
     const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
     const [downloadingId, setDownloadingId] = useState<number | null>(null)
 
@@ -104,13 +109,13 @@ export function MusicGroupedView({
                     if (!hasCategory) return false
                 }
 
-                // Liturgical time filter
-                if (filters.liturgical_time) {
-                    const times = Array.isArray(filters.liturgical_time) ? filters.liturgical_time : [filters.liturgical_time]
-                    const hasTime = times.some(time =>
-                        file.liturgical_times?.includes(time) || file.liturgical_time === time
-                    )
-                    if (!hasTime) return false
+                // Custom filters check
+                if (filters.custom_filters) {
+                    for (const [groupSlug, filterValues] of Object.entries(filters.custom_filters)) {
+                        const fileFilterValues = file.custom_filters?.[groupSlug]?.values || []
+                        const hasMatch = (filterValues as string[]).some(fv => fileFilterValues.includes(fv))
+                        if (!hasMatch) return false
+                    }
                 }
 
                 // Artist filter
@@ -169,7 +174,7 @@ export function MusicGroupedView({
     }
 
     const getGroupName = (group: MusicGroup): string => {
-        return group.artist || group.category || group.liturgical_time || 'Sem Nome'
+        return group.name || group.artist || group.category || 'Sem Nome'
     }
 
     const getGroupIcon = () => {
@@ -178,19 +183,20 @@ export function MusicGroupedView({
                 return <User className="h-4 w-4" />
             case 'category':
                 return <FolderOpen className="h-4 w-4" />
-            case 'liturgical-time':
-                return <Clock className="h-4 w-4" />
+            case 'custom':
+                return <Filter className="h-4 w-4" />
         }
     }
 
     const getGroupLabel = () => {
+        if (groupLabel) return groupLabel
         switch (groupType) {
             case 'artist':
                 return 'artistas'
             case 'category':
                 return 'categorias'
-            case 'liturgical-time':
-                return 'tempos litúrgicos'
+            case 'custom':
+                return 'grupos'
         }
     }
 
@@ -235,12 +241,16 @@ export function MusicGroupedView({
                     )}
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={expandAll}>
-                        Expandir todos
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={collapseAll}>
-                        Recolher todos
-                    </Button>
+                    <SimpleTooltip label="Expandir todos os grupos">
+                        <Button variant="outline" size="sm" onClick={expandAll}>
+                            Expandir todos
+                        </Button>
+                    </SimpleTooltip>
+                    <SimpleTooltip label="Recolher todos os grupos">
+                        <Button variant="outline" size="sm" onClick={collapseAll}>
+                            Recolher todos
+                        </Button>
+                    </SimpleTooltip>
                 </div>
             </div>
 
@@ -329,12 +339,12 @@ export function MusicGroupedView({
                                                                     </div>
                                                                 )}
                                                                 
-                                                                {/* Liturgical times (if not grouped by liturgical time) */}
-                                                                {groupType !== 'liturgical-time' && (file.liturgical_times?.length || file.liturgical_time) && (
+                                                                {/* Custom filters */}
+                                                                {file.custom_filters && Object.keys(file.custom_filters).length > 0 && (
                                                                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                                         <Clock className="h-3 w-3" />
                                                                         <span>
-                                                                            {file.liturgical_times?.join(', ') || file.liturgical_time}
+                                                                            {Object.values(file.custom_filters).flatMap(g => g.values).join(', ')}
                                                                         </span>
                                                                     </div>
                                                                 )}
@@ -343,7 +353,7 @@ export function MusicGroupedView({
                                                         
                                                         {/* Desktop Action buttons */}
                                                         <div className="hidden sm:flex items-center gap-1 shrink-0">
-                                                            <TooltipProvider>
+                                                            <>
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <Button
@@ -439,17 +449,19 @@ export function MusicGroupedView({
                                                                         <TooltipContent>Editar</TooltipContent>
                                                                     </Tooltip>
                                                                 )}
-                                                            </TooltipProvider>
+                                                            </>
                                                         </div>
 
                                                         {/* Mobile Actions - Dropdown */}
                                                         <div className="sm:hidden">
                                                             <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                        <MoreHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
+                                                                <SimpleTooltip label="Mais ações">
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                </SimpleTooltip>
                                                                 <DropdownMenuContent align="end" className="w-48">
                                                                     <DropdownMenuItem asChild>
                                                                         <Link href={`/music/${file.id}`} className="flex items-center">

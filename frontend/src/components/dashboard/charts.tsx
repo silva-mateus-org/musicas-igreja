@@ -1,18 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { Badge } from '@core/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
-import { dashboardApi, handleApiError } from '@/lib/api'
-import { Skeleton } from '@/components/ui/skeleton'
+import { dashboardApi, handleApiError, getActiveWorkspaceId } from '@/lib/api'
+import { useWorkspace } from '@/contexts/workspace-context'
+import { Skeleton } from '@core/components/ui/skeleton'
 import Link from 'next/link'
+import type { FilterOption } from '@/types'
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1']
 
 export function DashboardCharts() {
-    const [categories, setCategories] = useState<string[]>([])
+    const { activeWorkspace } = useWorkspace()
+    const [categories, setCategories] = useState<FilterOption[]>([])
     const [selectedCategory, setSelectedCategory] = useState<string>('')
     const [topSongs, setTopSongs] = useState<any[]>([])
     const [topArtists, setTopArtists] = useState<any[]>([])
@@ -22,7 +25,7 @@ export function DashboardCharts() {
 
     useEffect(() => {
         loadInitialData()
-    }, [])
+    }, [activeWorkspace?.id])
 
     useEffect(() => {
         if (selectedCategory) {
@@ -34,15 +37,14 @@ export function DashboardCharts() {
         try {
             setIsLoading(true)
 
-            // Carregar categorias das sugestões
-            const response = await fetch('/api/filters/suggestions')
+            const wsId = getActiveWorkspaceId()
+            const response = await fetch(`/api/filters/suggestions?workspace_id=${wsId}`)
             const filtersData = await response.json()
-            const categoriesList = filtersData.categories || []
+            const categoriesList: FilterOption[] = filtersData.categories || []
             setCategories(categoriesList)
 
-            // Definir primeira categoria como padrão
             if (categoriesList.length > 0) {
-                setSelectedCategory(categoriesList[0])
+                setSelectedCategory(categoriesList[0].slug)
             }
 
             // Carregar dados paralelos
@@ -115,9 +117,9 @@ export function DashboardCharts() {
                                     <SelectValue placeholder="Selecionar categoria" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.map((category) => (
-                                        <SelectItem key={category} value={category}>
-                                            {category}
+                                    {categories.map((cat) => (
+                                        <SelectItem key={cat.slug} value={cat.slug}>
+                                            {cat.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -144,14 +146,14 @@ export function DashboardCharts() {
                                                     <Link href={`/music/${song.id}`} className="font-medium hover:text-primary">
                                                         {song.song_name}
                                                     </Link>
-                                                    <p className="text-sm text-muted-foreground">
+                                                    <span className="text-sm text-muted-foreground">
                                                         {song.artist}
                                                         {song.musical_key && (
                                                             <Badge variant="outline" className="ml-2 text-xs">
                                                                 {song.musical_key}
                                                             </Badge>
                                                         )}
-                                                    </p>
+                                                    </span>
                                                 </div>
                                             </div>
                                             <Badge variant="secondary" className="text-xs">

@@ -119,14 +119,16 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength) + '...'
 }
 
+export function removeAccents(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
 export function slugify(text: string): string {
-  return text
+  return removeAccents(text)
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacríticos
-    .replace(/[^a-z0-9 -]/g, '') // Remove caracteres especiais
-    .replace(/\s+/g, '-') // Substitui espaços por hífens
-    .replace(/-+/g, '-') // Remove hífens duplicados
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
     .trim()
 }
 
@@ -257,8 +259,8 @@ export function generateColorFromString(str: string): string {
 
 // Utilitários para busca
 export function fuzzySearch(query: string, text: string): boolean {
-  const queryLower = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  const textLower = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const queryLower = removeAccents(query.toLowerCase())
+  const textLower = removeAccents(text.toLowerCase())
 
   let queryIndex = 0
   for (let i = 0; i < textLower.length && queryIndex < queryLower.length; i++) {

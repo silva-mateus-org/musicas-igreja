@@ -3,18 +3,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Badge } from '@core/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
+import { Label } from '@core/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { usersApi, rolesApi, handleApiError } from '@/lib/api'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import {
     Users,
     Plus,
@@ -68,7 +69,9 @@ interface RoleItem {
 
 export default function UsersPage() {
     const { toast } = useToast()
-    const { canManageUsers, canManageRoles, isAuthenticated, user } = useAuth()
+    const { hasPermission, isAuthenticated, user } = useAuth()
+    const canManageUsers = hasPermission('users:manage')
+    const canManageRoles = hasPermission('roles:manage')
     const [users, setUsers] = useState<UserItem[]>([])
     const [roles, setRoles] = useState<RoleItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -307,13 +310,17 @@ export default function UsersPage() {
                                         </CardDescription>
                                     </div>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" onClick={loadUsers}>
-                                            <RefreshCw className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-                                            <Plus className="h-4 w-4 mr-1" />
-                                            Novo Usuário
-                                        </Button>
+                                        <SimpleTooltip label="Recarregar usuários">
+                                            <Button variant="outline" size="sm" onClick={loadUsers}>
+                                                <RefreshCw className="h-4 w-4" />
+                                            </Button>
+                                        </SimpleTooltip>
+                                        <SimpleTooltip label="Criar novo usuário">
+                                            <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Novo Usuário
+                                            </Button>
+                                        </SimpleTooltip>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -377,35 +384,38 @@ export default function UsersPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right">
                                                                 <div className="flex justify-end gap-1">
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => openResetDialog(targetUser)}
-                                                                        title="Resetar senha"
-                                                                    >
-                                                                        <KeyRound className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => handleToggleActive(targetUser)}
-                                                                        title={targetUser.is_active ? 'Desativar' : 'Ativar'}
-                                                                    >
-                                                                        {targetUser.is_active ? (
-                                                                            <UserX className="h-4 w-4 text-amber-600" />
-                                                                        ) : (
-                                                                            <UserCheck className="h-4 w-4 text-green-600" />
-                                                                        )}
-                                                                    </Button>
-                                                                    {user?.id !== targetUser.id && (
+                                                                    <SimpleTooltip label="Resetar senha">
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
-                                                                            onClick={() => openDeleteDialog(targetUser)}
-                                                                            title="Excluir permanentemente"
+                                                                            onClick={() => openResetDialog(targetUser)}
                                                                         >
-                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                            <KeyRound className="h-4 w-4" />
                                                                         </Button>
+                                                                    </SimpleTooltip>
+                                                                    <SimpleTooltip label={targetUser.is_active ? 'Desativar' : 'Ativar'}>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => handleToggleActive(targetUser)}
+                                                                        >
+                                                                            {targetUser.is_active ? (
+                                                                                <UserX className="h-4 w-4 text-amber-600" />
+                                                                            ) : (
+                                                                                <UserCheck className="h-4 w-4 text-green-600" />
+                                                                            )}
+                                                                        </Button>
+                                                                    </SimpleTooltip>
+                                                                    {user?.id !== targetUser.id && (
+                                                                        <SimpleTooltip label="Excluir permanentemente">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => openDeleteDialog(targetUser)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                                            </Button>
+                                                                        </SimpleTooltip>
                                                                     )}
                                                                 </div>
                                                             </TableCell>

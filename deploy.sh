@@ -72,8 +72,8 @@ echo ""
 echo "[4/4] Building Docker Images..."
 cd "$ROOT_DIR"
 if command -v docker &> /dev/null; then
-    docker build -t musicas-backend:latest ./backend
-    docker build -t musicas-frontend:latest ./frontend
+    docker build -t musicas-backend:latest -f backend/Dockerfile .
+    docker build -t musicas-frontend:latest -f frontend/Dockerfile .
     echo "Docker images built successfully!"
 else
     echo "Docker not available, skipping image build"

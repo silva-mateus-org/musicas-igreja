@@ -15,9 +15,6 @@ public class RegisterEntitiesRequest
 
     [JsonPropertyName("categories")]
     public List<string>? Categories { get; set; }
-
-    [JsonPropertyName("liturgical_times")]
-    public List<string>? LiturgicalTimes { get; set; }
 }
 
 public class CheckDuplicateResponse
@@ -48,4 +45,19 @@ public class ExistingFileInfo
 
     [JsonPropertyName("upload_date")]
     public DateTime UploadDate { get; set; }
+}
+
+public class DeleteDuplicateRequest
+{
+    [JsonPropertyName("file_id")]
+    public int FileId { get; set; }
+}
+
+public class ReplaceDuplicateRequest
+{
+    [JsonPropertyName("keep_file_id")]
+    public int KeepFileId { get; set; }
+
+    [JsonPropertyName("remove_file_ids")]
+    public List<int> RemoveFileIds { get; set; } = new();
 }

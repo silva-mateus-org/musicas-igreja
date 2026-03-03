@@ -1,8 +1,11 @@
+using Core.Auth.Helpers;
+using Core.Auth.Models;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Services;
-using MusicasIgreja.Api.Helpers;
 
 namespace MusicasIgreja.Api.Controllers;
 
@@ -13,13 +16,15 @@ public class HealthController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IMonitoringService _monitoringService;
     private readonly IFileService _fileService;
+    private readonly ICoreAuthService _authService;
     private readonly ILogger<HealthController> _logger;
 
-    public HealthController(AppDbContext context, IMonitoringService monitoringService, IFileService fileService, ILogger<HealthController> logger)
+    public HealthController(AppDbContext context, IMonitoringService monitoringService, IFileService fileService, ICoreAuthService authService, ILogger<HealthController> logger)
     {
         _context = context;
         _monitoringService = monitoringService;
         _fileService = fileService;
+        _authService = authService;
         _logger = logger;
     }
 
@@ -52,12 +57,8 @@ public class HealthController : ControllerBase
     [HttpGet("extended")]
     public async Task<ActionResult<object>> GetExtendedHealth()
     {
-        // Check if user is admin
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -98,7 +99,7 @@ public class HealthController : ControllerBase
 
             // Database stats
             var totalFiles = await _context.PdfFiles.CountAsync();
-            var totalUsers = await _context.Users.CountAsync();
+            var totalUsers = await _context.Set<CoreUser>().CountAsync();
             var totalLists = await _context.MergeLists.CountAsync();
 
             // Check for orphaned files (files in DB but not on disk)

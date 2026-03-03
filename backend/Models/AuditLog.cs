@@ -46,7 +46,7 @@ public class AuditLog
     [Column("created_date")]
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
-    // Navigation property
+    // Navigation property (UserId references core_users)
     [ForeignKey("UserId")]
-    public User User { get; set; } = null!;
+    public Core.Auth.Models.CoreUser? User { get; set; }
 }

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { musicApi } from '@/lib/api'
 import type { SearchFilters, PaginationParams, MusicFile } from '@/types'
 
@@ -20,6 +20,7 @@ export function useMusic(
     return useQuery({
         queryKey: musicKeys.list(filters, pagination),
         queryFn: () => musicApi.search(filters, pagination),
+        placeholderData: keepPreviousData,
     })
 }
 

@@ -7,16 +7,16 @@ import { UploadZone } from '@/components/upload/upload-zone'
 import { UploadProgress } from '@/components/upload/upload-progress'
 import { UploadResults } from '@/components/upload/upload-results'
 import { UploadMetadataEditor } from '@/components/upload/upload-metadata-editor'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { musicApi, handleApiError } from '@/lib/api'
 import type { UploadResponse } from '@/types'
 import { Upload, FileText, AlertTriangle, RefreshCw, Lock, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
 
 interface FileMetadata {
@@ -24,11 +24,9 @@ interface FileMetadata {
     title: string
     artist: string
     category: string
-    liturgical_time: string
     categories?: string[]
-    liturgical_times?: string[]
+    custom_filters?: Record<string, string[]>
     new_categories?: string[]
-    new_liturgical_times?: string[]
     new_artist?: string
     musical_key: string
     youtube_link: string
@@ -46,7 +44,8 @@ interface UploadState {
 
 export default function UploadPage() {
     const { toast } = useToast()
-    const { canUpload, isAuthenticated } = useAuth()
+    const { hasPermission, isAuthenticated } = useAuth()
+    const canUpload = hasPermission('music:upload')
 
     const [uploadState, setUploadState] = useState<UploadState>({
         files: [],
@@ -116,9 +115,8 @@ export default function UploadPage() {
                 artist: meta.artist,
                 new_artist: meta.new_artist,
                 categories: meta.categories || (meta.category ? [meta.category] : []),
-                liturgical_times: meta.liturgical_times || (meta.liturgical_time ? [meta.liturgical_time] : []),
+                custom_filters: meta.custom_filters || {},
                 new_categories: meta.new_categories || [],
-                new_liturgical_times: meta.new_liturgical_times || [],
                 musical_key: meta.musical_key,
                 youtube_link: meta.youtube_link,
                 observations: meta.observations,
@@ -191,7 +189,7 @@ export default function UploadPage() {
                 <PageHeader
                     icon={Upload}
                     title="Upload de Músicas"
-                    description="Envie arquivos PDF de partituras para o sistema"
+                    description="Envie arquivos PDF de cifras e partituras"
                 >
                     <div className="flex items-center gap-2">
                         <InstructionsModal

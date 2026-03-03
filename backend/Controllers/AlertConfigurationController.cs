@@ -1,5 +1,7 @@
+using Core.Auth.Helpers;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
-using MusicasIgreja.Api.Helpers;
+using MusicasIgreja.Api;
 using MusicasIgreja.Api.Models;
 using MusicasIgreja.Api.Services;
 
@@ -10,22 +12,21 @@ namespace MusicasIgreja.Api.Controllers;
 public class AlertConfigurationController : ControllerBase
 {
     private readonly IAlertConfigurationService _alertConfigService;
+    private readonly ICoreAuthService _authService;
     private readonly ILogger<AlertConfigurationController> _logger;
 
-    public AlertConfigurationController(IAlertConfigurationService alertConfigService, ILogger<AlertConfigurationController> logger)
+    public AlertConfigurationController(IAlertConfigurationService alertConfigService, ICoreAuthService authService, ILogger<AlertConfigurationController> logger)
     {
         _alertConfigService = alertConfigService;
+        _authService = authService;
         _logger = logger;
     }
 
     [HttpGet]
     public async Task<ActionResult> GetAll()
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -60,11 +61,8 @@ public class AlertConfigurationController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult> GetById(int id)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -104,11 +102,8 @@ public class AlertConfigurationController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> Create([FromBody] AlertConfigurationDto dto)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -148,11 +143,8 @@ public class AlertConfigurationController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult> Update(int id, [FromBody] AlertConfigurationDto dto)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {
@@ -194,11 +186,8 @@ public class AlertConfigurationController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {
-        var isAdmin = AuthHelper.IsAdmin(HttpContext);
-        if (!isAdmin)
-        {
-            return Unauthorized(new { error = "Acesso negado" });
-        }
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
+            return StatusCode(403, new { error = "Sem permissão" });
 
         try
         {

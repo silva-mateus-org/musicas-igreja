@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@core/components/ui/dialog'
+import { Button } from '@core/components/ui/button'
+import { Input } from '@core/components/ui/input'
+import { Label } from '@core/components/ui/label'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
 import { LogIn, Loader2, Music, Key, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 // Zod schemas for validation
 const loginSchema = z.object({
@@ -63,10 +64,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
     const handleLogin = async (data: LoginFormData) => {
         setIsLoading(true)
-
-        const result = await login(data.username, data.password)
-
-        if (result.success) {
+        try {
+            const result = await login(data.username, data.password)
             if (result.mustChangePassword) {
                 setCurrentPassword(data.password)
                 setShowChangePassword(true)
@@ -83,23 +82,22 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 resetForms()
                 window.location.reload()
             }
-        } else {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Credenciais inválidas'
             toast({
                 title: 'Erro no login',
-                description: result.error || 'Credenciais inválidas',
+                description: message,
                 variant: 'destructive',
             })
+        } finally {
+            setIsLoading(false)
         }
-
-        setIsLoading(false)
     }
 
     const handleChangePassword = async (data: ChangePasswordFormData) => {
         setIsLoading(true)
-
-        const result = await changePassword(currentPassword, data.newPassword)
-
-        if (result.success) {
+        try {
+            await changePassword(currentPassword, data.newPassword)
             toast({
                 title: 'Senha alterada!',
                 description: 'Sua senha foi alterada com sucesso.',
@@ -107,15 +105,16 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
             onOpenChange(false)
             resetForms()
             window.location.reload()
-        } else {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Não foi possível alterar a senha'
             toast({
                 title: 'Erro ao alterar senha',
-                description: result.error || 'Não foi possível alterar a senha',
+                description: message,
                 variant: 'destructive',
             })
+        } finally {
+            setIsLoading(false)
         }
-
-        setIsLoading(false)
     }
 
     const resetForms = () => {
@@ -165,15 +164,17 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                                     autoComplete="new-password"
                                     className={changePasswordForm.formState.errors.newPassword ? 'border-destructive' : ''}
                                 />
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                >
-                                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
+                                <SimpleTooltip label="Mostrar/ocultar senha">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-0 top-0 h-full px-3"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                    >
+                                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                </SimpleTooltip>
                             </div>
                             {changePasswordForm.formState.errors.newPassword && (
                                 <p className="text-sm text-destructive">{changePasswordForm.formState.errors.newPassword.message}</p>

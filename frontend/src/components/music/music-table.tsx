@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Button } from '@core/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
+import { Badge } from '@core/components/ui/badge'
+import { Skeleton } from '@core/components/ui/skeleton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@core/components/ui/dropdown-menu'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState } from '@/components/ui/empty-state'
 import type { MusicFile } from '@/types'
@@ -22,7 +22,8 @@ import {
     FolderOpen,
     Calendar
 } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { AddToListModal } from './add-to-list-modal'
 import { useState } from 'react'
 
@@ -47,7 +48,9 @@ export function MusicTable({
     onMusicUpdate
 }: MusicTableProps) {
     const router = useRouter()
-    const { canEdit, canManageLists } = useAuth()
+    const { hasPermission } = useAuth()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
+    const canManageLists = hasPermission('lists:manage')
 
     const handleView = (music: MusicFile) => {
         router.push(`/music/${music.id}`)
@@ -200,16 +203,13 @@ export function MusicTable({
                                                 )
                                             }
 
-                                            {music.liturgical_times && music.liturgical_times.length > 0
-                                                ? music.liturgical_times.map((time, idx) => (
-                                                    <Badge key={idx} variant="outline" className="text-xs">
-                                                        {time}
+                                            {music.custom_filters && Object.entries(music.custom_filters).map(([slug, group]) =>
+                                                group.values.map((val, idx) => (
+                                                    <Badge key={`${slug}-${idx}`} variant="outline" className="text-xs">
+                                                        {val}
                                                     </Badge>
                                                 ))
-                                                : music.liturgical_time && (
-                                                    <Badge variant="outline" className="text-xs">{music.liturgical_time}</Badge>
-                                                )
-                                            }
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -246,16 +246,16 @@ export function MusicTable({
                                 )}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell min-w-[140px] max-w-[220px]">
-                                {music.liturgical_times && music.liturgical_times.length > 0 ? (
+                                {music.custom_filters && Object.keys(music.custom_filters).length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
-                                        {music.liturgical_times.map((time, idx) => (
-                                            <Badge key={idx} variant="outline" className="text-xs">
-                                                {time}
-                                            </Badge>
-                                        ))}
+                                        {Object.entries(music.custom_filters).flatMap(([slug, group]) =>
+                                            group.values.map((val, idx) => (
+                                                <Badge key={`${slug}-${idx}`} variant="outline" className="text-xs">
+                                                    {val}
+                                                </Badge>
+                                            ))
+                                        )}
                                     </div>
-                                ) : music.liturgical_time ? (
-                                    <Badge variant="outline">{music.liturgical_time}</Badge>
                                 ) : (
                                     <span className="text-muted-foreground">-</span>
                                 )}

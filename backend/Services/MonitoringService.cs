@@ -1,3 +1,5 @@
+using Core.Auth.Models;
+using Core.Infrastructure.Events;
 using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Models;
@@ -9,11 +11,13 @@ public class MonitoringService : IMonitoringService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<MonitoringService> _logger;
+    private readonly ISseService _sseService;
 
-    public MonitoringService(AppDbContext context, ILogger<MonitoringService> logger)
+    public MonitoringService(AppDbContext context, ILogger<MonitoringService> logger, ISseService sseService)
     {
         _context = context;
         _logger = logger;
+        _sseService = sseService;
     }
 
     public async Task LogSecurityEventAsync(
@@ -44,7 +48,8 @@ public class MonitoringService : IMonitoringService
             _context.SystemEvents.Add(systemEvent);
             await _context.SaveChangesAsync();
 
-            // Also log to ILogger for critical/high severity events
+            await BroadcastAlertCountAsync();
+
             if (severity == "critical" || severity == "high")
             {
                 _logger.LogWarning(
@@ -276,58 +281,50 @@ public class MonitoringService : IMonitoringService
     {
         try
         {
-            var health = new Dictionary<string, object>();
-
-            // Database stats
-            var totalFiles = await _context.PdfFiles.CountAsync();
-            var totalUsers = await _context.Users.CountAsync();
-            var activeUsers = await _context.Users.CountAsync(u => u.IsActive);
-
-            // Recent activity (last 24h)
             var yesterday = DateTime.UtcNow.AddDays(-1);
+            var lastWeek = DateTime.UtcNow.AddDays(-7);
+
+            var totalFiles = await _context.PdfFiles.CountAsync();
+            var totalUsers = await _context.Set<CoreUser>().CountAsync();
+            var activeUsers = await _context.Set<CoreUser>().CountAsync(u => u.IsActive);
             var recentUploads = await _context.PdfFiles.CountAsync(f => f.UploadDate >= yesterday);
             var recentLogins = await _context.AuditLogs
                 .CountAsync(a => a.Action == "login" && a.CreatedDate >= yesterday);
             var recentFailedLogins = await _context.SystemEvents
                 .CountAsync(e => e.EventType == "login_failed" && e.CreatedDate >= yesterday);
-
-            // Storage metrics
             var totalFileSize = await _context.PdfFiles.SumAsync(f => (long?)f.FileSize) ?? 0;
-            var totalFileSizeMb = totalFileSize / (1024.0 * 1024.0);
-
-            // Critical events (last 7 days)
-            var lastWeek = DateTime.UtcNow.AddDays(-7);
             var criticalEvents = await _context.SystemEvents
                 .CountAsync(e => e.Severity == "critical" && e.CreatedDate >= lastWeek);
 
-            health["database"] = new
-            {
-                total_files = totalFiles,
-                total_users = totalUsers,
-                active_users = activeUsers,
-                status = "connected"
-            };
+            var totalFileSizeMb = totalFileSize / (1024.0 * 1024.0);
 
-            health["activity"] = new
+            var health = new Dictionary<string, object>
             {
-                recent_uploads = recentUploads,
-                recent_logins = recentLogins,
-                recent_failed_logins = recentFailedLogins
+                ["database"] = new
+                {
+                    total_files = totalFiles,
+                    total_users = totalUsers,
+                    active_users = activeUsers,
+                    status = "connected"
+                },
+                ["activity"] = new
+                {
+                    recent_uploads = recentUploads,
+                    recent_logins = recentLogins,
+                    recent_failed_logins = recentFailedLogins
+                },
+                ["storage"] = new
+                {
+                    total_size_mb = Math.Round(totalFileSizeMb, 2),
+                    total_files = totalFiles
+                },
+                ["security"] = new
+                {
+                    critical_events_last_week = criticalEvents,
+                    failed_logins_24h = recentFailedLogins
+                },
+                ["timestamp"] = DateTime.UtcNow
             };
-
-            health["storage"] = new
-            {
-                total_size_mb = Math.Round(totalFileSizeMb, 2),
-                total_files = totalFiles
-            };
-
-            health["security"] = new
-            {
-                critical_events_last_week = criticalEvents,
-                failed_logins_24h = recentFailedLogins
-            };
-
-            health["timestamp"] = DateTime.UtcNow;
 
             return health;
         }
@@ -351,6 +348,7 @@ public class MonitoringService : IMonitoringService
             {
                 systemEvent.IsRead = true;
                 await _context.SaveChangesAsync();
+                await BroadcastAlertCountAsync();
             }
         }
         catch (Exception ex)
@@ -369,6 +367,31 @@ public class MonitoringService : IMonitoringService
         {
             _logger.LogError(ex, "Error getting unread alert count");
             return 0;
+        }
+    }
+
+    private async Task BroadcastAlertCountAsync()
+    {
+        try
+        {
+            var count = await GetUnreadAlertCountAsync();
+            await _sseService.BroadcastAsync("alert-count", new { count });
+
+            var recentAlerts = count > 0
+                ? (await GetUnreadAlertsAsync()).Take(5).Select(a => new
+                {
+                    id = a.Id,
+                    event_type = a.EventType,
+                    severity = a.Severity,
+                    message = a.Message,
+                    created_date = a.CreatedDate
+                }).ToList()
+                : [];
+            await _sseService.BroadcastAsync("recent-alerts", new { alerts = recentAlerts });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to broadcast alert state via SSE");
         }
     }
 

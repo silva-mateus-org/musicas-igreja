@@ -1,32 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { MainLayout } from '@/components/layout/main-layout'
 import { MusicUnifiedFilters } from '@/components/music/music-unified-filters'
 import { MusicTable } from '@/components/music/music-table'
 import { MusicGroupedView } from '@/components/music/music-grouped-view'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@core/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
 import { useMusic, musicKeys } from '@/hooks/use-music'
-import { request } from '@/lib/api'
+import { request, getActiveWorkspaceId, customFiltersApi } from '@/lib/api'
 import type { SearchFilters, PaginationParams } from '@/types'
 import { Music, Upload, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@core/contexts/auth-context'
+import { useWorkspace } from '@/contexts/workspace-context'
 import Link from 'next/link'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useQuery } from '@tanstack/react-query'
 
-type TabValue = 'all' | 'by-artist' | 'by-category' | 'by-liturgical-time'
+type TabValue = string
 
 export default function MusicPage() {
-    const { canUpload } = useAuth()
+    const { hasPermission } = useAuth()
+    const { activeWorkspace } = useWorkspace()
+    const canUpload = hasPermission('music:upload')
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<TabValue>('all')
     
-    // Unified filters state (shared across tabs)
     const [filters, setFilters] = useState<SearchFilters>({})
     const [pagination, setPagination] = useState<PaginationParams>({
         page: 1,
@@ -35,7 +38,6 @@ export default function MusicPage() {
         sort_order: 'desc',
     })
 
-    // All tab data using TanStack Query
     const { 
         data: musics, 
         isLoading, 
@@ -43,29 +45,34 @@ export default function MusicPage() {
         refetch: refetchMusics 
     } = useMusic(filters, pagination)
 
-    // Grouped data queries
+    const wsId = activeWorkspace?.id ?? getActiveWorkspaceId()
+
     const byArtistQuery = useQuery({
-        queryKey: ['music', 'grouped', 'by-artist'],
-        queryFn: () => request<{ groups: any[] }>('/files/grouped/by-artist'),
+        queryKey: ['music', 'grouped', 'by-artist', wsId],
+        queryFn: () => request<{ groups: any[] }>(`/files/grouped/by-artist?workspace_id=${wsId}`),
         enabled: activeTab === 'by-artist',
         staleTime: 5 * 60 * 1000,
     })
 
     const byCategoryQuery = useQuery({
-        queryKey: ['music', 'grouped', 'by-category'],
-        queryFn: () => request<{ groups: any[] }>('/files/grouped/by-category'),
+        queryKey: ['music', 'grouped', 'by-category', wsId],
+        queryFn: () => request<{ groups: any[] }>(`/files/grouped/by-category?workspace_id=${wsId}`),
         enabled: activeTab === 'by-category',
         staleTime: 5 * 60 * 1000,
     })
 
-    const byLiturgicalTimeQuery = useQuery({
-        queryKey: ['music', 'grouped', 'by-liturgical-time'],
-        queryFn: () => request<{ groups: any[] }>('/files/grouped/by-liturgical-time'),
-        enabled: activeTab === 'by-liturgical-time',
+    const customFilterGroupsQuery = useQuery({
+        queryKey: ['custom-filter-groups', wsId],
+        queryFn: () => customFiltersApi.getGroups(wsId),
         staleTime: 5 * 60 * 1000,
     })
 
-    // Reset pagination when filters change
+    const tabGroups = useMemo(() => {
+        return (customFilterGroupsQuery.data?.groups || []).filter(g => g.show_as_tab)
+    }, [customFilterGroupsQuery.data])
+
+    const totalTabCols = 3 + tabGroups.length
+
     const handleFiltersChange = (newFilters: SearchFilters) => {
         setFilters(newFilters)
         setPagination((prev) => ({ ...prev, page: 1 }))
@@ -80,7 +87,6 @@ export default function MusicPage() {
     }
 
     const handleRefreshAll = () => {
-        // Invalidate all music queries
         queryClient.invalidateQueries({ queryKey: musicKeys.all })
         queryClient.invalidateQueries({ queryKey: ['music', 'grouped'] })
     }
@@ -103,23 +109,26 @@ export default function MusicPage() {
                                 description={PAGE_INSTRUCTIONS.musicList.description}
                                 sections={PAGE_INSTRUCTIONS.musicList.sections}
                             />
-                            <Button onClick={handleRefreshAll} variant="outline" size="sm" className="gap-2">
-                                <RefreshCw className="h-4 w-4" />
-                                <span className="hidden sm:inline">Atualizar</span>
-                            </Button>
-                            {canUpload && (
-                                <Button asChild>
-                                    <Link href="/upload" className="gap-2">
-                                        <Upload className="h-4 w-4" />
-                                        Upload
-                                    </Link>
+                            <SimpleTooltip label="Recarregar lista de músicas">
+                                <Button onClick={handleRefreshAll} variant="outline" size="sm" className="gap-2">
+                                    <RefreshCw className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Atualizar</span>
                                 </Button>
+                            </SimpleTooltip>
+                            {canUpload && (
+                                <SimpleTooltip label="Fazer upload de novas músicas">
+                                    <Button asChild>
+                                        <Link href="/upload" className="gap-2">
+                                            <Upload className="h-4 w-4" />
+                                            Upload
+                                        </Link>
+                                    </Button>
+                                </SimpleTooltip>
                             )}
                         </div>
                     }
                 />
 
-                {/* Unified Search and Filters */}
                 <MusicUnifiedFilters 
                     filters={filters} 
                     onFiltersChange={handleFiltersChange}
@@ -128,24 +137,32 @@ export default function MusicPage() {
                     onSortChange={(sort) => handleSortChange(sort.field, sort.order)}
                 />
 
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="all" className="text-xs sm:text-sm">
-                            Todas
-                        </TabsTrigger>
-                        <TabsTrigger value="by-artist" className="text-xs sm:text-sm">
-                            <span className="hidden sm:inline">Por&nbsp;</span>Artista
-                        </TabsTrigger>
-                        <TabsTrigger value="by-category" className="text-xs sm:text-sm">
-                            <span className="hidden sm:inline">Por&nbsp;</span>Categoria
-                        </TabsTrigger>
-                        <TabsTrigger value="by-liturgical-time" className="text-xs sm:text-sm">
-                            <span className="hidden sm:inline">Por&nbsp;</span>Tempo
-                        </TabsTrigger>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${totalTabCols}, minmax(0, 1fr))` }}>
+                        <SimpleTooltip label="Ver todas as músicas em lista">
+                            <TabsTrigger value="all" className="text-xs sm:text-sm">
+                                Todas
+                            </TabsTrigger>
+                        </SimpleTooltip>
+                        <SimpleTooltip label="Agrupar músicas por artista">
+                            <TabsTrigger value="by-artist" className="text-xs sm:text-sm">
+                                <span className="hidden sm:inline">Por&nbsp;</span>Artista
+                            </TabsTrigger>
+                        </SimpleTooltip>
+                        <SimpleTooltip label="Agrupar músicas por categoria">
+                            <TabsTrigger value="by-category" className="text-xs sm:text-sm">
+                                <span className="hidden sm:inline">Por&nbsp;</span>Categoria
+                            </TabsTrigger>
+                        </SimpleTooltip>
+                        {tabGroups.map(group => (
+                            <SimpleTooltip key={group.slug} label={`Agrupar músicas por ${group.name.toLowerCase()}`}>
+                                <TabsTrigger value={`custom-${group.slug}`} className="text-xs sm:text-sm">
+                                    <span className="hidden sm:inline">Por&nbsp;</span>{group.name}
+                                </TabsTrigger>
+                            </SimpleTooltip>
+                        ))}
                     </TabsList>
 
-                    {/* All Music Tab */}
                     <TabsContent value="all" className="space-y-4">
                         <Card>
                             <CardHeader className="py-4">
@@ -179,7 +196,6 @@ export default function MusicPage() {
                         </Card>
                     </TabsContent>
 
-                    {/* By Artist Tab */}
                     <TabsContent value="by-artist">
                         <Card>
                             <CardHeader className="py-4">
@@ -200,7 +216,6 @@ export default function MusicPage() {
                         </Card>
                     </TabsContent>
 
-                    {/* By Category Tab */}
                     <TabsContent value="by-category">
                         <Card>
                             <CardHeader className="py-4">
@@ -221,28 +236,57 @@ export default function MusicPage() {
                         </Card>
                     </TabsContent>
 
-                    {/* By Liturgical Time Tab */}
-                    <TabsContent value="by-liturgical-time">
-                        <Card>
-                            <CardHeader className="py-4">
-                                <CardTitle className="text-base">
-                                    Músicas por Tempo Litúrgico
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <MusicGroupedView
-                                    groupType="liturgical-time"
-                                    groups={byLiturgicalTimeQuery.data?.groups || []}
-                                    isLoading={byLiturgicalTimeQuery.isLoading}
-                                    error={byLiturgicalTimeQuery.error?.message || null}
-                                    onRefresh={() => byLiturgicalTimeQuery.refetch()}
-                                    filters={filters}
-                                />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                    {tabGroups.map(group => (
+                        <CustomFilterTab
+                            key={group.slug}
+                            slug={group.slug}
+                            name={group.name}
+                            wsId={wsId}
+                            activeTab={activeTab}
+                            filters={filters}
+                        />
+                    ))}
                 </Tabs>
             </div>
         </MainLayout>
+    )
+}
+
+function CustomFilterTab({ slug, name, wsId, activeTab, filters }: {
+    slug: string
+    name: string
+    wsId: number
+    activeTab: string
+    filters: SearchFilters
+}) {
+    const tabValue = `custom-${slug}`
+    const query = useQuery({
+        queryKey: ['music', 'grouped', 'custom', slug, wsId],
+        queryFn: () => request<{ groups: any[] }>(`/files/grouped/by-custom-filter/${slug}?workspace_id=${wsId}`),
+        enabled: activeTab === tabValue,
+        staleTime: 5 * 60 * 1000,
+    })
+
+    return (
+        <TabsContent value={tabValue}>
+            <Card>
+                <CardHeader className="py-4">
+                    <CardTitle className="text-base">
+                        Músicas por {name}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <MusicGroupedView
+                        groupType="custom"
+                        groupLabel={name.toLowerCase()}
+                        groups={query.data?.groups || []}
+                        isLoading={query.isLoading}
+                        error={query.error?.message || null}
+                        onRefresh={() => query.refetch()}
+                        filters={filters}
+                    />
+                </CardContent>
+            </Card>
+        </TabsContent>
     )
 }

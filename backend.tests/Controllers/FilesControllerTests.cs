@@ -1,145 +1,67 @@
+using Core.Auth.Models;
+using Core.Auth.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MusicasIgreja.Api.Controllers;
-using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
 using MusicasIgreja.Api.Services;
+using MusicasIgreja.Api.Services.Interfaces;
 
 namespace MusicasIgreja.Api.Tests.Controllers;
 
-public class FilesControllerTests : IDisposable
+public class FilesControllerTests
 {
-    private readonly AppDbContext _context;
     private readonly FilesController _controller;
+    private readonly Mock<IMusicService> _musicServiceMock;
     private readonly Mock<IFileService> _fileServiceMock;
-    private readonly Mock<IAuthService> _authServiceMock;
+    private readonly Mock<ICoreAuthService> _authServiceMock;
     private readonly Mock<IMonitoringService> _monitoringServiceMock;
     private readonly Mock<ILogger<FilesController>> _loggerMock;
 
     public FilesControllerTests()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
-        _context = new AppDbContext(options);
+        _musicServiceMock = new Mock<IMusicService>();
         _fileServiceMock = new Mock<IFileService>();
-        _authServiceMock = new Mock<IAuthService>();
+        _authServiceMock = new Mock<ICoreAuthService>();
         _monitoringServiceMock = new Mock<IMonitoringService>();
         _loggerMock = new Mock<ILogger<FilesController>>();
 
-        _controller = new FilesController(_context, _fileServiceMock.Object, _authServiceMock.Object, _monitoringServiceMock.Object, _loggerMock.Object);
+        _controller = new FilesController(
+            _musicServiceMock.Object,
+            _fileServiceMock.Object,
+            _authServiceMock.Object,
+            _monitoringServiceMock.Object,
+            _loggerMock.Object);
 
-        // Setup HttpContext with session for authentication tests
         var httpContext = new DefaultHttpContext();
-        var sessionMock = new Mock<ISession>();
-        var sessionData = new Dictionary<string, byte[]>
+        var testSession = new TestSession(new Dictionary<string, byte[]>
         {
             ["UserId"] = BitConverter.GetBytes(1),
-            ["RoleId"] = BitConverter.GetBytes(1)
-        };
-        
-#pragma warning disable CS8601 // Possible null reference assignment in test mock
-        sessionMock.Setup(s => s.TryGetValue(It.IsAny<string>(), out It.Ref<byte[]>.IsAny))
-#pragma warning restore CS8601
-            .Returns((string key, out byte[] value) =>
-            {
-                var exists = sessionData.TryGetValue(key, out var data);
-                value = data ?? Array.Empty<byte>();
-                return exists;
-            });
-        
-        httpContext.Session = sessionMock.Object;
+            ["RoleId"] = BitConverter.GetBytes(1),
+            ["Username"] = System.Text.Encoding.UTF8.GetBytes("testuser")
+        });
+        httpContext.Features.Set<ISessionFeature>(new TestSessionFeature { Session = testSession });
         httpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("127.0.0.1");
         _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
-        // Setup AuthService mock to return permissions
-        var mockRole = new Role
-        {
-            Id = 1,
-            Name = "admin",
-            CanUploadMusic = true,
-            CanEditMusicMetadata = true,
-            CanDeleteMusic = true
-        };
-        _authServiceMock.Setup(a => a.GetRoleByIdAsync(It.IsAny<int>()))
-            .ReturnsAsync(mockRole);
-
-        SeedDatabase();
+        _authServiceMock.Setup(a => a.UserHasPermissionAsync(It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
     }
 
-    private void SeedDatabase()
+    private static FileListResponseDto MakeFileListResponse(int count, int page = 1, int perPage = 20)
     {
-        // Add test categories
-        _context.Categories.AddRange(
-            new Category { Id = 1, Name = "Entrada" },
-            new Category { Id = 2, Name = "Comunhão" },
-            new Category { Id = 3, Name = "Final" }
-        );
+        var files = Enumerable.Range(1, count).Select(i => new FileDto(
+            i, $"file{i}.pdf", $"original{i}.pdf", $"Song {i}", "Artist",
+            new List<string> { "Entrada" }, new Dictionary<string, FileCustomFilterGroupDto>(),
+            "C", null, 1024, 2, DateTime.UtcNow, null
+        )).ToList();
 
-        // Add test liturgical times
-        _context.LiturgicalTimes.AddRange(
-            new LiturgicalTime { Id = 1, Name = "Tempo Comum" },
-            new LiturgicalTime { Id = 2, Name = "Advento" }
-        );
-
-        // Add test files
-        _context.PdfFiles.AddRange(
-            new PdfFile
-            {
-                Id = 1,
-                Filename = "Ave Maria - G - Bach.pdf",
-                OriginalName = "avemaria.pdf",
-                SongName = "Ave Maria",
-                Artist = "Bach",
-                Category = "Entrada",
-                MusicalKey = "G",
-                FilePath = "organized/Entrada/Ave Maria - G - Bach.pdf",
-                FileSize = 1024,
-                FileHash = "abc123",
-                PageCount = 2
-            },
-            new PdfFile
-            {
-                Id = 2,
-                Filename = "Aleluia - D - Handel.pdf",
-                OriginalName = "aleluia.pdf",
-                SongName = "Aleluia",
-                Artist = "Handel",
-                Category = "Comunhão",
-                MusicalKey = "D",
-                FilePath = "organized/Comunhão/Aleluia - D - Handel.pdf",
-                FileSize = 2048,
-                FileHash = "def456",
-                PageCount = 3
-            },
-            new PdfFile
-            {
-                Id = 3,
-                Filename = "Glória - C - Vivaldi.pdf",
-                OriginalName = "gloria.pdf",
-                SongName = "Glória",
-                Artist = "Vivaldi",
-                Category = "Entrada",
-                MusicalKey = "C",
-                FilePath = "organized/Entrada/Glória - C - Vivaldi.pdf",
-                FileSize = 3072,
-                FileHash = "ghi789",
-                PageCount = 4
-            }
-        );
-
-        _context.SaveChanges();
-    }
-
-    public void Dispose()
-    {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
+        return new FileListResponseDto(files,
+            new PaginationDto(page, perPage, count, (int)Math.Ceiling(count / (double)perPage)));
     }
 
     #region GetFiles Tests
@@ -147,50 +69,32 @@ public class FilesControllerTests : IDisposable
     [Fact]
     public async Task GetFiles_WithNoFilters_ShouldReturnAllFiles()
     {
+        _musicServiceMock.Setup(m => m.GetMusicsAsync(
+                It.IsAny<int>(), null, null, null, null, null,
+                1, 20, "upload_date", "desc", null))
+            .ReturnsAsync(MakeFileListResponse(3));
+
         var result = await _controller.GetFiles();
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<FileListResponseDto>(okResult.Value);
-
         Assert.Equal(3, response.Files.Count);
         Assert.Equal(3, response.Pagination.Total);
     }
 
     [Fact]
-    public async Task GetFiles_WithCategoryFilter_ShouldReturnFilteredFiles()
-    {
-        var result = await _controller.GetFiles(category: new List<string> { "Entrada" });
-
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var response = Assert.IsType<FileListResponseDto>(okResult.Value);
-
-        Assert.Equal(2, response.Files.Count);
-        Assert.All(response.Files, f => Assert.Equal("Entrada", f.PrimaryCategory));
-    }
-
-    [Fact]
     public async Task GetFiles_WithPagination_ShouldReturnCorrectPage()
     {
+        _musicServiceMock.Setup(m => m.GetMusicsAsync(
+                It.IsAny<int>(), null, null, null, null, null,
+                1, 2, "upload_date", "desc", null))
+            .ReturnsAsync(MakeFileListResponse(2, 1, 2));
+
         var result = await _controller.GetFiles(page: 1, per_page: 2);
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<FileListResponseDto>(okResult.Value);
-
         Assert.Equal(2, response.Files.Count);
-        Assert.Equal(2, response.Pagination.TotalPages);
-        Assert.Equal(1, response.Pagination.Page);
-    }
-
-    [Fact]
-    public async Task GetFiles_SecondPage_ShouldReturnRemainingFiles()
-    {
-        var result = await _controller.GetFiles(page: 2, per_page: 2);
-
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var response = Assert.IsType<FileListResponseDto>(okResult.Value);
-
-        Assert.Single(response.Files);
-        Assert.Equal(2, response.Pagination.Page);
     }
 
     #endregion
@@ -200,17 +104,23 @@ public class FilesControllerTests : IDisposable
     [Fact]
     public async Task GetFile_WithValidId_ShouldReturnFile()
     {
+        _musicServiceMock.Setup(m => m.GetMusicByIdAsync(1))
+            .ReturnsAsync(new FileDto(1, "file.pdf", "orig.pdf", "Song", "Artist",
+                new List<string>(), new Dictionary<string, FileCustomFilterGroupDto>(),
+                "C", null, 1024, 2, DateTime.UtcNow, null));
+
         var result = await _controller.GetFile(1);
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var response = okResult.Value;
-        
-        Assert.NotNull(response);
+        Assert.NotNull(okResult.Value);
     }
 
     [Fact]
     public async Task GetFile_WithInvalidId_ShouldReturnNotFound()
     {
+        _musicServiceMock.Setup(m => m.GetMusicByIdAsync(999))
+            .ReturnsAsync((FileDto?)null);
+
         var result = await _controller.GetFile(999);
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -223,20 +133,19 @@ public class FilesControllerTests : IDisposable
     [Fact]
     public async Task DeleteFile_WithValidId_ShouldDeleteFile()
     {
-        _fileServiceMock.Setup(x => x.DeleteFile(It.IsAny<string>()));
+        _musicServiceMock.Setup(m => m.DeleteMusicAsync(1)).ReturnsAsync(true);
 
         var result = await _controller.DeleteFile(1);
 
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        
-        // Verify file is deleted from database
-        var deletedFile = await _context.PdfFiles.FindAsync(1);
-        Assert.Null(deletedFile);
+        Assert.IsType<OkObjectResult>(result.Result);
+        _musicServiceMock.Verify(m => m.DeleteMusicAsync(1), Times.Once);
     }
 
     [Fact]
     public async Task DeleteFile_WithInvalidId_ShouldReturnNotFound()
     {
+        _musicServiceMock.Setup(m => m.DeleteMusicAsync(999)).ReturnsAsync(false);
+
         var result = await _controller.DeleteFile(999);
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -263,7 +172,7 @@ public class FilesControllerTests : IDisposable
 
         var result = await _controller.UploadFile(fileMock.Object);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
     [Fact]
@@ -285,31 +194,26 @@ public class FilesControllerTests : IDisposable
     [Fact]
     public async Task UpdateFile_WithValidData_ShouldUpdateFile()
     {
-        _fileServiceMock.Setup(x => x.GenerateFilename(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns("Updated Song - A - New Artist.pdf");
+        _musicServiceMock.Setup(m => m.UpdateMusicAsync(1, It.IsAny<FileUpdateDto>()))
+            .ReturnsAsync(true);
 
-        var updateDto = new FileUpdateDto
-        {
-            SongName = "Updated Song",
-            Artist = "New Artist",
-            MusicalKey = "A"
-        };
+        var dto = new FileUpdateDto { SongName = "Updated Song", Artist = "New Artist", MusicalKey = "A" };
 
-        var result = await _controller.UpdateFile(1, updateDto);
+        var result = await _controller.UpdateFile(1, dto);
 
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        
-        var updatedFile = await _context.PdfFiles.FindAsync(1);
-        Assert.Equal("Updated Song", updatedFile!.SongName);
-        Assert.Equal("New Artist", updatedFile.Artist);
+        Assert.IsType<OkObjectResult>(result.Result);
+        _musicServiceMock.Verify(m => m.UpdateMusicAsync(1, dto), Times.Once);
     }
 
     [Fact]
     public async Task UpdateFile_WithInvalidId_ShouldReturnNotFound()
     {
-        var updateDto = new FileUpdateDto { SongName = "Test" };
+        _musicServiceMock.Setup(m => m.UpdateMusicAsync(999, It.IsAny<FileUpdateDto>()))
+            .ReturnsAsync(false);
 
-        var result = await _controller.UpdateFile(999, updateDto);
+        var dto = new FileUpdateDto { SongName = "Test" };
+
+        var result = await _controller.UpdateFile(999, dto);
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
@@ -319,8 +223,14 @@ public class FilesControllerTests : IDisposable
     #region Grouped Endpoints Tests
 
     [Fact]
-    public async Task GetFilesGroupedByArtist_ShouldGroupCorrectly()
+    public async Task GetFilesGroupedByArtist_ShouldReturnGroups()
     {
+        _musicServiceMock.Setup(m => m.GetGroupedByArtistAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<GroupedFilesDto>
+            {
+                new("Bach", 2, new List<GroupedFileItemDto>())
+            });
+
         var result = await _controller.GetFilesGroupedByArtist();
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
@@ -328,8 +238,14 @@ public class FilesControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetFilesGroupedByCategory_ShouldGroupCorrectly()
+    public async Task GetFilesGroupedByCategory_ShouldReturnGroups()
     {
+        _musicServiceMock.Setup(m => m.GetGroupedByCategoryAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<GroupedFilesDto>
+            {
+                new("Entrada", 3, new List<GroupedFileItemDto>())
+            });
+
         var result = await _controller.GetFilesGroupedByCategory();
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
@@ -337,4 +253,30 @@ public class FilesControllerTests : IDisposable
     }
 
     #endregion
+}
+
+internal sealed class TestSession : ISession
+{
+    private readonly Dictionary<string, byte[]> _data;
+
+    public TestSession(Dictionary<string, byte[]> data) => _data = data;
+
+    public bool IsAvailable => true;
+    public string Id => "test-session-id";
+    public IEnumerable<string> Keys => _data.Keys;
+
+    public void Clear() => _data.Clear();
+    public void Remove(string key) => _data.Remove(key);
+    public void Set(string key, byte[] value) => _data[key] = value;
+
+    public bool TryGetValue(string key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out byte[]? value) =>
+        _data.TryGetValue(key, out value);
+
+    public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+internal sealed class TestSessionFeature : ISessionFeature
+{
+    public ISession Session { get; set; } = null!;
 }

@@ -2,23 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { MainLayout } from '@/components/layout/main-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useAuth } from '@/contexts/AuthContext'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card'
+import { Button } from '@core/components/ui/button'
+import { Badge } from '@core/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@core/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { useAuth } from '@core/contexts/auth-context'
 import { monitoringApi, handleApiError } from '@/lib/api'
 import type { SystemEvent, AuditLog, SystemMetric, SystemHealth } from '@/types'
 import { AlertCircle, AlertTriangle, Info, Activity, Database, HardDrive, Users, TrendingUp, RefreshCw, CheckCircle } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { useToast } from '@core/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function MonitoringPage() {
     const { toast } = useToast()
     const router = useRouter()
-    const { isAdmin } = useAuth()
+    const { hasPermission } = useAuth()
+    const isAdmin = hasPermission('admin:access')
 
     const [events, setEvents] = useState<SystemEvent[]>([])
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
@@ -134,10 +136,12 @@ export default function MonitoringPage() {
                             description={PAGE_INSTRUCTIONS.monitoring.description}
                             sections={PAGE_INSTRUCTIONS.monitoring.sections}
                         />
-                        <Button onClick={loadData} disabled={isLoading}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                            Atualizar
-                        </Button>
+                        <SimpleTooltip label="Recarregar alertas">
+                            <Button onClick={loadData} disabled={isLoading}>
+                                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                                Atualizar
+                            </Button>
+                        </SimpleTooltip>
                     </div>
                 </div>
 

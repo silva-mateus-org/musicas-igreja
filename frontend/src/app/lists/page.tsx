@@ -6,23 +6,28 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MainLayout } from '@/components/layout/main-layout'
 import { ListsTable } from '@/components/lists/lists-table'
 import { CreateListDialog } from '@/components/lists/create-list-dialog'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Button } from '@core/components/ui/button'
+import { Card, CardContent } from '@core/components/ui/card'
+import { Input } from '@core/components/ui/input'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { listsKeys } from '@/hooks/use-lists'
 import type { MusicList } from '@/types'
-import { List, Plus, Search, RefreshCw, ArrowUpDown } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
+import { List, Plus, Search, RefreshCw, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
+import { useToast } from '@core/hooks/use-toast'
+import { useAuth } from '@core/contexts/auth-context'
+import { useWorkspace } from '@/contexts/workspace-context'
+import { getActiveWorkspaceId } from '@/lib/api'
 import { debounce } from '@/lib/utils'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 
 export default function ListsPage() {
     const { toast } = useToast()
-    const { canEdit } = useAuth()
+    const { hasPermission } = useAuth()
+    const { activeWorkspace } = useWorkspace()
+    const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
     const queryClient = useQueryClient()
 
     const [searchTerm, setSearchTerm] = useState('')
@@ -31,10 +36,12 @@ export default function ListsPage() {
     const [sortBy, setSortBy] = useState<{ field: string, order: 'asc' | 'desc' }>({ field: 'created_date', order: 'desc' })
 
     // Fetch lists using TanStack Query
+    const wsId = activeWorkspace?.id ?? getActiveWorkspaceId()
     const { data: listsResponse, isLoading, error, refetch } = useQuery({
-        queryKey: [...listsKeys.lists(), { search: searchTerm, sortBy, page }],
+        queryKey: [...listsKeys.lists(), { search: searchTerm, sortBy, page, wsId }],
         queryFn: async () => {
             const params = new URLSearchParams()
+            params.append('workspace_id', String(wsId))
             if (searchTerm) params.append('search', searchTerm)
             if (sortBy.field) params.append('sort_by', sortBy.field)
             if (sortBy.order) params.append('sort_order', sortBy.order)
@@ -113,16 +120,20 @@ export default function ListsPage() {
                             description={PAGE_INSTRUCTIONS.lists.description}
                             sections={PAGE_INSTRUCTIONS.lists.sections}
                         />
-                        <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
-                            <RefreshCw className="h-4 w-4" />
-                            <span className="hidden sm:inline">Atualizar</span>
-                        </Button>
-                        {canEdit && (
-                            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                <span className="hidden sm:inline">Nova Lista</span>
-                                <span className="sm:hidden">Nova</span>
+                        <SimpleTooltip label="Recarregar listas">
+                            <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
+                                <RefreshCw className="h-4 w-4" />
+                                <span className="hidden sm:inline">Atualizar</span>
                             </Button>
+                        </SimpleTooltip>
+                        {canEdit && (
+                            <SimpleTooltip label="Criar uma nova lista">
+                                <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Nova Lista</span>
+                                    <span className="sm:hidden">Nova</span>
+                                </Button>
+                            </SimpleTooltip>
                         )}
                     </div>
                 </PageHeader>
@@ -151,12 +162,24 @@ export default function ListsPage() {
                                     <SelectValue placeholder="Ordenar" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="name:asc">Nome - Crescente</SelectItem>
-                                    <SelectItem value="name:desc">Nome - Decrescente</SelectItem>
-                                    <SelectItem value="created_date:asc">Data - Crescente</SelectItem>
-                                    <SelectItem value="created_date:desc">Data - Decrescente</SelectItem>
-                                    <SelectItem value="file_count:asc">Músicas - Crescente</SelectItem>
-                                    <SelectItem value="file_count:desc">Músicas - Decrescente</SelectItem>
+                                    <SelectItem value="name:asc">
+                                        <span className="flex items-center gap-1.5">Nome <ChevronUp className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
+                                    <SelectItem value="name:desc">
+                                        <span className="flex items-center gap-1.5">Nome <ChevronDown className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
+                                    <SelectItem value="created_date:asc">
+                                        <span className="flex items-center gap-1.5">Data <ChevronUp className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
+                                    <SelectItem value="created_date:desc">
+                                        <span className="flex items-center gap-1.5">Data <ChevronDown className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
+                                    <SelectItem value="file_count:asc">
+                                        <span className="flex items-center gap-1.5">Músicas <ChevronUp className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
+                                    <SelectItem value="file_count:desc">
+                                        <span className="flex items-center gap-1.5">Músicas <ChevronDown className="h-3.5 w-3.5" /></span>
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

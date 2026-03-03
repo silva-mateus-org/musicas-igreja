@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Info } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@core/components/ui/button'
 import {
     Dialog,
     DialogContent,
@@ -10,9 +10,9 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+} from '@core/components/ui/dialog'
+import { ScrollArea } from '@core/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export interface InstructionSection {
@@ -40,25 +40,23 @@ export function InstructionsModal({
 }: InstructionsModalProps) {
     return (
         <Dialog>
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <DialogTrigger asChild>
-                            <Button
-                                variant={buttonVariant}
-                                size={buttonSize}
-                                className={cn('h-8 w-8', className)}
-                            >
-                                <Info className="h-4 w-4" />
-                                <span className="sr-only">Instruções</span>
-                            </Button>
-                        </DialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Ver instruções</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant={buttonVariant}
+                            size={buttonSize}
+                            className={cn('h-8 w-8', className)}
+                        >
+                            <Info className="h-4 w-4" />
+                            <span className="sr-only">Instruções</span>
+                        </Button>
+                    </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Ver instruções</p>
+                </TooltipContent>
+            </Tooltip>
             <DialogContent className="sm:max-w-[600px] max-h-[85vh]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -255,7 +253,7 @@ export const PAGE_INSTRUCTIONS = {
                         <div className="bg-muted/50 rounded p-2 space-y-1">
                             <p><strong>Nome da lista</strong> — Clique para ver detalhes</p>
                             <p><strong>✏ Editar</strong> — Adicionar/remover músicas, reordenar</p>
-                            <p><strong>📄 Gerar PDF</strong> — Cria documento com todas as partituras</p>
+                            <p><strong>📄 Gerar PDF</strong> — Cria documento com todas as cifras</p>
                             <p><strong>🗑 Excluir</strong> — Remove a lista (requer confirmação)</p>
                         </div>
                     </div>
