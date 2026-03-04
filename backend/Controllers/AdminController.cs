@@ -45,7 +45,7 @@ public class AdminController : ControllerBase
             var artistName = file.FileArtists.Select(fa => fa.Artist.Name).FirstOrDefault();
             var expectedFilename = _fileService.GenerateFilename(file.SongName, artistName, file.OriginalName, file.MusicalKey);
 
-            if (string.Equals(file.Filename?.Trim(), expectedFilename?.Trim(), StringComparison.Ordinal))
+            if (string.Equals(file.Filename?.Trim(), expectedFilename.Trim(), StringComparison.Ordinal))
                 continue;
 
             var currentPath = _fileService.GetAbsolutePath(file.FilePath);

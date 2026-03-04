@@ -44,16 +44,13 @@ const nextConfig = {
         unoptimized: true,
     },
 
-    // Disable experimental features that might cause routing issues
     experimental: {
         esmExternals: false,
+        outputFileTracingRoot: path.join(__dirname, '..'),
     },
 
     // Output standalone para Docker
     output: 'standalone',
-
-    // Monorepo: root de tracing inclui ../core usado via @core alias
-    outputFileTracingRoot: path.join(__dirname, '..'),
 
     // Ensure trailing slashes for consistent routing
     trailingSlash: false,
