@@ -2,6 +2,7 @@ using Core.Auth.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using MusicasIgreja.Api.Controllers;
 using MusicasIgreja.Api.DTOs;
@@ -20,7 +21,11 @@ public class MergeListsControllerTests
         _listServiceMock = new Mock<IListService>();
         _authServiceMock = new Mock<ICoreAuthService>();
 
-        _controller = new MergeListsController(_listServiceMock.Object, _authServiceMock.Object);
+        _controller = new MergeListsController(
+            _listServiceMock.Object,
+            _authServiceMock.Object,
+            Mock.Of<ILogger<MergeListsController>>()
+        );
 
         var httpContext = new DefaultHttpContext();
         var testSession = new TestSession(new Dictionary<string, byte[]>
@@ -191,6 +196,38 @@ public class MergeListsControllerTests
         var result = await _controller.AddItems(1, dto);
 
         Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AddItems_WithNullDto_ShouldReturnBadRequest()
+    {
+        var result = await _controller.AddItems(1, null!);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AddItems_WithEmptyFileIds_ShouldReturnBadRequest()
+    {
+        var dto = new AddItemsDto { FileIds = new List<int>() };
+
+        var result = await _controller.AddItems(1, dto);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AddItems_WhenServiceThrows_ShouldReturn500()
+    {
+        _listServiceMock.Setup(s => s.AddItemsAsync(1, It.IsAny<List<int>>()))
+            .ThrowsAsync(new Exception("DB error"));
+
+        var dto = new AddItemsDto { FileIds = new List<int> { 1 } };
+
+        var result = await _controller.AddItems(1, dto);
+
+        var statusResult = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(500, statusResult.StatusCode);
     }
 
     #endregion

@@ -796,19 +796,17 @@ export default function EditListPage() {
                                     {/* Dropdown de Categorias */}
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <SimpleTooltip label="Filtrar por categorias">
-                                                <Button variant="outline" className="justify-between min-w-[160px]">
-                                                    <span className="flex items-center gap-2">
-                                                        <Filter className="h-4 w-4" />
-                                                        Categorias
-                                                    </span>
-                                                    {selectedCategories.length > 0 && (
-                                                        <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                                                            {selectedCategories.length}
-                                                        </Badge>
-                                                    )}
-                                                </Button>
-                                            </SimpleTooltip>
+                                            <Button variant="outline" className="justify-between min-w-[160px]">
+                                                <span className="flex items-center gap-2">
+                                                    <Filter className="h-4 w-4" />
+                                                    Categorias
+                                                </span>
+                                                {selectedCategories.length > 0 && (
+                                                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                                                        {selectedCategories.length}
+                                                    </Badge>
+                                                )}
+                                            </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-56 p-0" align="start">
                                             <div className="p-2 border-b">
@@ -861,19 +859,17 @@ export default function EditListPage() {
                                     {/* Dropdown de Artistas */}
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <SimpleTooltip label="Filtrar por artistas">
-                                                <Button variant="outline" className="justify-between min-w-[140px]">
-                                                    <span className="flex items-center gap-2">
-                                                        <User className="h-4 w-4" />
-                                                        Artistas
-                                                    </span>
-                                                    {selectedArtists.length > 0 && (
-                                                        <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                                                            {selectedArtists.length}
-                                                        </Badge>
-                                                    )}
-                                                </Button>
-                                            </SimpleTooltip>
+                                            <Button variant="outline" className="justify-between min-w-[140px]">
+                                                <span className="flex items-center gap-2">
+                                                    <User className="h-4 w-4" />
+                                                    Artistas
+                                                </span>
+                                                {selectedArtists.length > 0 && (
+                                                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                                                        {selectedArtists.length}
+                                                    </Badge>
+                                                )}
+                                            </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-56 p-0" align="start">
                                             <div className="p-2 border-b">

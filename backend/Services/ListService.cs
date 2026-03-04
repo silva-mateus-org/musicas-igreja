@@ -135,18 +135,18 @@ public class ListService : IListService
             .ToListAsync();
 
         var maxPos = list.Items.Any() ? list.Items.Max(i => i.OrderPosition) : -1;
-        var newItemIds = new List<int>();
+        var newItems = new List<MergeListItem>();
 
         foreach (var fileId in validFileIds)
         {
             var item = new MergeListItem { MergeListId = id, PdfFileId = fileId, OrderPosition = ++maxPos };
             _context.MergeListItems.Add(item);
-            newItemIds.Add(item.Id);
+            newItems.Add(item);
         }
 
         list.UpdatedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        return newItemIds;
+        return newItems.Select(i => i.Id).ToList();
     }
 
     public async Task<bool> ReorderItemsAsync(int id, List<int> itemOrder)

@@ -14,11 +14,13 @@ public class MergeListsController : ControllerBase
 {
     private readonly IListService _listService;
     private readonly ICoreAuthService _authService;
+    private readonly ILogger<MergeListsController> _logger;
 
-    public MergeListsController(IListService listService, ICoreAuthService authService)
+    public MergeListsController(IListService listService, ICoreAuthService authService, ILogger<MergeListsController> logger)
     {
         _listService = listService;
         _authService = authService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -85,15 +87,26 @@ public class MergeListsController : ControllerBase
     }
 
     [HttpPost("{id}/items")]
-    public async Task<ActionResult<object>> AddItems(int id, [FromBody] AddItemsDto dto)
+    public async Task<ActionResult<object>> AddItems(int id, [FromBody] AddItemsDto? dto)
     {
         if (!CoreAuthHelper.IsAuthenticated(HttpContext))
             return Unauthorized(new { error = "Não autenticado" });
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageLists))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        var newItemIds = await _listService.AddItemsAsync(id, dto.FileIds);
-        return Ok(new { success = true, added = newItemIds.Count, new_item_ids = newItemIds });
+        if (dto == null || dto.FileIds.Count == 0)
+            return BadRequest(new { success = false, error = "Lista de arquivos é obrigatória" });
+
+        try
+        {
+            var newItemIds = await _listService.AddItemsAsync(id, dto.FileIds);
+            return Ok(new { success = true, added = newItemIds.Count, new_item_ids = newItemIds });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding items to list {ListId}", id);
+            return StatusCode(500, new { success = false, error = "Erro ao adicionar músicas à lista" });
+        }
     }
 
     [HttpPost("{id}/reorder")]
