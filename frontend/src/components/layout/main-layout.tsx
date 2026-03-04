@@ -126,7 +126,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         return labels[role.toLowerCase()] || role
     }
 
-    const sseUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000'}/api/events/stream`
+    const sseUrl = '/api/events/stream'
 
     useServerEvents(sseUrl, {
         'alert-count': (data: { count: number }) => {

@@ -7,10 +7,6 @@ const nextConfig = {
     reactStrictMode: false,
     swcMinify: true,
 
-    env: {
-        NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://127.0.0.1:5000',
-    },
-
     transpilePackages: ['@core'],
 
     // Remover rewrites conflitantes - usar API routes específicas

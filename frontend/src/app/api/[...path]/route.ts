@@ -45,6 +45,19 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
 
         const setCookies = response.headers.getSetCookie()
 
+        if (resContentType.includes('text/event-stream')) {
+            const res = new NextResponse(response.body, {
+                status: response.status,
+                headers: {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                },
+            })
+            setCookies.forEach(cookie => res.headers.append('Set-Cookie', cookie))
+            return res
+        }
+
         if (resContentType.includes('application/pdf') || resContentType.includes('octet-stream')) {
             const res = new NextResponse(response.body, {
                 status: response.status,

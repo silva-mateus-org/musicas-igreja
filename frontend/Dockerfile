@@ -9,8 +9,6 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 RUN npm install -g npm@11.5.2
 ENV NODE_ENV=production
-ARG NEXT_PUBLIC_BACKEND_URL
-ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 # Copy core frontend source (deps resolved via webpack resolve.modules)
 COPY core/frontend/ ./core/frontend/
