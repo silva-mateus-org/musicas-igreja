@@ -62,7 +62,6 @@ const nextConfig = {
     webpack: (config) => {
         const srcPath = path.resolve(process.cwd(), 'src')
 
-        // Configurar aliases
         config.resolve.alias = {
             ...(config.resolve.alias || {}),
             '@': srcPath,
@@ -72,6 +71,11 @@ const nextConfig = {
             '@/hooks': path.join(srcPath, 'hooks'),
             '@/types': path.join(srcPath, 'types'),
         }
+
+        config.resolve.modules = [
+            'node_modules',
+            path.resolve(process.cwd(), 'node_modules'),
+        ]
 
         return config
     }
