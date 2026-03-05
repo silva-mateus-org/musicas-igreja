@@ -27,7 +27,8 @@ import {
     FileText,
     Copy,
     Youtube,
-    Lock
+    Lock,
+    Loader2
 } from 'lucide-react'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
@@ -50,6 +51,7 @@ export default function ListDetailsPage() {
     const [reportCopied, setReportCopied] = useState(false)
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [isExporting, setIsExporting] = useState(false)
 
     const handleDeleteClick = () => {
         setDeleteDialogOpen(true)
@@ -80,22 +82,30 @@ export default function ListDetailsPage() {
     const handleExport = async () => {
         if (!list) return
 
+        setIsExporting(true)
         try {
             const blob = await listsApi.mergeListPdfs(list.id)
+            const safeName = list.name.replace(/[<>:"/\\|?*]/g, '_')
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.download = `${list.name}.pdf`
+            link.download = `${safeName}.pdf`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
-            window.URL.revokeObjectURL(url)
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+            toast({
+                title: "Download iniciado",
+                description: `PDF da lista "${list.name}" está sendo baixado.`,
+            })
         } catch (error) {
             toast({
                 title: "Erro ao exportar",
                 description: handleApiError(error),
                 variant: "destructive",
             })
+        } finally {
+            setIsExporting(false)
         }
     }
 
@@ -162,16 +172,18 @@ export default function ListDetailsPage() {
 
     const handleDownloadPdf = async (musicId: number, title: string) => {
         try {
-            const response = await fetch(`/api/files/${musicId}/download`)
+            const response = await fetch(`/api/files/${musicId}/download`, { credentials: 'include' })
+            if (!response.ok) throw new Error('Falha ao baixar')
             const blob = await response.blob()
+            const safeName = (title || 'musica').replace(/[<>:"/\\|?*]/g, '_')
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.download = `${title || 'musica'}.pdf`
+            link.download = `${safeName}.pdf`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
-            window.URL.revokeObjectURL(url)
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000)
         } catch (error) {
             toast({
                 title: "Erro ao baixar",
@@ -266,10 +278,14 @@ export default function ListDetailsPage() {
                             </Tooltip>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" size="sm" onClick={handleExport} className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                                        <Download className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Exportar PDF</span>
-                                        <span className="sm:hidden">PDF</span>
+                                    <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting || !list.items?.length} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                                        {isExporting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+                                        <span className="hidden sm:inline">{isExporting ? 'Exportando...' : 'Exportar PDF'}</span>
+                                        <span className="sm:hidden">{isExporting ? '...' : 'PDF'}</span>
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>

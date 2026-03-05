@@ -339,7 +339,14 @@ export const listsApi = {
             cache: 'no-store',
             credentials: 'include'
         })
-        if (!res.ok) throw new Error('Falha ao exportar')
+        if (!res.ok) {
+            let message = 'Falha ao exportar'
+            try {
+                const data = await res.json()
+                message = data?.error || data?.message || message
+            } catch { }
+            throw new Error(message)
+        }
         return await res.blob()
     },
 

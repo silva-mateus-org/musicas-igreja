@@ -60,6 +60,7 @@ export function ListsTable({
     const [isDeleting, setIsDeleting] = useState(false)
     const [generatingReport, setGeneratingReport] = useState<number | null>(null)
     const [reportCopied, setReportCopied] = useState<number | null>(null)
+    const [downloadingPdf, setDownloadingPdf] = useState<number | null>(null)
 
     const handleDeleteClick = (list: MusicList) => {
         setDeleteDialog({ open: true, list })
@@ -135,16 +136,18 @@ export function ListsTable({
     }
 
     const handleDownloadPDF = async (list: MusicList) => {
+        setDownloadingPdf(list.id)
         try {
             const blob = await listsApi.mergeListPdfs(list.id)
+            const safeName = list.name.replace(/[<>:"/\\|?*]/g, '_')
             const url = URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.download = `${list.name}.pdf`
+            link.download = `${safeName}.pdf`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
-            URL.revokeObjectURL(url)
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
 
             toast({
                 title: "Download iniciado",
@@ -153,9 +156,11 @@ export function ListsTable({
         } catch (error) {
             toast({
                 title: "Erro no download",
-                description: "Não foi possível baixar o PDF da lista.",
+                description: handleApiError(error),
                 variant: "destructive"
             })
+        } finally {
+            setDownloadingPdf(null)
         }
     }
 
@@ -303,8 +308,13 @@ export function ListsTable({
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={() => handleDownloadPDF(list)}
+                                                disabled={downloadingPdf === list.id}
                                             >
-                                                <Download className="h-4 w-4" />
+                                                {downloadingPdf === list.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Download className="h-4 w-4" />
+                                                )}
                                             </Button>
                                         </SimpleTooltip>
                                         {canEdit && (
@@ -366,9 +376,13 @@ export function ListsTable({
                                                     )}
                                                     Gerar Relatório
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDownloadPDF(list)}>
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    Baixar PDF
+                                                <DropdownMenuItem onClick={() => handleDownloadPDF(list)} disabled={downloadingPdf === list.id}>
+                                                    {downloadingPdf === list.id ? (
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Download className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {downloadingPdf === list.id ? 'Baixando...' : 'Baixar PDF'}
                                                 </DropdownMenuItem>
                                                 {canEdit && (
                                                     <>

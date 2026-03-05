@@ -73,6 +73,8 @@ frontend/out/
 # Testing
 frontend/coverage/
 frontend/.eslintcache
+frontend/test-results/
+frontend/e2e-results/
 
 # Environment
 .env
