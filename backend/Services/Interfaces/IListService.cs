@@ -13,5 +13,5 @@ public interface IListService
     Task<bool> ReorderItemsAsync(int id, List<int> itemOrder);
     Task<int> DuplicateListAsync(int id, string? newName);
     Task<string?> GenerateReportAsync(int id);
-    Task<(Stream? Stream, string? ListName)> ExportListAsync(int id);
+    Task<(Stream? Stream, string? ListName, string? Error)> ExportListAsync(int id);
 }

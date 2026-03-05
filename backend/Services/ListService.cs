@@ -214,27 +214,49 @@ public class ListService : IListService
         return string.Join("\n", lines);
     }
 
-    public async Task<(Stream? Stream, string? ListName)> ExportListAsync(int id)
+    public async Task<(Stream? Stream, string? ListName, string? Error)> ExportListAsync(int id)
     {
         var list = await _context.MergeLists
             .Include(l => l.Items).ThenInclude(i => i.PdfFile)
             .FirstOrDefaultAsync(l => l.Id == id);
-        if (list == null || !list.Items.Any()) return (null, null);
+
+        if (list == null)
+        {
+            _logger.LogWarning("Export failed: list {ListId} not found", id);
+            return (null, null, "Lista não encontrada");
+        }
+
+        if (!list.Items.Any())
+        {
+            _logger.LogWarning("Export failed: list {ListId} '{ListName}' has no items", id, list.Name);
+            return (null, list.Name, "A lista não possui músicas. Adicione músicas antes de exportar.");
+        }
 
         var orderedItems = list.Items.OrderBy(i => i.OrderPosition).ToList();
         var filePaths = new List<string>();
+        var missingFiles = new List<string>();
         foreach (var item in orderedItems)
         {
             var absPath = _fileService.GetAbsolutePath(item.PdfFile.FilePath);
-            if (System.IO.File.Exists(absPath)) filePaths.Add(absPath);
+            if (System.IO.File.Exists(absPath))
+                filePaths.Add(absPath);
+            else
+                missingFiles.Add(item.PdfFile.FilePath);
         }
-        if (filePaths.Count == 0) return (null, list.Name);
+
+        if (missingFiles.Count > 0)
+            _logger.LogWarning("Export list {ListId}: {MissingCount}/{TotalCount} files not found on disk: {MissingFiles}",
+                id, missingFiles.Count, orderedItems.Count, string.Join(", ", missingFiles));
+
+        if (filePaths.Count == 0)
+            return (null, list.Name, "Nenhum arquivo PDF encontrado no servidor para esta lista.");
 
         if (filePaths.Count == 1)
-            return (new FileStream(filePaths[0], FileMode.Open, FileAccess.Read), list.Name);
+            return (new FileStream(filePaths[0], FileMode.Open, FileAccess.Read, FileShare.Read), list.Name, null);
 
         using var output = new PdfDocument();
         output.Info.Title = list.Name;
+        var failedPdfs = 0;
         foreach (var path in filePaths)
         {
             try
@@ -245,14 +267,24 @@ public class ListService : IListService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error processing PDF: {Path}", path);
+                failedPdfs++;
+                _logger.LogWarning(ex, "Export list {ListId}: failed to process PDF: {Path}", id, path);
             }
         }
-        if (output.PageCount == 0) return (null, list.Name);
+
+        if (output.PageCount == 0)
+        {
+            _logger.LogError("Export list {ListId}: all {Count} PDFs failed to process", id, filePaths.Count);
+            return (null, list.Name, "Erro ao processar os arquivos PDF. Tente novamente.");
+        }
+
+        if (failedPdfs > 0)
+            _logger.LogWarning("Export list {ListId}: {FailedCount}/{TotalCount} PDFs skipped due to errors",
+                id, failedPdfs, filePaths.Count);
 
         var ms = new MemoryStream();
         output.Save(ms, false);
         ms.Position = 0;
-        return (ms, list.Name);
+        return (ms, list.Name, null);
     }
 }

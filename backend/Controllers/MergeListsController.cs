@@ -149,9 +149,9 @@ public class MergeListsController : ControllerBase
     [HttpGet("{id}/export")]
     public async Task<IActionResult> ExportList(int id)
     {
-        var (stream, listName) = await _listService.ExportListAsync(id);
+        var (stream, listName, error) = await _listService.ExportListAsync(id);
         if (stream == null)
-            return NotFound(new { success = false, error = "Lista não encontrada ou sem arquivos" });
+            return NotFound(new { success = false, error = error ?? "Lista não encontrada ou sem arquivos" });
         return File(stream, "application/pdf", $"{listName}.pdf");
     }
 }
