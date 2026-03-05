@@ -312,16 +312,6 @@ export function ListsTable({
                                                 listId={list.id}
                                                 listName={list.name}
                                                 onSuccess={() => window.location.reload()}
-                                                trigger={
-                                                    <SimpleTooltip label="Duplicar lista">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                        >
-                                                            <Copy className="h-4 w-4" />
-                                                        </Button>
-                                                    </SimpleTooltip>
-                                                }
                                             />
                                         )}
                                         {canDelete && (

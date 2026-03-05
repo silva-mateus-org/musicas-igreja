@@ -65,15 +65,19 @@ export function DuplicateListDialog({ listId, listName, trigger, onSuccess }: Du
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger || (
-                    <SimpleTooltip label="Duplicar lista">
+            {trigger ? (
+                <DialogTrigger asChild>
+                    {trigger}
+                </DialogTrigger>
+            ) : (
+                <SimpleTooltip label="Duplicar lista">
+                    <DialogTrigger asChild>
                         <Button variant="ghost" size="icon">
                             <Copy className="h-4 w-4" />
                         </Button>
-                    </SimpleTooltip>
-                )}
-            </DialogTrigger>
+                    </DialogTrigger>
+                </SimpleTooltip>
+            )}
 
             <DialogContent className="max-w-md">
                 <DialogHeader>

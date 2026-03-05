@@ -118,7 +118,7 @@ export const musicApi = {
             description: data.observations,
             categories: data.categories || (data.category ? [data.category] : []),
             custom_filters: data.custom_filters
-                ? Object.fromEntries(Object.entries(data.custom_filters).map(([k, v]) => [k, v.values]))
+                ? Object.fromEntries(Object.entries(data.custom_filters).map(([k, v]) => [k, Array.isArray(v) ? v : v.values]))
                 : undefined,
         }
         return await request<ApiResponse>(`/files/${id}`, {
