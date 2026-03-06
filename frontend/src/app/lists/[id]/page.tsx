@@ -293,24 +293,19 @@ export default function ListDetailsPage() {
                                 </TooltipContent>
                             </Tooltip>
                             {canEdit && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <DuplicateListDialog
-                                            listId={list.id}
-                                            listName={list.name}
-                                            onSuccess={() => refetch()}
-                                            trigger={
-                                                <Button variant="outline" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                                                    <Copy className="h-4 w-4" />
-                                                    <span>Duplicar</span>
-                                                </Button>
-                                            }
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Criar uma cópia desta lista</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <DuplicateListDialog
+                                    listId={list.id}
+                                    listName={list.name}
+                                    onSuccess={() => refetch()}
+                                    trigger={
+                                        <SimpleTooltip label="Criar uma cópia desta lista">
+                                            <Button variant="outline" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                                                <Copy className="h-4 w-4" />
+                                                <span>Duplicar</span>
+                                            </Button>
+                                        </SimpleTooltip>
+                                    }
+                                />
                             )}
                             {canEdit && (
                                 <Tooltip>
@@ -523,14 +518,16 @@ export default function ListDetailsPage() {
                                 <p className="text-muted-foreground mb-4">
                                     Esta lista ainda não possui músicas
                                 </p>
-                                <SimpleTooltip label="Adicionar músicas à lista">
-                                    <Button asChild>
-                                        <Link href={`/lists/${list.id}/edit`}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Adicionar Músicas
-                                        </Link>
-                                    </Button>
-                                </SimpleTooltip>
+                                {canEdit && (
+                                    <SimpleTooltip label="Adicionar músicas à lista">
+                                        <Button asChild>
+                                            <Link href={`/lists/${list.id}/edit`}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Adicionar Músicas
+                                            </Link>
+                                        </Button>
+                                    </SimpleTooltip>
+                                )}
                             </div>
                         )}
                     </CardContent>

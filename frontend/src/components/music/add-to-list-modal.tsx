@@ -18,8 +18,10 @@ import {
     Loader2
 } from 'lucide-react'
 import { listsApi } from '@/lib/api'
+import { listsKeys } from '@/hooks/use-lists'
 import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { useToast } from '@core/hooks/use-toast'
+import { useQueryClient } from '@tanstack/react-query'
 import type { MusicList } from '@/types'
 
 interface AddToListModalProps {
@@ -31,6 +33,7 @@ interface AddToListModalProps {
 
 export function AddToListModal({ musicId, musicTitle, trigger, onSuccess }: AddToListModalProps) {
     const { toast } = useToast()
+    const queryClient = useQueryClient()
     const [open, setOpen] = useState(false)
     const [lists, setLists] = useState<MusicList[]>([])
     const [filteredLists, setFilteredLists] = useState<MusicList[]>([])
@@ -80,7 +83,20 @@ export function AddToListModal({ musicId, musicTitle, trigger, onSuccess }: AddT
     const handleAddToList = async (listId: number, listName: string) => {
         setAddingToList(listId)
         try {
-            await listsApi.addMusicToList(listId, musicId)
+            const response = await listsApi.addMusicToList(listId, musicId)
+
+            if (!response.added || response.added === 0) {
+                toast({
+                    title: "Aviso",
+                    description: "A música já existe nesta lista ou não pôde ser adicionada.",
+                    variant: "destructive"
+                })
+                return
+            }
+
+            queryClient.invalidateQueries({ queryKey: listsKeys.detail(listId) })
+            queryClient.invalidateQueries({ queryKey: listsKeys.lists() })
+
             toast({
                 title: "Música adicionada!",
                 description: `"${musicTitle}" foi adicionada à lista "${listName}".`

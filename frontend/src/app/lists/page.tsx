@@ -195,12 +195,12 @@ export default function ListsPage() {
                         <CardContent className="p-8">
                             <EmptyState
                                 title="Nenhuma lista encontrada"
-                                description="Comece criando sua primeira lista de músicas"
-                                action={{
+                                description={canEdit ? "Comece criando sua primeira lista de músicas" : "Nenhuma lista disponível no momento"}
+                                action={canEdit ? {
                                     label: "Criar Primeira Lista",
                                     onClick: () => setShowCreateDialog(true),
                                     icon: Plus
-                                }}
+                                } : undefined}
                             />
                         </CardContent>
                     </Card>

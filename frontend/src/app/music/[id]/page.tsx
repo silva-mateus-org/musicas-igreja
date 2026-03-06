@@ -36,6 +36,7 @@ export default function MusicDetailsPage() {
     const { hasPermission } = useAuth()
     const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
     const canDelete = hasPermission('music:delete')
+    const canManageLists = hasPermission('lists:manage')
 
     const musicId = parseInt(params.id as string)
     const { data: music, isLoading: loading, error: queryError } = useMusicDetail(musicId)
@@ -262,16 +263,18 @@ export default function MusicDetailsPage() {
                                     </Tooltip>
                                 )}
 
-                                <AddToListModal
-                                    musicId={music.id}
-                                    musicTitle={music.title || music.original_name}
-                                    trigger={
-                                        <Button variant="default" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
-                                            <Plus className="h-4 w-4" />
-                                            <span>Adicionar à lista</span>
-                                        </Button>
-                                    }
-                                />
+                                {canManageLists && (
+                                    <AddToListModal
+                                        musicId={music.id}
+                                        musicTitle={music.title || music.original_name}
+                                        trigger={
+                                            <Button variant="default" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm col-span-2 sm:col-span-1">
+                                                <Plus className="h-4 w-4" />
+                                                <span>Adicionar à lista</span>
+                                            </Button>
+                                        }
+                                    />
+                                )}
                             </div>
                         </TooltipProvider>
                     </div>

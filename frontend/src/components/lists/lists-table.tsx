@@ -24,8 +24,10 @@ import {
     Loader2
 } from 'lucide-react'
 import { listsApi, handleApiError } from '@/lib/api'
+import { listsKeys } from '@/hooks/use-lists'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { DuplicateListDialog } from './duplicate-list-dialog'
 
@@ -51,6 +53,7 @@ export function ListsTable({
 }: ListsTableProps) {
     const { toast } = useToast()
     const { hasPermission } = useAuth()
+    const queryClient = useQueryClient()
     const canEdit = hasPermission('music:edit_metadata') || hasPermission('lists:manage')
     const canDelete = hasPermission('music:delete')
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; list: MusicList | null }>({
@@ -321,7 +324,7 @@ export function ListsTable({
                                             <DuplicateListDialog
                                                 listId={list.id}
                                                 listName={list.name}
-                                                onSuccess={() => window.location.reload()}
+                                                onSuccess={() => queryClient.invalidateQueries({ queryKey: listsKeys.lists() })}
                                             />
                                         )}
                                         {canDelete && (
@@ -390,7 +393,7 @@ export function ListsTable({
                                                         <DuplicateListDialog
                                                             listId={list.id}
                                                             listName={list.name}
-                                                            onSuccess={() => window.location.reload()}
+                                                            onSuccess={() => queryClient.invalidateQueries({ queryKey: listsKeys.lists() })}
                                                             trigger={
                                                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                                                                     <Copy className="mr-2 h-4 w-4" />
