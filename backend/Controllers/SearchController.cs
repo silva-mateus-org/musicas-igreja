@@ -13,13 +13,11 @@ public class SearchController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IFileService _fileService;
-    private readonly ILogger<SearchController> _logger;
 
-    public SearchController(AppDbContext context, IFileService fileService, ILogger<SearchController> logger)
+    public SearchController(AppDbContext context, IFileService fileService)
     {
         _context = context;
         _fileService = fileService;
-        _logger = logger;
     }
 
     [HttpGet("search_suggestions")]
@@ -101,42 +99,34 @@ public class SearchController : ControllerBase
         if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { success = false, error = "Arquivo deve ser PDF" });
 
-        try
+        string fileHash;
+        using (var stream = file.OpenReadStream())
         {
-            string fileHash;
-            using (var stream = file.OpenReadStream())
-            {
-                fileHash = _fileService.ComputeFileHash(stream);
-            }
+            fileHash = _fileService.ComputeFileHash(stream);
+        }
 
-            var existingFile = await _context.PdfFiles
-                .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
-                .Include(f => f.FileArtists).ThenInclude(fa => fa.Artist)
-                .FirstOrDefaultAsync(f => f.FileHash == fileHash);
+        var existingFile = await _context.PdfFiles
+            .Include(f => f.FileCategories).ThenInclude(fc => fc.Category)
+            .Include(f => f.FileArtists).ThenInclude(fa => fa.Artist)
+            .FirstOrDefaultAsync(f => f.FileHash == fileHash);
 
-            if (existingFile != null)
+        if (existingFile != null)
+        {
+            return Ok(new CheckDuplicateResponse
             {
-                return Ok(new CheckDuplicateResponse
+                IsDuplicate = true,
+                ExistingFile = new ExistingFileInfo
                 {
-                    IsDuplicate = true,
-                    ExistingFile = new ExistingFileInfo
-                    {
-                        Id = existingFile.Id,
-                        Filename = existingFile.Filename,
-                        SongName = existingFile.SongName,
-                        Artist = existingFile.FileArtists.Select(fa => fa.Artist.Name).FirstOrDefault(),
-                        Category = existingFile.FileCategories.Select(fc => fc.Category.Name).FirstOrDefault(),
-                        UploadDate = existingFile.UploadDate
-                    }
-                });
-            }
+                    Id = existingFile.Id,
+                    Filename = existingFile.Filename,
+                    SongName = existingFile.SongName,
+                    Artist = existingFile.FileArtists.Select(fa => fa.Artist.Name).FirstOrDefault(),
+                    Category = existingFile.FileCategories.Select(fc => fc.Category.Name).FirstOrDefault(),
+                    UploadDate = existingFile.UploadDate
+                }
+            });
+        }
 
-            return Ok(new CheckDuplicateResponse { IsDuplicate = false });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking duplicate file");
-            return StatusCode(500, new { success = false, error = "Erro ao verificar duplicado" });
-        }
+        return Ok(new CheckDuplicateResponse { IsDuplicate = false });
     }
 }

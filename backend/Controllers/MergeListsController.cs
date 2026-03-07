@@ -97,16 +97,8 @@ public class MergeListsController : ControllerBase
         if (dto == null || dto.FileIds.Count == 0)
             return BadRequest(new { success = false, error = "Lista de arquivos é obrigatória" });
 
-        try
-        {
-            var newItemIds = await _listService.AddItemsAsync(id, dto.FileIds);
-            return Ok(new { success = true, added = newItemIds.Count, new_item_ids = newItemIds });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error adding items to list {ListId}", id);
-            return StatusCode(500, new { success = false, error = "Erro ao adicionar músicas à lista" });
-        }
+        var newItemIds = await _listService.AddItemsAsync(id, dto.FileIds);
+        return Ok(new { success = true, added = newItemIds.Count, new_item_ids = newItemIds });
     }
 
     [HttpPost("{id}/reorder")]

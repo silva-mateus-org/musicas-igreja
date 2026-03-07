@@ -430,24 +430,16 @@ public class AdminController : ControllerBase
         if (file.MergeListItems.Any())
             return BadRequest(new { error = $"Este arquivo está em {file.MergeListItems.Count} lista(s). Remova-o das listas antes de excluir." });
 
-        try
-        {
-            var absolutePath = _fileService.GetAbsolutePath(file.FilePath);
-            if (System.IO.File.Exists(absolutePath))
-                System.IO.File.Delete(absolutePath);
+        var absolutePath = _fileService.GetAbsolutePath(file.FilePath);
+        if (System.IO.File.Exists(absolutePath))
+            System.IO.File.Delete(absolutePath);
 
-            _context.FileArtists.RemoveRange(file.FileArtists);
-            _context.FileCategories.RemoveRange(file.FileCategories);
-            _context.PdfFiles.Remove(file);
-            await _context.SaveChangesAsync();
+        _context.FileArtists.RemoveRange(file.FileArtists);
+        _context.FileCategories.RemoveRange(file.FileCategories);
+        _context.PdfFiles.Remove(file);
+        await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, message = "Arquivo duplicado excluído com sucesso." });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao excluir duplicata {FileId}", request.FileId);
-            return StatusCode(500, new { error = $"Erro ao excluir: {ex.Message}" });
-        }
+        return Ok(new { success = true, message = "Arquivo duplicado excluído com sucesso." });
     }
 
     [HttpGet("scan-legacy-files")]

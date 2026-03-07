@@ -217,17 +217,15 @@ public class MergeListsControllerTests
     }
 
     [Fact]
-    public async Task AddItems_WhenServiceThrows_ShouldReturn500()
+    public async Task AddItems_WhenServiceThrows_ShouldPropagateException()
     {
         _listServiceMock.Setup(s => s.AddItemsAsync(1, It.IsAny<List<int>>()))
             .ThrowsAsync(new Exception("DB error"));
 
         var dto = new AddItemsDto { FileIds = new List<int> { 1 } };
 
-        var result = await _controller.AddItems(1, dto);
-
-        var statusResult = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(500, statusResult.StatusCode);
+        var ex = await Assert.ThrowsAsync<Exception>(() => _controller.AddItems(1, dto));
+        Assert.Equal("DB error", ex.Message);
     }
 
     #endregion

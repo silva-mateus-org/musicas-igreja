@@ -138,8 +138,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Músicas Igreja API v1"));
 }
 
+app.UseCoreExceptionHandler();
 app.UseCors();
 app.UseCoreAuth();
+app.UseCoreSecurityHeaders();
 app.UseAuthorization();
 app.MapControllers();
 

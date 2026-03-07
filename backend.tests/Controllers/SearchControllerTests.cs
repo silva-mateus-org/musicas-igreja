@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Moq;
 using MusicasIgreja.Api.Controllers;
 using MusicasIgreja.Api.Data;
@@ -16,7 +15,6 @@ public class SearchControllerTests : IDisposable
     private readonly AppDbContext _context;
     private readonly SearchController _controller;
     private readonly Mock<IFileService> _fileServiceMock;
-    private readonly Mock<ILogger<SearchController>> _loggerMock;
 
     public SearchControllerTests()
     {
@@ -26,9 +24,8 @@ public class SearchControllerTests : IDisposable
 
         _context = new AppDbContext(options);
         _fileServiceMock = new Mock<IFileService>();
-        _loggerMock = new Mock<ILogger<SearchController>>();
 
-        _controller = new SearchController(_context, _fileServiceMock.Object, _loggerMock.Object);
+        _controller = new SearchController(_context, _fileServiceMock.Object);
 
         SeedDatabase();
     }

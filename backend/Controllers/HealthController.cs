@@ -60,104 +60,91 @@ public class HealthController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
+        var startTime = DateTime.UtcNow;
+
+        // Database health
+        var dbStartTime = DateTime.UtcNow;
+        var canConnect = _context.Database.CanConnect();
+        var dbLatency = (DateTime.UtcNow - dbStartTime).TotalMilliseconds;
+
+        // Storage info
+        var organizedFolder = _fileService.GetAbsolutePath("organized");
+        var dataFolder = _fileService.GetAbsolutePath("data");
+
+        long organizedSize = 0;
+        long dataSize = 0;
+        int fileCount = 0;
+
         try
         {
-            var startTime = DateTime.UtcNow;
-
-            // Database health
-            var dbStartTime = DateTime.UtcNow;
-            var canConnect = _context.Database.CanConnect();
-            var dbLatency = (DateTime.UtcNow - dbStartTime).TotalMilliseconds;
-
-            // Storage info
-            var organizedFolder = _fileService.GetAbsolutePath("organized");
-            var dataFolder = _fileService.GetAbsolutePath("data");
-            
-            long organizedSize = 0;
-            long dataSize = 0;
-            int fileCount = 0;
-
-            try
+            if (Directory.Exists(organizedFolder))
             {
-                if (Directory.Exists(organizedFolder))
-                {
-                    var organizedDir = new DirectoryInfo(organizedFolder);
-                    organizedSize = organizedDir.EnumerateFiles("*.pdf", SearchOption.AllDirectories).Sum(f => f.Length);
-                    fileCount = organizedDir.EnumerateFiles("*.pdf", SearchOption.AllDirectories).Count();
-                }
-
-                if (Directory.Exists(dataFolder))
-                {
-                    var dataDir = new DirectoryInfo(dataFolder);
-                    dataSize = dataDir.EnumerateFiles("*.*", SearchOption.AllDirectories).Sum(f => f.Length);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error calculating storage sizes");
+                var organizedDir = new DirectoryInfo(organizedFolder);
+                organizedSize = organizedDir.EnumerateFiles("*.pdf", SearchOption.AllDirectories).Sum(f => f.Length);
+                fileCount = organizedDir.EnumerateFiles("*.pdf", SearchOption.AllDirectories).Count();
             }
 
-            // Database stats
-            var totalFiles = await _context.PdfFiles.CountAsync();
-            var totalUsers = await _context.Set<CoreUser>().CountAsync();
-            var totalLists = await _context.MergeLists.CountAsync();
-
-            // Check for orphaned files (files in DB but not on disk)
-            var orphanedCount = 0;
-            try
+            if (Directory.Exists(dataFolder))
             {
-                var files = await _context.PdfFiles.Select(f => f.FilePath).Take(100).ToListAsync();
-                orphanedCount = files.Count(filePath => !System.IO.File.Exists(_fileService.GetAbsolutePath(filePath)));
+                var dataDir = new DirectoryInfo(dataFolder);
+                dataSize = dataDir.EnumerateFiles("*.*", SearchOption.AllDirectories).Sum(f => f.Length);
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error checking orphaned files");
-            }
-
-            // System uptime (approximate)
-            var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
-
-            var totalProcessingTime = (DateTime.UtcNow - startTime).TotalMilliseconds;
-
-            return Ok(new
-            {
-                status = "healthy",
-                timestamp = DateTime.UtcNow,
-                database = new
-                {
-                    status = canConnect ? "connected" : "disconnected",
-                    latency_ms = Math.Round(dbLatency, 2),
-                    total_files = totalFiles,
-                    total_users = totalUsers,
-                    total_lists = totalLists
-                },
-                storage = new
-                {
-                    organized_size_mb = Math.Round(organizedSize / (1024.0 * 1024.0), 2),
-                    data_size_mb = Math.Round(dataSize / (1024.0 * 1024.0), 2),
-                    total_size_mb = Math.Round((organizedSize + dataSize) / (1024.0 * 1024.0), 2),
-                    file_count = fileCount,
-                    orphaned_files = orphanedCount
-                },
-                system = new
-                {
-                    uptime_seconds = (int)uptime.TotalSeconds,
-                    uptime_formatted = $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m",
-                    dotnet_version = Environment.Version.ToString()
-                },
-                processing_time_ms = Math.Round(totalProcessingTime, 2)
-            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting extended health");
-            return StatusCode(500, new
-            {
-                status = "error",
-                timestamp = DateTime.UtcNow,
-                error = ex.Message
-            });
+            _logger.LogWarning(ex, "Error calculating storage sizes");
         }
+
+        // Database stats
+        var totalFiles = await _context.PdfFiles.CountAsync();
+        var totalUsers = await _context.Set<CoreUser>().CountAsync();
+        var totalLists = await _context.MergeLists.CountAsync();
+
+        // Check for orphaned files (files in DB but not on disk)
+        var orphanedCount = 0;
+        try
+        {
+            var files = await _context.PdfFiles.Select(f => f.FilePath).Take(100).ToListAsync();
+            orphanedCount = files.Count(filePath => !System.IO.File.Exists(_fileService.GetAbsolutePath(filePath)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error checking orphaned files");
+        }
+
+        // System uptime (approximate)
+        var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
+
+        var totalProcessingTime = (DateTime.UtcNow - startTime).TotalMilliseconds;
+
+        return Ok(new
+        {
+            status = "healthy",
+            timestamp = DateTime.UtcNow,
+            database = new
+            {
+                status = canConnect ? "connected" : "disconnected",
+                latency_ms = Math.Round(dbLatency, 2),
+                total_files = totalFiles,
+                total_users = totalUsers,
+                total_lists = totalLists
+            },
+            storage = new
+            {
+                organized_size_mb = Math.Round(organizedSize / (1024.0 * 1024.0), 2),
+                data_size_mb = Math.Round(dataSize / (1024.0 * 1024.0), 2),
+                total_size_mb = Math.Round((organizedSize + dataSize) / (1024.0 * 1024.0), 2),
+                file_count = fileCount,
+                orphaned_files = orphanedCount
+            },
+            system = new
+            {
+                uptime_seconds = (int)uptime.TotalSeconds,
+                uptime_formatted = $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m",
+                dotnet_version = Environment.Version.ToString()
+            },
+            processing_time_ms = Math.Round(totalProcessingTime, 2)
+        });
     }
 }
 
