@@ -278,11 +278,6 @@ public class FilesController : ControllerBase
         {
             return Conflict(new { success = false, error = ex.Message });
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao substituir PDF para o arquivo {FileId}", id);
-            return StatusCode(500, new { success = false, error = "Erro ao substituir PDF: " + ex.Message });
-        }
     }
 
     [HttpGet("grouped/by-artist")]

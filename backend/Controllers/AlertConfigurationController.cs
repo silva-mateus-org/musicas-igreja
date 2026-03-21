@@ -13,13 +13,11 @@ public class AlertConfigurationController : ControllerBase
 {
     private readonly IAlertConfigurationService _alertConfigService;
     private readonly ICoreAuthService _authService;
-    private readonly ILogger<AlertConfigurationController> _logger;
 
-    public AlertConfigurationController(IAlertConfigurationService alertConfigService, ICoreAuthService authService, ILogger<AlertConfigurationController> logger)
+    public AlertConfigurationController(IAlertConfigurationService alertConfigService, ICoreAuthService authService)
     {
         _alertConfigService = alertConfigService;
         _authService = authService;
-        _logger = logger;
     }
 
     [HttpGet]
@@ -28,34 +26,26 @@ public class AlertConfigurationController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        var configs = await _alertConfigService.GetAllConfigurationsAsync();
+        return Ok(new
         {
-            var configs = await _alertConfigService.GetAllConfigurationsAsync();
-            return Ok(new
+            success = true,
+            data = configs.Select(c => new
             {
-                success = true,
-                data = configs.Select(c => new
-                {
-                    id = c.Id,
-                    config_key = c.ConfigKey,
-                    name = c.Name,
-                    description = c.Description,
-                    metric_type = c.MetricType,
-                    threshold_value = c.ThresholdValue,
-                    threshold_unit = c.ThresholdUnit,
-                    comparison_operator = c.ComparisonOperator,
-                    severity = c.Severity,
-                    is_enabled = c.IsEnabled,
-                    created_date = c.CreatedDate,
-                    updated_date = c.UpdatedDate
-                })
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting alert configurations");
-            return StatusCode(500, new { error = "Erro ao buscar configurações" });
-        }
+                id = c.Id,
+                config_key = c.ConfigKey,
+                name = c.Name,
+                description = c.Description,
+                metric_type = c.MetricType,
+                threshold_value = c.ThresholdValue,
+                threshold_unit = c.ThresholdUnit,
+                comparison_operator = c.ComparisonOperator,
+                severity = c.Severity,
+                is_enabled = c.IsEnabled,
+                created_date = c.CreatedDate,
+                updated_date = c.UpdatedDate
+            })
+        });
     }
 
     [HttpGet("{id}")]
@@ -64,39 +54,29 @@ public class AlertConfigurationController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            var config = await _alertConfigService.GetConfigurationByIdAsync(id);
-            if (config == null)
-            {
-                return NotFound(new { error = "Configuração não encontrada" });
-            }
+        var config = await _alertConfigService.GetConfigurationByIdAsync(id);
+        if (config == null)
+            return NotFound(new { error = "Configuração não encontrada" });
 
-            return Ok(new
-            {
-                success = true,
-                data = new
-                {
-                    id = config.Id,
-                    config_key = config.ConfigKey,
-                    name = config.Name,
-                    description = config.Description,
-                    metric_type = config.MetricType,
-                    threshold_value = config.ThresholdValue,
-                    threshold_unit = config.ThresholdUnit,
-                    comparison_operator = config.ComparisonOperator,
-                    severity = config.Severity,
-                    is_enabled = config.IsEnabled,
-                    created_date = config.CreatedDate,
-                    updated_date = config.UpdatedDate
-                }
-            });
-        }
-        catch (Exception ex)
+        return Ok(new
         {
-            _logger.LogError(ex, "Error getting alert configuration {Id}", id);
-            return StatusCode(500, new { error = "Erro ao buscar configuração" });
-        }
+            success = true,
+            data = new
+            {
+                id = config.Id,
+                config_key = config.ConfigKey,
+                name = config.Name,
+                description = config.Description,
+                metric_type = config.MetricType,
+                threshold_value = config.ThresholdValue,
+                threshold_unit = config.ThresholdUnit,
+                comparison_operator = config.ComparisonOperator,
+                severity = config.Severity,
+                is_enabled = config.IsEnabled,
+                created_date = config.CreatedDate,
+                updated_date = config.UpdatedDate
+            }
+        });
     }
 
     [HttpPost]
@@ -105,39 +85,31 @@ public class AlertConfigurationController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        var config = new AlertConfiguration
         {
-            var config = new AlertConfiguration
-            {
-                ConfigKey = dto.ConfigKey,
-                Name = dto.Name,
-                Description = dto.Description,
-                MetricType = dto.MetricType,
-                ThresholdValue = dto.ThresholdValue,
-                ThresholdUnit = dto.ThresholdUnit,
-                ComparisonOperator = dto.ComparisonOperator,
-                Severity = dto.Severity,
-                IsEnabled = dto.IsEnabled
-            };
+            ConfigKey = dto.ConfigKey,
+            Name = dto.Name,
+            Description = dto.Description,
+            MetricType = dto.MetricType,
+            ThresholdValue = dto.ThresholdValue,
+            ThresholdUnit = dto.ThresholdUnit,
+            ComparisonOperator = dto.ComparisonOperator,
+            Severity = dto.Severity,
+            IsEnabled = dto.IsEnabled
+        };
 
-            var created = await _alertConfigService.CreateConfigurationAsync(config);
+        var created = await _alertConfigService.CreateConfigurationAsync(config);
 
-            return StatusCode(201, new
-            {
-                success = true,
-                data = new
-                {
-                    id = created.Id,
-                    config_key = created.ConfigKey,
-                    name = created.Name
-                }
-            });
-        }
-        catch (Exception ex)
+        return StatusCode(201, new
         {
-            _logger.LogError(ex, "Error creating alert configuration");
-            return StatusCode(500, new { error = $"Erro ao criar configuração: {ex.Message}" });
-        }
+            success = true,
+            data = new
+            {
+                id = created.Id,
+                config_key = created.ConfigKey,
+                name = created.Name
+            }
+        });
     }
 
     [HttpPut("{id}")]
@@ -146,41 +118,29 @@ public class AlertConfigurationController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        var config = new AlertConfiguration
         {
-            var config = new AlertConfiguration
-            {
-                Name = dto.Name,
-                Description = dto.Description,
-                ThresholdValue = dto.ThresholdValue,
-                ThresholdUnit = dto.ThresholdUnit,
-                ComparisonOperator = dto.ComparisonOperator,
-                Severity = dto.Severity,
-                IsEnabled = dto.IsEnabled
-            };
+            Name = dto.Name,
+            Description = dto.Description,
+            ThresholdValue = dto.ThresholdValue,
+            ThresholdUnit = dto.ThresholdUnit,
+            ComparisonOperator = dto.ComparisonOperator,
+            Severity = dto.Severity,
+            IsEnabled = dto.IsEnabled
+        };
 
-            var updated = await _alertConfigService.UpdateConfigurationAsync(id, config);
+        var updated = await _alertConfigService.UpdateConfigurationAsync(id, config);
 
-            return Ok(new
+        return Ok(new
+        {
+            success = true,
+            data = new
             {
-                success = true,
-                data = new
-                {
-                    id = updated.Id,
-                    config_key = updated.ConfigKey,
-                    name = updated.Name
-                }
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating alert configuration {Id}", id);
-            return StatusCode(500, new { error = $"Erro ao atualizar configuração: {ex.Message}" });
-        }
+                id = updated.Id,
+                config_key = updated.ConfigKey,
+                name = updated.Name
+            }
+        });
     }
 
     [HttpDelete("{id}")]
@@ -189,16 +149,8 @@ public class AlertConfigurationController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            await _alertConfigService.DeleteConfigurationAsync(id);
-            return Ok(new { success = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting alert configuration {Id}", id);
-            return StatusCode(500, new { error = "Erro ao deletar configuração" });
-        }
+        await _alertConfigService.DeleteConfigurationAsync(id);
+        return Ok(new { success = true });
     }
 }
 

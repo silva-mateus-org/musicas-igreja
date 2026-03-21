@@ -12,13 +12,11 @@ public class MonitoringController : ControllerBase
 {
     private readonly IMonitoringService _monitoringService;
     private readonly ICoreAuthService _authService;
-    private readonly ILogger<MonitoringController> _logger;
 
-    public MonitoringController(IMonitoringService monitoringService, ICoreAuthService authService, ILogger<MonitoringController> logger)
+    public MonitoringController(IMonitoringService monitoringService, ICoreAuthService authService)
     {
         _monitoringService = monitoringService;
         _authService = authService;
-        _logger = logger;
     }
 
     [HttpGet("alerts")]
@@ -27,37 +25,29 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            var userId = CoreAuthHelper.GetCurrentUserId(HttpContext);
-            var alerts = await _monitoringService.GetUnreadAlertsAsync(userId);
+        var userId = CoreAuthHelper.GetCurrentUserId(HttpContext);
+        var alerts = await _monitoringService.GetUnreadAlertsAsync(userId);
 
-            return Ok(new
-            {
-                success = true,
-                data = alerts.Select(a => new
-                {
-                    id = a.Id,
-                    event_type = a.EventType,
-                    severity = a.Severity,
-                    source = a.Source,
-                    message = a.Message,
-                    user_id = a.UserId,
-                    ip_address = a.IpAddress,
-                    user_agent = a.UserAgent,
-                    metadata = a.Metadata,
-                    is_read = a.IsRead,
-                    created_date = a.CreatedDate,
-                    username = a.User?.Username
-                }),
-                count = alerts.Count
-            });
-        }
-        catch (Exception ex)
+        return Ok(new
         {
-            _logger.LogError(ex, "Error getting alerts");
-            return StatusCode(500, new { error = "Erro ao buscar alertas" });
-        }
+            success = true,
+            data = alerts.Select(a => new
+            {
+                id = a.Id,
+                event_type = a.EventType,
+                severity = a.Severity,
+                source = a.Source,
+                message = a.Message,
+                user_id = a.UserId,
+                ip_address = a.IpAddress,
+                user_agent = a.UserAgent,
+                metadata = a.Metadata,
+                is_read = a.IsRead,
+                created_date = a.CreatedDate,
+                username = a.User?.Username
+            }),
+            count = alerts.Count
+        });
     }
 
     [HttpGet("alerts/count")]
@@ -66,16 +56,8 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            var count = await _monitoringService.GetUnreadAlertCountAsync();
-            return Ok(new { count });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting alert count");
-            return StatusCode(500, new { error = "Erro ao contar alertas" });
-        }
+        var count = await _monitoringService.GetUnreadAlertCountAsync();
+        return Ok(new { count });
     }
 
     [HttpPost("alerts/{id}/read")]
@@ -84,16 +66,8 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            await _monitoringService.MarkAlertAsReadAsync(id);
-            return Ok(new { success = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error marking alert as read");
-            return StatusCode(500, new { error = "Erro ao marcar alerta como lido" });
-        }
+        await _monitoringService.MarkAlertAsReadAsync(id);
+        return Ok(new { success = true });
     }
 
     [HttpGet("events")]
@@ -109,52 +83,44 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        DateTime? startDate = null;
+        DateTime? endDate = null;
+
+        if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
+            startDate = sd;
+
+        if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
+            endDate = ed;
+
+        var (events, total) = await _monitoringService.GetRecentEventsAsync(
+            event_type, severity, user_id, startDate, endDate, page, limit);
+
+        return Ok(new
         {
-            DateTime? startDate = null;
-            DateTime? endDate = null;
-
-            if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
-                startDate = sd;
-
-            if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
-                endDate = ed;
-
-            var (events, total) = await _monitoringService.GetRecentEventsAsync(
-                event_type, severity, user_id, startDate, endDate, page, limit);
-
-            return Ok(new
+            success = true,
+            data = events.Select(e => new
             {
-                success = true,
-                data = events.Select(e => new
-                {
-                    id = e.Id,
-                    event_type = e.EventType,
-                    severity = e.Severity,
-                    source = e.Source,
-                    message = e.Message,
-                    user_id = e.UserId,
-                    ip_address = e.IpAddress,
-                    user_agent = e.UserAgent,
-                    metadata = e.Metadata,
-                    is_read = e.IsRead,
-                    created_date = e.CreatedDate,
-                    username = e.User?.Username
-                }),
-                pagination = new
-                {
-                    page,
-                    limit,
-                    total,
-                    pages = (int)Math.Ceiling(total / (double)limit)
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting events");
-            return StatusCode(500, new { error = "Erro ao buscar eventos" });
-        }
+                id = e.Id,
+                event_type = e.EventType,
+                severity = e.Severity,
+                source = e.Source,
+                message = e.Message,
+                user_id = e.UserId,
+                ip_address = e.IpAddress,
+                user_agent = e.UserAgent,
+                metadata = e.Metadata,
+                is_read = e.IsRead,
+                created_date = e.CreatedDate,
+                username = e.User?.Username
+            }),
+            pagination = new
+            {
+                page,
+                limit,
+                total,
+                pages = (int)Math.Ceiling(total / (double)limit)
+            }
+        });
     }
 
     [HttpGet("audit")]
@@ -170,50 +136,42 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        DateTime? startDate = null;
+        DateTime? endDate = null;
+
+        if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
+            startDate = sd;
+
+        if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
+            endDate = ed;
+
+        var (logs, total) = await _monitoringService.GetAuditLogsAsync(
+            action, entity_type, user_id, startDate, endDate, page, limit);
+
+        return Ok(new
         {
-            DateTime? startDate = null;
-            DateTime? endDate = null;
-
-            if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
-                startDate = sd;
-
-            if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
-                endDate = ed;
-
-            var (logs, total) = await _monitoringService.GetAuditLogsAsync(
-                action, entity_type, user_id, startDate, endDate, page, limit);
-
-            return Ok(new
+            success = true,
+            data = logs.Select(l => new
             {
-                success = true,
-                data = logs.Select(l => new
-                {
-                    id = l.Id,
-                    action = l.Action,
-                    entity_type = l.EntityType,
-                    entity_id = l.EntityId,
-                    user_id = l.UserId,
-                    username = l.Username,
-                    ip_address = l.IpAddress,
-                    old_value = l.OldValue,
-                    new_value = l.NewValue,
-                    created_date = l.CreatedDate
-                }),
-                pagination = new
-                {
-                    page,
-                    limit,
-                    total,
-                    pages = (int)Math.Ceiling(total / (double)limit)
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting audit logs");
-            return StatusCode(500, new { error = "Erro ao buscar logs de auditoria" });
-        }
+                id = l.Id,
+                action = l.Action,
+                entity_type = l.EntityType,
+                entity_id = l.EntityId,
+                user_id = l.UserId,
+                username = l.Username,
+                ip_address = l.IpAddress,
+                old_value = l.OldValue,
+                new_value = l.NewValue,
+                created_date = l.CreatedDate
+            }),
+            pagination = new
+            {
+                page,
+                limit,
+                total,
+                pages = (int)Math.Ceiling(total / (double)limit)
+            }
+        });
     }
 
     [HttpGet("metrics")]
@@ -226,38 +184,30 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
+        DateTime? startDate = null;
+        DateTime? endDate = null;
+
+        if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
+            startDate = sd;
+
+        if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
+            endDate = ed;
+
+        var metrics = await _monitoringService.GetMetricsAsync(metric_type, startDate, endDate, limit);
+
+        return Ok(new
         {
-            DateTime? startDate = null;
-            DateTime? endDate = null;
-
-            if (!string.IsNullOrEmpty(start_date) && DateTime.TryParse(start_date, out var sd))
-                startDate = sd;
-
-            if (!string.IsNullOrEmpty(end_date) && DateTime.TryParse(end_date, out var ed))
-                endDate = ed;
-
-            var metrics = await _monitoringService.GetMetricsAsync(metric_type, startDate, endDate, limit);
-
-            return Ok(new
+            success = true,
+            data = metrics.Select(m => new
             {
-                success = true,
-                data = metrics.Select(m => new
-                {
-                    id = m.Id,
-                    metric_type = m.MetricType,
-                    value = m.Value,
-                    unit = m.Unit,
-                    metadata = m.Metadata,
-                    timestamp = m.Timestamp
-                })
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting metrics");
-            return StatusCode(500, new { error = "Erro ao buscar métricas" });
-        }
+                id = m.Id,
+                metric_type = m.MetricType,
+                value = m.Value,
+                unit = m.Unit,
+                metadata = m.Metadata,
+                timestamp = m.Timestamp
+            })
+        });
     }
 
     [HttpGet("health-extended")]
@@ -266,15 +216,7 @@ public class MonitoringController : ControllerBase
         if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.AccessAdmin))
             return StatusCode(403, new { error = "Sem permissão" });
 
-        try
-        {
-            var health = await _monitoringService.GetSystemHealthAsync();
-            return Ok(new { success = true, data = health });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting extended health");
-            return StatusCode(500, new { error = "Erro ao buscar saúde do sistema" });
-        }
+        var health = await _monitoringService.GetSystemHealthAsync();
+        return Ok(new { success = true, data = health });
     }
 }
