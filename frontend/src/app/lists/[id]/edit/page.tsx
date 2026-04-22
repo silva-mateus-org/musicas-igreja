@@ -523,19 +523,28 @@ export default function EditListPage() {
                 <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="sm" asChild className="self-start shrink-0">
-                                        <Link href={`/lists/${list.id}`}>
-                                            <ArrowLeft className="h-4 w-4 mr-2" />
-                                            Voltar
-                                        </Link>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Voltar para visualização da lista</p>
-                                </TooltipContent>
-                            </Tooltip>
+                            <div className="flex flex-col gap-1">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="outline" size="sm" asChild className="self-start shrink-0">
+                                            <Link href={`/lists/${list.id}`}>
+                                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                                Voltar
+                                            </Link>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Voltar para visualização da lista</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                                <div className="text-sm text-muted-foreground">
+                                    <Link href="/lists" className="hover:text-primary">Listas</Link>
+                                    <span className="mx-2">/</span>
+                                    <Link href={`/lists/${list.id}`} className="hover:text-primary truncate">{list.name}</Link>
+                                    <span className="mx-2">/</span>
+                                    <span>Editar</span>
+                                </div>
+                            </div>
                             <div className="min-w-0">
                                 <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
                                     <List className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />

@@ -131,3 +131,12 @@ backend/StudyReadme_backend.md
 .cursorrules
 backend/.cursorrules
 frontend/.cursorrules
+
+# Claude Code / AI agent config (user-specific)
+.claude/
+.openclaude/
+.agents/
+
+# Frontend build output and backups
+frontend/dist/
+frontend_backup/

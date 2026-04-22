@@ -91,10 +91,10 @@ public class MigrationService : IMigrationService
                     }
                     catch (Exception ex) when (
                         ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
-                        ex.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) ||
-                        ex.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase))
+                        ex.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogDebug("Ignoring idempotent error in {Script}: {Message}", scriptName, ex.Message);
+                        _logger.LogDebug("Skipping idempotent statement in {Script}: {Message}", scriptName, ex.Message);
                     }
                 }
 

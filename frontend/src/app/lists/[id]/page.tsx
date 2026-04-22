@@ -223,17 +223,24 @@ export default function ListDetailsPage() {
                 <div className="flex flex-col gap-4">
                     {/* Navigation and Title */}
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="outline" size="sm" className="self-start shrink-0" onClick={() => router.back()}>
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
-                                    Voltar
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Voltar para lista de listas</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        <div className="flex flex-col gap-1">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" size="sm" className="self-start shrink-0" onClick={() => router.back()}>
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Voltar
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Voltar para lista de listas</p>
+                                </TooltipContent>
+                            </Tooltip>
+                            <div className="text-sm text-muted-foreground">
+                                <Link href="/lists" className="hover:text-primary">Listas</Link>
+                                <span className="mx-2">/</span>
+                                <span className="truncate">{list.name}</span>
+                            </div>
+                        </div>
                         <div className="flex-1 min-w-0">
                             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
                                 <List className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />

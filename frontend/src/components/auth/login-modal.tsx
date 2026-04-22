@@ -163,6 +163,8 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                                     disabled={isLoading}
                                     autoComplete="new-password"
                                     className={changePasswordForm.formState.errors.newPassword ? 'border-destructive' : ''}
+                                    aria-invalid={!!changePasswordForm.formState.errors.newPassword}
+                                    aria-describedby={changePasswordForm.formState.errors.newPassword ? 'new-password-error' : undefined}
                                 />
                                 <SimpleTooltip label="Mostrar/ocultar senha">
                                     <Button
@@ -171,13 +173,14 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                                         size="icon"
                                         className="absolute right-0 top-0 h-full px-3"
                                         onClick={() => setShowNewPassword(!showNewPassword)}
+                                        aria-label={showNewPassword ? 'Ocultar senha' : 'Mostrar senha'}
                                     >
                                         {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </Button>
                                 </SimpleTooltip>
                             </div>
                             {changePasswordForm.formState.errors.newPassword && (
-                                <p className="text-sm text-destructive">{changePasswordForm.formState.errors.newPassword.message}</p>
+                                <p id="new-password-error" role="alert" className="text-sm text-destructive">{changePasswordForm.formState.errors.newPassword.message}</p>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -190,9 +193,11 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                                 disabled={isLoading}
                                 autoComplete="new-password"
                                 className={changePasswordForm.formState.errors.confirmPassword ? 'border-destructive' : ''}
+                                aria-invalid={!!changePasswordForm.formState.errors.confirmPassword}
+                                aria-describedby={changePasswordForm.formState.errors.confirmPassword ? 'confirm-password-error' : undefined}
                             />
                             {changePasswordForm.formState.errors.confirmPassword && (
-                                <p className="text-sm text-destructive">{changePasswordForm.formState.errors.confirmPassword.message}</p>
+                                <p id="confirm-password-error" role="alert" className="text-sm text-destructive">{changePasswordForm.formState.errors.confirmPassword.message}</p>
                             )}
                         </div>
                         <Button type="submit" className="w-full gap-2" disabled={isLoading}>
@@ -240,9 +245,11 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                             disabled={isLoading}
                             autoComplete="username"
                             className={loginForm.formState.errors.username ? 'border-destructive' : ''}
+                            aria-invalid={!!loginForm.formState.errors.username}
+                            aria-describedby={loginForm.formState.errors.username ? 'username-error' : undefined}
                         />
                         {loginForm.formState.errors.username && (
-                            <p className="text-sm text-destructive">{loginForm.formState.errors.username.message}</p>
+                            <p id="username-error" role="alert" className="text-sm text-destructive">{loginForm.formState.errors.username.message}</p>
                         )}
                     </div>
                     <div className="space-y-2">
@@ -255,9 +262,11 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                             disabled={isLoading}
                             autoComplete="current-password"
                             className={loginForm.formState.errors.password ? 'border-destructive' : ''}
+                            aria-invalid={!!loginForm.formState.errors.password}
+                            aria-describedby={loginForm.formState.errors.password ? 'password-error' : undefined}
                         />
                         {loginForm.formState.errors.password && (
-                            <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
+                            <p id="password-error" role="alert" className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
                         )}
                     </div>
                     <Button type="submit" className="w-full gap-2" disabled={isLoading}>
