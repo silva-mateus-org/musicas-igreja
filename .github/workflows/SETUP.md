@@ -6,19 +6,20 @@ Template genérico para projetos com backend .NET + frontend Node.js rodando em 
 
 ## Pré-requisitos
 
-### 1. Deploy Key para submodulo privado
+### 1. PAT para submodulo privado
 
-O `core-system` é um repositório privado. Para que o runner consiga cloná-lo:
+O `core-system` é um repositório privado. Crie um fine-grained PAT com acesso de leitura:
 
-```bash
-# Gerar par de chaves (rodar localmente, uma vez por projeto)
-ssh-keygen -t ed25519 -C "ci-deploy-key-musicas-igreja" -f deploy_key -N ""
-```
+GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token  
+→ Resource owner: `silva-mateus`  
+→ Repository access: Only select repositories → `core-system`  
+→ Permissions → Repository permissions → **Contents: Read**  
+→ Copiar o token gerado
 
-- **Chave pública** (`deploy_key.pub`) → `core-system` no GitHub → Settings → Deploy keys → Add deploy key (read-only, marcar "Allow read access")
-- **Chave privada** (`deploy_key`) → neste repositório no GitHub → Settings → Secrets and variables → Actions → New repository secret → nome: `CORE_SYSTEM_SSH_KEY`
-
-Deletar os arquivos locais após configurar.
+Adicionar como secret neste repositório:  
+Settings → Secrets and variables → Actions → New repository secret  
+→ Name: `CORE_SYSTEM_PAT`  
+→ Secret: token gerado acima
 
 ### 2. GHCR — visibilidade das imagens
 
@@ -94,7 +95,7 @@ Remover ou comentar o job `test-frontend` e ajustar `needs` em `build-and-push`:
 
 ### App sem submodulo privado
 
-Remover o step `Setup SSH for private submodule` de todos os jobs e remover `CORE_SYSTEM_SSH_KEY` dos secrets.
+Remover o step `Setup SSH for private submodule` de todos os jobs e remover `CORE_SYSTEM_PAT` dos secrets.
 
 ### App sem deploy (só testes)
 
@@ -106,8 +107,7 @@ Remover o job `build-and-push` inteiro.
 
 | Erro | Causa | Fix |
 |---|---|---|
-| `remote: Repository not found` no checkout | Submodulo privado sem auth | Verificar secret `CORE_SYSTEM_SSH_KEY` e deploy key no `core-system` |
-| `SSH auth failed` | Chave errada ou expirada | Regerar deploy key e atualizar secret |
+| `remote: Repository not found` no checkout | Submodulo privado sem auth | Verificar secret `CORE_SYSTEM_PAT` — PAT expirado ou sem acesso a `core-system` |
 | `self-hosted runner offline` | Runner parado na VM | `sudo systemctl start actions.runner.*` na VM |
 | `denied: permission_denied` no push GHCR | `packages: write` ausente ou token sem permissão | Verificar `permissions: packages: write` no topo do workflow |
 | Watchtower não atualiza | Digest igual ou auth falhou | `docker logs watchtower` — verificar credenciais GHCR |
