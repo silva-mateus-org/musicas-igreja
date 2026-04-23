@@ -142,6 +142,7 @@ export function MusicTable({
 
     return (
         <div className="space-y-4">
+            <div className="overflow-x-auto rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -407,6 +408,7 @@ export function MusicTable({
                     ))}
                 </TableBody>
             </Table>
+            </div>
 
             {pagination && (
                 <Pagination

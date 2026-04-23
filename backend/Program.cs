@@ -4,6 +4,7 @@ using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Services;
 using MusicasIgreja.Api.Services.Interfaces;
 using Core.Auth.Extensions;
+using Core.Auth.Models;
 using Core.FileManagement.Extensions;
 using Core.Infrastructure.Extensions;
 using Core.Infrastructure.Events;
@@ -130,6 +131,34 @@ using (var scope = app.Services.CreateScope())
 
 // Seed default roles from Core.Auth configuration
 await app.Services.SeedCoreAuthAsync();
+
+// Seed default admin user if no users exist
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    if (!await context.Set<CoreUser>().AnyAsync())
+    {
+        var adminRole = await context.Set<CoreRole>()
+            .FirstOrDefaultAsync(r => r.Name == "admin");
+
+        if (adminRole is not null)
+        {
+            context.Set<CoreUser>().Add(new CoreUser
+            {
+                Username = "admin",
+                FullName = "Administrador",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123", 12),
+                RoleId = adminRole.Id,
+                MustChangePassword = false,
+                IsActive = true
+            });
+            await context.SaveChangesAsync();
+            logger.LogInformation("Default admin user 'admin' seeded.");
+        }
+    }
+}
 
 // Pipeline
 if (app.Environment.IsDevelopment())

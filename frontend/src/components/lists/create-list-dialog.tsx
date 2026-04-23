@@ -111,9 +111,11 @@ export function CreateListDialog({ open, onOpenChange, onListCreated }: CreateLi
                             {...form.register('name')}
                             className={form.formState.errors.name ? 'border-destructive' : ''}
                             maxLength={100}
+                            aria-invalid={!!form.formState.errors.name}
+                            aria-describedby={form.formState.errors.name ? 'name-error' : undefined}
                         />
                         {form.formState.errors.name && (
-                            <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                            <p id="name-error" role="alert" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
                             {watchName?.length || 0}/100 caracteres
@@ -131,9 +133,11 @@ export function CreateListDialog({ open, onOpenChange, onListCreated }: CreateLi
                             className={form.formState.errors.observations ? 'border-destructive' : ''}
                             rows={3}
                             maxLength={500}
+                            aria-invalid={!!form.formState.errors.observations}
+                            aria-describedby={form.formState.errors.observations ? 'observations-error' : undefined}
                         />
                         {form.formState.errors.observations && (
-                            <p className="text-sm text-destructive">{form.formState.errors.observations.message}</p>
+                            <p id="observations-error" role="alert" className="text-sm text-destructive">{form.formState.errors.observations.message}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
                             {watchObservations?.length || 0}/500 caracteres
