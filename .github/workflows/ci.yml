@@ -28,15 +28,15 @@ jobs:
     name: Backend Tests
     runs-on: [self-hosted, linux]
     steps:
-      # Injeta credencial para clonar submodulo privado (core-system).
       # CORE_SYSTEM_PAT = classic PAT com escopo 'repo' na conta silva-mateus-org.
       - name: Configure git credentials for private submodule
         run: |
           git config --global url."https://x-access-token:${{ secrets.CORE_SYSTEM_PAT }}@github.com/silva-mateus-org/core-system".insteadOf "https://github.com/silva-mateus-org/core-system"
 
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -82,8 +82,9 @@ jobs:
           git config --global url."https://x-access-token:${{ secrets.CORE_SYSTEM_PAT }}@github.com/silva-mateus-org/core-system".insteadOf "https://github.com/silva-mateus-org/core-system"
 
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
 
       - uses: actions/setup-node@v4
         with:
@@ -120,8 +121,9 @@ jobs:
           git config --global url."https://x-access-token:${{ secrets.CORE_SYSTEM_PAT }}@github.com/silva-mateus-org/core-system".insteadOf "https://github.com/silva-mateus-org/core-system"
 
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
 
       - name: Login to GHCR
         uses: docker/login-action@v3
