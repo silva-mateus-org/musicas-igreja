@@ -17,6 +17,8 @@ env:
   NODE_VERSION: '20'
   API_IMAGE: ghcr.io/silva-mateus-org/musicas-igreja-api
   WEB_IMAGE: ghcr.io/silva-mateus-org/musicas-igreja-web
+  DOTNET_INSTALL_DIR: /home/deploy/.dotnet
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
