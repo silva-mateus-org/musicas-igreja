@@ -24,6 +24,7 @@ import { OcrConvertCard } from '@/components/music/ocr-convert-card'
 import { TranspositionControls } from '@/components/music/transposition-controls'
 import { parseChordProDocument } from '@/lib/chordpro'
 import { MusicDisplaySettings } from '@/components/music/display-settings'
+import { useMusicDisplayPrefs } from '@/hooks/use-music-display-prefs'
 
 function isValidYouTube(url?: string) {
     if (!url) return false
@@ -61,11 +62,16 @@ export default function MusicDetailsPage() {
     const [isEditArrangement, setIsEditArrangement] = useState(false)
     const [showFileInfo, setShowFileInfo] = useState(false)
 
-    // Display Settings State
-    const [fontSize, setFontSize] = useState(16)
-    const [showChords, setShowChords] = useState(true)
-    const [chordColor, setChordColor] = useState('text-primary')
-    const [columnView, setColumnView] = useState(false)
+    // Display Settings State — persisted in localStorage
+    const [displayPrefs, updateDisplayPrefs] = useMusicDisplayPrefs()
+    const fontSize = displayPrefs.fontSize
+    const showChords = displayPrefs.showChords
+    const chordColor = displayPrefs.chordColor
+    const columnView = displayPrefs.columnView
+    const setFontSize = (v: number) => updateDisplayPrefs({ fontSize: v })
+    const setShowChords = (v: boolean) => updateDisplayPrefs({ showChords: v })
+    const setChordColor = (v: string) => updateDisplayPrefs({ chordColor: v })
+    const setColumnView = (v: boolean) => updateDisplayPrefs({ columnView: v })
 
     // Load preferences
     useEffect(() => {

@@ -55,9 +55,10 @@ const navigation: NavigationItem[] = [
 
 interface MainLayoutProps {
     children: React.ReactNode
+    mainClassName?: string
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout({ children, mainClassName }: MainLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [loginModalOpen, setLoginModalOpen] = useState(false)
     const [profileModalOpen, setProfileModalOpen] = useState(false)
@@ -465,7 +466,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         )}
                     </div>
                 </header>
-                <main className="p-4 sm:p-6">{children}</main>
+                <main className={mainClassName ?? 'p-4 sm:p-6'}>{children}</main>
             </div>
             </Sheet>
             

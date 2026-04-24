@@ -62,16 +62,20 @@ interface MusicGroupedViewProps {
     error: string | null
     onRefresh: () => void
     filters?: SearchFilters
+    onSelectFile?: (id: number) => void
+    selectedFileId?: number | null
 }
 
-export function MusicGroupedView({ 
-    groupType, 
+export function MusicGroupedView({
+    groupType,
     groupLabel,
-    groups, 
-    isLoading, 
-    error, 
+    groups,
+    isLoading,
+    error,
     onRefresh,
-    filters = {}
+    filters = {},
+    onSelectFile,
+    selectedFileId,
 }: MusicGroupedViewProps) {
     const router = useRouter()
     const { hasPermission } = useAuth()
@@ -305,13 +309,22 @@ export function MusicGroupedView({
                                                         </div>
                                                         
                                                         <div className="flex-1 min-w-0">
-                                                            <Link 
-                                                                href={`/music/${file.id}`}
-                                                                target="_blank"
-                                                                className="font-medium hover:text-primary transition-colors line-clamp-1"
-                                                            >
-                                                                {file.song_name || file.filename}
-                                                            </Link>
+                                                            {onSelectFile ? (
+                                                                <button
+                                                                    onClick={() => onSelectFile(file.id)}
+                                                                    className={`font-medium hover:text-primary transition-colors line-clamp-1 text-left ${selectedFileId === file.id ? 'text-primary' : ''}`}
+                                                                >
+                                                                    {file.song_name || file.filename}
+                                                                </button>
+                                                            ) : (
+                                                                <Link
+                                                                    href={`/music/${file.id}`}
+                                                                    target="_blank"
+                                                                    className="font-medium hover:text-primary transition-colors line-clamp-1"
+                                                                >
+                                                                    {file.song_name || file.filename}
+                                                                </Link>
+                                                            )}
                                                             
                                                             {/* Metadata row */}
                                                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
