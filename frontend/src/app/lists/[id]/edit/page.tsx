@@ -13,12 +13,13 @@ import { Badge } from '@core/components/ui/badge'
 import { Separator } from '@core/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Checkbox } from '@core/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@core/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@core/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@core/components/ui/popover'
 import { ScrollArea } from '@core/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { listsApi, musicApi, handleApiError, getActiveWorkspaceId } from '@/lib/api'
-import type { MusicList, MusicFile, CustomFilterGroup } from '@/types'
+import type { MusicList, MusicFile, CustomFilterGroup, UpdateMergeListItemDto } from '@/types'
 import {
     List,
     Save,
@@ -440,6 +441,40 @@ export default function EditListPage() {
         }
     }
 
+    const handleUpdateOverride = async (itemId: number, keyOverride?: string, capoOverride?: number) => {
+        if (!list) return
+
+        try {
+            const dto: UpdateMergeListItemDto = {
+                key_override: keyOverride || undefined,
+                capo_override: capoOverride || undefined,
+            }
+
+            await listsApi.updateItemOverrides(itemId, dto)
+
+            // Update local state
+            setList(prev => prev ? {
+                ...prev,
+                items: prev.items?.map(item =>
+                    item.id === itemId
+                        ? { ...item, key_override: keyOverride, capo_override: capoOverride }
+                        : item
+                ) || []
+            } : prev)
+
+            toast({
+                title: 'Sucesso',
+                description: 'Override de tom/capo atualizado',
+            })
+        } catch (error) {
+            toast({
+                title: 'Erro',
+                description: handleApiError(error),
+                variant: 'destructive',
+            })
+        }
+    }
+
     const openYouTube = (url: string) => {
         window.open(url, '_blank')
     }
@@ -719,9 +754,59 @@ export default function EditListPage() {
                                                                                 ) : '-'}
                                                                             </td>
                                                                             <td className="py-2 px-1 text-center">
-                                                                                {item.music?.musical_key ? (
-                                                                                    <Badge className="text-xs">{item.music.musical_key}</Badge>
-                                                                                ) : '-'}
+                                                                                {item.music?.content_type === 'chord' ? (
+                                                                                    <Popover>
+                                                                                        <PopoverTrigger asChild>
+                                                                                            <Button variant="outline" size="sm" className="text-xs h-6 px-2">
+                                                                                                {item.key_override || item.music?.musical_key || 'C'}
+                                                                                                {item.key_override && <span className="ml-1 text-blue-600 font-semibold">*</span>}
+                                                                                            </Button>
+                                                                                        </PopoverTrigger>
+                                                                                        <PopoverContent className="w-56 p-3">
+                                                                                            <div className="space-y-3">
+                                                                                                <div>
+                                                                                                    <p className="text-sm font-medium mb-2">Tom para esta música</p>
+                                                                                                    <Select
+                                                                                                        value={item.key_override || item.music?.musical_key || 'C'}
+                                                                                                        onValueChange={(key) =>
+                                                                                                            handleUpdateOverride(item.id, key !== item.music?.musical_key ? key : undefined, item.capo_override)
+                                                                                                        }
+                                                                                                    >
+                                                                                                        <SelectTrigger className="text-xs">
+                                                                                                            <SelectValue />
+                                                                                                        </SelectTrigger>
+                                                                                                        <SelectContent>
+                                                                                                            {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((key) => (
+                                                                                                                <SelectItem key={key} value={key}>
+                                                                                                                    {key}
+                                                                                                                </SelectItem>
+                                                                                                            ))}
+                                                                                                        </SelectContent>
+                                                                                                    </Select>
+                                                                                                </div>
+                                                                                                <div className="text-xs text-muted-foreground">
+                                                                                                    Padrão: {item.music?.musical_key || 'C'}
+                                                                                                </div>
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="sm"
+                                                                                                    className="w-full text-xs h-7"
+                                                                                                    onClick={() =>
+                                                                                                        handleUpdateOverride(item.id, undefined, undefined)
+                                                                                                    }
+                                                                                                >
+                                                                                                    Limpar Override
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        </PopoverContent>
+                                                                                    </Popover>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        {item.music?.musical_key ? (
+                                                                                            <Badge className="text-xs">{item.music.musical_key}</Badge>
+                                                                                        ) : '-'}
+                                                                                    </>
+                                                                                )}
                                                                             </td>
                                                                             <td className="py-2 px-1 text-center">
                                                                                 <div className="flex gap-0.5 justify-center">

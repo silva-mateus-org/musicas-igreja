@@ -10,6 +10,7 @@ using MusicasIgreja.Api.DTOs;
 using MusicasIgreja.Api.Models;
 using MusicasIgreja.Api.Services;
 using MusicasIgreja.Api.Services.Interfaces;
+using System.Threading.Channels;
 
 namespace MusicasIgreja.Api.Tests.Controllers;
 
@@ -20,6 +21,8 @@ public class FilesControllerTests
     private readonly Mock<IFileService> _fileServiceMock;
     private readonly Mock<ICoreAuthService> _authServiceMock;
     private readonly Mock<IMonitoringService> _monitoringServiceMock;
+    private readonly Mock<IChordPdfRenderer> _chordRendererMock;
+    private readonly Mock<ChannelWriter<OcrJob>> _ocrWriterMock;
     private readonly Mock<ILogger<FilesController>> _loggerMock;
 
     public FilesControllerTests()
@@ -28,6 +31,8 @@ public class FilesControllerTests
         _fileServiceMock = new Mock<IFileService>();
         _authServiceMock = new Mock<ICoreAuthService>();
         _monitoringServiceMock = new Mock<IMonitoringService>();
+        _chordRendererMock = new Mock<IChordPdfRenderer>();
+        _ocrWriterMock = new Mock<ChannelWriter<OcrJob>>();
         _loggerMock = new Mock<ILogger<FilesController>>();
 
         _controller = new FilesController(
@@ -35,6 +40,8 @@ public class FilesControllerTests
             _fileServiceMock.Object,
             _authServiceMock.Object,
             _monitoringServiceMock.Object,
+            _chordRendererMock.Object,
+            _ocrWriterMock.Object,
             _loggerMock.Object);
 
         var httpContext = new DefaultHttpContext();
@@ -57,7 +64,7 @@ public class FilesControllerTests
         var files = Enumerable.Range(1, count).Select(i => new FileDto(
             i, $"file{i}.pdf", $"original{i}.pdf", $"Song {i}", "Artist",
             new List<string> { "Entrada" }, new Dictionary<string, FileCustomFilterGroupDto>(),
-            "C", null, 1024, 2, DateTime.UtcNow, null
+            "C", null, 1024, 2, DateTime.UtcNow, null, "pdf_only", null, null
         )).ToList();
 
         return new FileListResponseDto(files,
@@ -107,7 +114,7 @@ public class FilesControllerTests
         _musicServiceMock.Setup(m => m.GetMusicByIdAsync(1))
             .ReturnsAsync(new FileDto(1, "file.pdf", "orig.pdf", "Song", "Artist",
                 new List<string>(), new Dictionary<string, FileCustomFilterGroupDto>(),
-                "C", null, 1024, 2, DateTime.UtcNow, null));
+                "C", null, 1024, 2, DateTime.UtcNow, null, "pdf_only", null, null));
 
         var result = await _controller.GetFile(1);
 

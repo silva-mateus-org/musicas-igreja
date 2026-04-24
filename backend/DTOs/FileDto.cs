@@ -13,7 +13,10 @@ public record FileDto(
     long? FileSize,
     int? PageCount,
     DateTime UploadDate,
-    string? Description
+    string? Description,
+    string ContentType,
+    string? ChordContent,
+    string? OcrStatus
 );
 
 public class FileCustomFilterGroupDto
@@ -77,8 +80,36 @@ public record GroupedFileItemDto(
     string? MusicalKey,
     List<string> Categories,
     Dictionary<string, FileCustomFilterGroupDto> CustomFilters,
-    string? YoutubeLink
+    string? YoutubeLink,
+    string ContentType
 );
+
+public record CreateChordSongDto
+{
+    public string? SongName { get; init; }
+    public string? Artist { get; init; }
+    public List<string>? Categories { get; init; }
+    public Dictionary<string, List<string>>? CustomFilters { get; init; }
+    public string? MusicalKey { get; init; }
+    public string? YoutubeLink { get; init; }
+    public string? Description { get; init; }
+    public string ChordContent { get; init; } = string.Empty;
+}
+
+public record UpdateChordContentDto
+{
+    public string ChordContent { get; init; } = string.Empty;
+    public string? MusicalKey { get; init; }
+}
+
+public record ChordPdfExportDto
+{
+    public string? TransposedKey { get; init; }
+    public bool UseCapo { get; init; }
+    public int? CapoFret { get; init; }
+}
+
+public record OcrStatusDto(string Status, string? Error);
 
 public record EntityDto
 {
@@ -97,4 +128,16 @@ public record EntityDetailDto(
     string Slug,
     string? Description,
     int FileCount
+);
+
+public record UserSongPreferenceDto(
+    int TransposeAmount,
+    int CapoFret,
+    string? ArrangementJson
+);
+
+public record UpdateUserSongPreferenceDto(
+    int TransposeAmount,
+    int CapoFret,
+    string? ArrangementJson
 );

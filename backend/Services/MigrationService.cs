@@ -70,18 +70,11 @@ public class MigrationService : IMigrationService
 
                 var sql = await File.ReadAllTextAsync(scriptPath);
 
-                var statements = sql
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .ToList();
+                var statements = SplitSqlStatements(sql);
 
                 foreach (var statement in statements)
                 {
-                    var lines = statement.Split('\n')
-                        .Where(line => !line.Trim().StartsWith("--"))
-                        .ToList();
-                    var trimmedStatement = string.Join('\n', lines).Trim();
-
+                    var trimmedStatement = statement.Trim();
                     if (string.IsNullOrWhiteSpace(trimmedStatement))
                         continue;
 
@@ -92,9 +85,12 @@ public class MigrationService : IMigrationService
                     catch (Exception ex) when (
                         ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
                         ex.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
-                        ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+                        ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("permission denied", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("must be owner", StringComparison.OrdinalIgnoreCase) ||
+                        ex.Message.Contains("must be superuser", StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogDebug("Skipping idempotent statement in {Script}: {Message}", scriptName, ex.Message);
+                        _logger.LogDebug("Skipping idempotent or restricted statement in {Script}: {Message}", scriptName, ex.Message);
                     }
                 }
 
@@ -108,6 +104,44 @@ public class MigrationService : IMigrationService
         }
 
         _logger.LogInformation("Migration check completed");
+    }
+
+    private List<string> SplitSqlStatements(string sql)
+    {
+        var statements = new List<string>();
+        var currentStatement = new System.Text.StringBuilder();
+        bool inDollarQuote = false;
+
+        for (int i = 0; i < sql.Length; i++)
+        {
+            char c = sql[i];
+            
+            // Check for $$
+            if (c == '$' && i + 1 < sql.Length && sql[i + 1] == '$')
+            {
+                inDollarQuote = !inDollarQuote;
+                currentStatement.Append("$$");
+                i++;
+                continue;
+            }
+
+            if (c == ';' && !inDollarQuote)
+            {
+                statements.Add(currentStatement.ToString());
+                currentStatement.Clear();
+            }
+            else
+            {
+                currentStatement.Append(c);
+            }
+        }
+
+        if (currentStatement.Length > 0 && !string.IsNullOrWhiteSpace(currentStatement.ToString()))
+        {
+            statements.Add(currentStatement.ToString());
+        }
+
+        return statements;
     }
 
     private async Task EnsureMigrationHistoryTableAsync()

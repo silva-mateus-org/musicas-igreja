@@ -22,6 +22,10 @@ import type {
     MonitoringResponse,
     AlertConfiguration,
     AlertConfigurationInput,
+    CreateChordSongDto,
+    UpdateChordContentDto,
+    UpdateMergeListItemDto,
+    ChordPdfExportDto,
 } from '@/types'
 
 const BASE = '/api'
@@ -232,6 +236,50 @@ export const musicApi = {
         }
         return { message: 'Upload concluído', files: results }
     },
+
+    async createChord(dto: CreateChordSongDto): Promise<{ success: boolean; file_id: number; message: string }> {
+        return await request(`/files/chord?workspace_id=${_activeWorkspaceId}`, {
+            method: 'POST',
+            body: JSON.stringify(dto),
+        })
+    },
+
+    async getChord(id: number): Promise<{ success: boolean; chord_content: string; status?: string }> {
+        return await request(`/files/${id}/chord`)
+    },
+
+    async updateChord(id: number, dto: UpdateChordContentDto): Promise<ApiResponse> {
+        return await request(`/files/${id}/chord`, {
+            method: 'PUT',
+            body: JSON.stringify(dto),
+        })
+    },
+
+    async triggerOcr(id: number): Promise<{ success: boolean; status: string; message: string }> {
+        return await request(`/files/${id}/ocr`, { method: 'POST' })
+    },
+
+    async getOcrStatus(id: number): Promise<{ success: boolean; status: string; error?: string; started_at?: string }> {
+        return await request(`/files/${id}/ocr-status`)
+    },
+
+    async exportChordPdf(id: number, dto: ChordPdfExportDto): Promise<Blob> {
+        const res = await fetch(`${BASE}/files/${id}/export-chord-pdf`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dto),
+        })
+        if (!res.ok) {
+            let message = 'Falha ao exportar PDF'
+            try {
+                const data = await res.json()
+                message = data?.error || message
+            } catch { }
+            throw new Error(message)
+        }
+        return await res.blob()
+    },
 }
 
 // ============ LISTS (merge_lists) ============
@@ -276,6 +324,8 @@ export const listsApi = {
                 list_id: list.id,
                 music_id: it.file.id,
                 position: it.order_position,
+                key_override: it.key_override,
+                capo_override: it.capo_override,
                 music: {
                     id: it.file.id,
                     filename: it.file.filename,
@@ -290,6 +340,8 @@ export const listsApi = {
                     upload_date: '',
                     uploaded_by: 0,
                     is_duplicate: false,
+                    content_type: it.file.content_type,
+                    chord_content: it.file.chord_content,
                 } as any,
             }))
         }
@@ -357,6 +409,13 @@ export const listsApi = {
 
     async generateReport(listId: number): Promise<{ success: boolean; report?: string; message?: string }> {
         return await request<{ success: boolean; report?: string; message?: string }>(`/merge_lists/${listId}/report`, { method: 'GET' })
+    },
+
+    async updateItemOverrides(itemId: number, dto: UpdateMergeListItemDto): Promise<ApiResponse> {
+        return await request<ApiResponse>(`/merge_list_items/${itemId}/overrides`, {
+            method: 'PUT',
+            body: JSON.stringify(dto),
+        })
     },
 }
 
@@ -810,6 +869,9 @@ function mapBackendToMusicFile(f: any): MusicFile {
         observations: f.description || undefined,
         duplicate_of: undefined,
         is_duplicate: false,
+        content_type: f.content_type,
+        chord_content: f.chord_content,
+        ocr_status: f.ocr_status,
     }
 }
 

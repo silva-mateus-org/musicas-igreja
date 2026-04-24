@@ -26,4 +26,14 @@ public interface IMusicService
     Task<List<GroupedFilesDto>> GetGroupedByCustomFilterAsync(int workspaceId, string groupSlug);
 
     Task<PdfFile> ReplacePdfAsync(int id, IFormFile replacementPdf);
+
+    Task<PdfFile> CreateChordSongAsync(int workspaceId, CreateChordSongDto dto);
+
+    Task<bool> UpdateChordContentAsync(int id, UpdateChordContentDto dto);
+
+    Task<UserSongPreferenceDto?> GetUserPreferenceAsync(int fileId, string userId);
+
+    Task<bool> UpdateUserPreferenceAsync(int fileId, string userId, UpdateUserSongPreferenceDto dto);
+
+    Task SaveChangesAsync();
 }

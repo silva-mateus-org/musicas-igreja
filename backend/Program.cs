@@ -3,6 +3,7 @@ using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Services;
 using MusicasIgreja.Api.Services.Interfaces;
+using System.Threading.Channels;
 using Core.Auth.Extensions;
 using Core.Auth.Models;
 using Core.FileManagement.Extensions;
@@ -51,9 +52,16 @@ builder.Services.AddScoped<ICustomFilterService, CustomFilterService>();
 builder.Services.AddScoped<IMigrationService, MigrationService>();
 builder.Services.AddScoped<IMonitoringService, MonitoringService>();
 builder.Services.AddScoped<IAlertConfigurationService, AlertConfigurationService>();
+builder.Services.AddScoped<IChordPdfRenderer, ChordPdfRenderer>();
+
+// OCR Channel (singleton for background service)
+var ocrChannel = System.Threading.Channels.Channel.CreateUnbounded<OcrJob>();
+builder.Services.AddSingleton(ocrChannel.Writer);
+builder.Services.AddSingleton(ocrChannel.Reader);
 
 // Background services
 builder.Services.AddHostedService<MetricsCollectorService>();
+builder.Services.AddHostedService<OcrBackgroundService>();
 
 // Controllers (include Core.Auth assembly for CoreAuthController)
 builder.Services.AddControllers()

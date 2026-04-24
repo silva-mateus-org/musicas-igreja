@@ -4,6 +4,7 @@ using Moq;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.Models;
 using MusicasIgreja.Api.Services;
+using MusicasIgreja.Api.Services.Interfaces;
 
 namespace MusicasIgreja.Api.Tests.Services;
 
@@ -22,6 +23,7 @@ public class ListServiceTests : IDisposable
         _service = new ListService(
             _context,
             Mock.Of<IFileService>(),
+            Mock.Of<IChordPdfRenderer>(),
             Mock.Of<ILogger<ListService>>()
         );
 

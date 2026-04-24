@@ -12,12 +12,14 @@ public class ListService : IListService
 {
     private readonly AppDbContext _context;
     private readonly IFileService _fileService;
+    private readonly IChordPdfRenderer _chordRenderer;
     private readonly ILogger<ListService> _logger;
 
-    public ListService(AppDbContext context, IFileService fileService, ILogger<ListService> logger)
+    public ListService(AppDbContext context, IFileService fileService, IChordPdfRenderer chordRenderer, ILogger<ListService> logger)
     {
         _context = context;
         _fileService = fileService;
+        _chordRenderer = chordRenderer;
         _logger = logger;
     }
 
@@ -69,8 +71,9 @@ public class ListService : IListService
                     i.PdfFile.FileCustomFilters
                         .GroupBy(fcf => fcf.FilterValue.FilterGroup)
                         .ToDictionary(g => g.Key.Slug, g => g.Select(fcf => fcf.FilterValue.Name).ToList()),
-                    i.PdfFile.MusicalKey, i.PdfFile.YoutubeLink
-                )
+                    i.PdfFile.MusicalKey, i.PdfFile.YoutubeLink, i.PdfFile.ContentType
+                ),
+                i.KeyOverride, i.CapoOverride
             )).ToList()
         );
     }
@@ -233,58 +236,81 @@ public class ListService : IListService
         }
 
         var orderedItems = list.Items.OrderBy(i => i.OrderPosition).ToList();
-        var filePaths = new List<string>();
+        var pdfsToMerge = new List<PdfDocument>();
         var missingFiles = new List<string>();
+        var failedCount = 0;
+
         foreach (var item in orderedItems)
         {
-            var absPath = _fileService.GetAbsolutePath(item.PdfFile.FilePath);
-            if (System.IO.File.Exists(absPath))
-                filePaths.Add(absPath);
-            else
-                missingFiles.Add(item.PdfFile.FilePath);
+            try
+            {
+                if (item.PdfFile.ContentType == "chord" && !string.IsNullOrEmpty(item.PdfFile.ChordContent))
+                {
+                    // Render chord song
+                    var key = item.KeyOverride ?? item.PdfFile.MusicalKey ?? "C";
+                    var useCapo = item.CapoOverride.HasValue;
+                    var chordPdf = _chordRenderer.Render(item.PdfFile.ChordContent, key, useCapo, item.CapoOverride);
+                    pdfsToMerge.Add(chordPdf);
+                }
+                else if (!string.IsNullOrEmpty(item.PdfFile.FilePath))
+                {
+                    // Read PDF from disk
+                    var absPath = _fileService.GetAbsolutePath(item.PdfFile.FilePath);
+                    if (System.IO.File.Exists(absPath))
+                    {
+                        using var input = PdfReader.Open(absPath, PdfDocumentOpenMode.Import);
+                        pdfsToMerge.Add(input);
+                    }
+                    else
+                    {
+                        missingFiles.Add(item.PdfFile.FilePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                _logger.LogWarning(ex, "Export list {ListId}: failed to process item {ItemId} '{SongName}'",
+                    id, item.Id, item.PdfFile.SongName);
+            }
         }
 
         if (missingFiles.Count > 0)
             _logger.LogWarning("Export list {ListId}: {MissingCount}/{TotalCount} files not found on disk: {MissingFiles}",
                 id, missingFiles.Count, orderedItems.Count, string.Join(", ", missingFiles));
 
-        if (filePaths.Count == 0)
-            return (null, list.Name, "Nenhum arquivo PDF encontrado no servidor para esta lista.");
+        if (pdfsToMerge.Count == 0)
+            return (null, list.Name, "Nenhum arquivo ou cifra encontrado para exportar.");
 
-        if (filePaths.Count == 1)
-            return (new FileStream(filePaths[0], FileMode.Open, FileAccess.Read, FileShare.Read), list.Name, null);
+        if (pdfsToMerge.Count == 1)
+        {
+            var ms = new MemoryStream();
+            pdfsToMerge[0].Save(ms, false);
+            ms.Position = 0;
+            return (ms, list.Name, null);
+        }
 
         using var output = new PdfDocument();
         output.Info.Title = list.Name;
-        var failedPdfs = 0;
-        foreach (var path in filePaths)
+        foreach (var doc in pdfsToMerge)
         {
-            try
-            {
-                using var input = PdfReader.Open(path, PdfDocumentOpenMode.Import);
-                for (int i = 0; i < input.PageCount; i++)
-                    output.AddPage(input.Pages[i]);
-            }
-            catch (Exception ex)
-            {
-                failedPdfs++;
-                _logger.LogWarning(ex, "Export list {ListId}: failed to process PDF: {Path}", id, path);
-            }
+            for (int i = 0; i < doc.PageCount; i++)
+                output.AddPage(doc.Pages[i]);
         }
 
         if (output.PageCount == 0)
         {
-            _logger.LogError("Export list {ListId}: all {Count} PDFs failed to process", id, filePaths.Count);
-            return (null, list.Name, "Erro ao processar os arquivos PDF. Tente novamente.");
+            _logger.LogError("Export list {ListId}: all {Count} documents failed to process", id, pdfsToMerge.Count);
+            return (null, list.Name, "Erro ao processar os arquivos. Tente novamente.");
         }
 
-        if (failedPdfs > 0)
-            _logger.LogWarning("Export list {ListId}: {FailedCount}/{TotalCount} PDFs skipped due to errors",
-                id, failedPdfs, filePaths.Count);
+        if (failedCount > 0)
+            _logger.LogWarning("Export list {ListId}: {FailedCount}/{TotalCount} items skipped due to errors",
+                id, failedCount, orderedItems.Count);
 
-        var ms = new MemoryStream();
-        output.Save(ms, false);
-        ms.Position = 0;
-        return (ms, list.Name, null);
+        var outputMs = new MemoryStream();
+        output.Save(outputMs, false);
+        outputMs.Position = 0;
+        return (outputMs, list.Name, null);
     }
 }

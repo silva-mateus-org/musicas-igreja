@@ -258,13 +258,15 @@ export default function EditMusicPage() {
                     
                     {/* Actions */}
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:justify-end">
-                        <SimpleTooltip label="Abrir PDF em nova aba">
-                            <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                                <Eye className="h-4 w-4" />
-                                <span className="hidden sm:inline">Visualizar PDF</span>
-                                <span className="sm:hidden">Ver PDF</span>
-                            </Button>
-                        </SimpleTooltip>
+                        {music.content_type !== 'chord' && (
+                            <SimpleTooltip label="Abrir PDF em nova aba">
+                                <Button variant="outline" size="sm" onClick={() => window.open(`/api/files/${music.id}/stream`, '_blank')} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                                    <Eye className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Visualizar PDF</span>
+                                    <span className="sm:hidden">Ver PDF</span>
+                                </Button>
+                            </SimpleTooltip>
+                        )}
                         <Button variant="outline" size="sm" onClick={handleCancelClick} disabled={saving} className="gap-1 sm:gap-2 text-xs sm:text-sm">
                             <X className="h-4 w-4" />
                             <span>Cancelar</span>
@@ -400,19 +402,36 @@ export default function EditMusicPage() {
                                     </div>
                                 </div>
 
-                                {/* Replace PDF Zone (compact) */}
-                                <div>
-                                    <Label>Substituir PDF</Label>
-                                    <UploadZone
-                                        compact
-                                        maxFiles={1}
-                                        onFilesSelected={(files) => setPendingPdf(files[0] || null)}
-                                        selectedFiles={pendingPdf ? [pendingPdf] : []}
-                                        onRemoveFile={() => setPendingPdf(null)}
-                                        className="mt-2"
-                                    />
-                                    {pendingPdf && <p className="text-xs text-muted-foreground mt-1">Será aplicado somente após salvar</p>}
-                                </div>
+                                {/* Replace PDF Zone (compact) - only for PDF songs */}
+                                {music.content_type !== 'chord' && (
+                                    <div>
+                                        <Label>Substituir PDF</Label>
+                                        <UploadZone
+                                            compact
+                                            maxFiles={1}
+                                            onFilesSelected={(files) => setPendingPdf(files[0] || null)}
+                                            selectedFiles={pendingPdf ? [pendingPdf] : []}
+                                            onRemoveFile={() => setPendingPdf(null)}
+                                            className="mt-2"
+                                        />
+                                        {pendingPdf && <p className="text-xs text-muted-foreground mt-1">Será aplicado somente após salvar</p>}
+                                    </div>
+                                )}
+
+                                {/* Chord song notice */}
+                                {music.content_type === 'chord' && (
+                                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-900 font-medium mb-2">Música em formato cifra</p>
+                                        <p className="text-xs text-blue-800 mb-3">
+                                            Para editar o conteúdo da cifra, clique no botão &quot;Editar Cifra&quot; acima.
+                                        </p>
+                                        <Link href={`/music/${music.id}/chord`}>
+                                            <Button size="sm" variant="outline">
+                                                Editar Cifra
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

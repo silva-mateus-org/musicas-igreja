@@ -17,6 +17,8 @@ public class FilesController : ControllerBase
     private readonly IFileService _fileService;
     private readonly ICoreAuthService _authService;
     private readonly IMonitoringService _monitoringService;
+    private readonly IChordPdfRenderer _chordRenderer;
+    private readonly System.Threading.Channels.ChannelWriter<OcrJob> _ocrWriter;
     private readonly ILogger<FilesController> _logger;
 
     public FilesController(
@@ -24,12 +26,16 @@ public class FilesController : ControllerBase
         IFileService fileService,
         ICoreAuthService authService,
         IMonitoringService monitoringService,
+        IChordPdfRenderer chordRenderer,
+        System.Threading.Channels.ChannelWriter<OcrJob> ocrWriter,
         ILogger<FilesController> logger)
     {
         _musicService = musicService;
         _fileService = fileService;
         _authService = authService;
         _monitoringService = monitoringService;
+        _chordRenderer = chordRenderer;
+        _ocrWriter = ocrWriter;
         _logger = logger;
     }
 
@@ -218,6 +224,27 @@ public class FilesController : ControllerBase
         if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });
 
+        if (file.ContentType == "chord")
+        {
+            if (string.IsNullOrEmpty(file.ChordContent))
+                return BadRequest(new { error = "Conteúdo da cifra vazio" });
+
+            try
+            {
+                var chordPdf = _chordRenderer.Render(file.ChordContent, file.MusicalKey);
+                var ms = new MemoryStream();
+                chordPdf.Save(ms, false);
+                ms.Position = 0;
+                var filename = $"{file.SongName ?? "cifra"}.pdf";
+                return File(ms, "application/pdf", filename);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao gerar PDF da cifra {FileId}", id);
+                return StatusCode(500, new { error = "Erro ao gerar PDF" });
+            }
+        }
+
         var absolutePath = ResolveFilePath(file);
         if (absolutePath == null)
             return NotFound(new { success = false, error = "Arquivo físico não encontrado" });
@@ -231,6 +258,26 @@ public class FilesController : ControllerBase
         var file = await _musicService.GetFileRecordByIdAsync(id);
         if (file == null)
             return NotFound(new { success = false, error = "Arquivo não encontrado" });
+
+        if (file.ContentType == "chord")
+        {
+            if (string.IsNullOrEmpty(file.ChordContent))
+                return BadRequest(new { error = "Conteúdo da cifra vazio" });
+
+            try
+            {
+                var chordPdf = _chordRenderer.Render(file.ChordContent, file.MusicalKey);
+                var ms = new MemoryStream();
+                chordPdf.Save(ms, false);
+                ms.Position = 0;
+                return File(ms, "application/pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao gerar PDF da cifra {FileId}", id);
+                return StatusCode(500, new { error = "Erro ao gerar PDF" });
+            }
+        }
 
         var absolutePath = ResolveFilePath(file);
         if (absolutePath == null)
@@ -299,6 +346,214 @@ public class FilesController : ControllerBase
     {
         var groups = await _musicService.GetGroupedByCustomFilterAsync(workspace_id, groupSlug);
         return Ok(new { success = true, groups, total_groups = groups.Count });
+    }
+
+    [HttpPost("chord")]
+    public async Task<ActionResult<object>> CreateChordSong(
+        [FromBody] CreateChordSongDto dto,
+        [FromQuery] int workspace_id = 1)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.EditMetadata))
+            return StatusCode(403, new { error = "Sem permissão" });
+
+        if (string.IsNullOrWhiteSpace(dto.ChordContent))
+            return BadRequest(new { error = "ChordContent não pode estar vazio" });
+
+        try
+        {
+            var pdfFile = await _musicService.CreateChordSongAsync(workspace_id, dto);
+            var fileId = pdfFile.Id;
+
+            var userId = CoreAuthHelper.GetCurrentUserId(HttpContext) ?? 0;
+            var username = CoreAuthHelper.GetCurrentUsername(HttpContext) ?? "unknown";
+            var ipAddress = CoreAuthHelper.GetClientIp(HttpContext);
+            await _monitoringService.LogAuditActionAsync("create_chord", "file", fileId, userId, username, ipAddress);
+
+            return StatusCode(201, new { success = true, file_id = fileId, message = "Música em cifra criada com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar música em cifra");
+            return StatusCode(500, new { error = $"Erro ao processar: {ex.Message}" });
+        }
+    }
+
+    [HttpGet("{id}/chord")]
+    public async Task<ActionResult<object>> GetChordContent(int id)
+    {
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
+            return NotFound(new { error = "Arquivo não encontrado" });
+
+        if (file.ContentType != "chord")
+            return BadRequest(new { error = "Arquivo não é uma cifra" });
+
+        return Ok(new { success = true, chord_content = file.ChordContent, status = file.OcrStatus });
+    }
+
+    [HttpPut("{id}/chord")]
+    public async Task<ActionResult<object>> UpdateChordContent(int id, [FromBody] UpdateChordContentDto dto)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.EditMetadata))
+            return StatusCode(403, new { error = "Sem permissão" });
+
+        try
+        {
+            var success = await _musicService.UpdateChordContentAsync(id, dto);
+            if (!success)
+                return NotFound(new { error = "Arquivo não encontrado" });
+
+            return Ok(new { success = true, message = "Cifra atualizada com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao atualizar cifra");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}/preferences")]
+    public async Task<ActionResult<object>> GetUserPreference(int id)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+
+        var userIdStr = CoreAuthHelper.GetCurrentUserId(HttpContext)?.ToString();
+        if (string.IsNullOrEmpty(userIdStr))
+            return Unauthorized(new { error = "Usuário inválido" });
+
+        var pref = await _musicService.GetUserPreferenceAsync(id, userIdStr);
+        if (pref == null)
+            return Ok(new { success = true, preferences = new UserSongPreferenceDto(0, 0, null) });
+
+        return Ok(new { success = true, preferences = pref });
+    }
+
+    [HttpPut("{id}/preferences")]
+    public async Task<ActionResult<object>> UpdateUserPreference(int id, [FromBody] UpdateUserSongPreferenceDto dto)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+
+        var userIdStr = CoreAuthHelper.GetCurrentUserId(HttpContext)?.ToString();
+        if (string.IsNullOrEmpty(userIdStr))
+            return Unauthorized(new { error = "Usuário inválido" });
+
+        try
+        {
+            var success = await _musicService.UpdateUserPreferenceAsync(id, userIdStr, dto);
+            if (!success)
+                return NotFound(new { error = "Arquivo não encontrado" });
+
+            return Ok(new { success = true, message = "Preferências atualizadas com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao atualizar preferências do usuário");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/ocr")]
+    public async Task<ActionResult<object>> StartOcr(int id)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.EditMetadata))
+            return StatusCode(403, new { error = "Sem permissão" });
+
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
+            return NotFound(new { error = "Arquivo não encontrado" });
+
+        if (file.ContentType != "pdf_only")
+            return BadRequest(new { error = "Apenas arquivos PDF podem ser convertidos" });
+
+        if (string.IsNullOrEmpty(file.FilePath))
+            return BadRequest(new { error = "Caminho do arquivo não encontrado" });
+
+        try
+        {
+            file.ContentType = "chord_converting";
+            file.OcrStatus = "queued";
+            await _musicService.SaveChangesAsync();
+
+            var absPath = _fileService.GetAbsolutePath(file.FilePath);
+            await _ocrWriter.WriteAsync(new OcrJob { FileId = id, FilePath = absPath });
+
+            return Accepted(new { success = true, status = "queued", message = "OCR iniciado" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao iniciar OCR");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}/ocr-status")]
+    public async Task<ActionResult<object>> GetOcrStatus(int id)
+    {
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
+            return NotFound(new { error = "Arquivo não encontrado" });
+
+        return Ok(new
+        {
+            success = true,
+            status = file.OcrStatus ?? "none",
+            error = file.OcrError,
+            started_at = file.OcrStartedAt
+        });
+    }
+
+    [HttpPost("{id}/export-chord-pdf")]
+    public async Task<IActionResult> ExportChordPdf(
+        int id,
+        [FromBody] ChordPdfExportDto? dto = null)
+    {
+        var file = await _musicService.GetFileRecordByIdAsync(id);
+        if (file == null)
+            return NotFound(new { error = "Arquivo não encontrado" });
+
+        if (file.ContentType != "chord")
+            return BadRequest(new { error = "Arquivo não é uma cifra" });
+
+        try
+        {
+            var key = dto?.TransposedKey ?? file.MusicalKey ?? "C";
+            var capoFret = CalculateCapoFret(file.MusicalKey ?? "C", key);
+            var useCapo = dto?.UseCapo ?? true;
+
+            var pdf = _chordRenderer.Render(file.ChordContent!, key, useCapo, capoFret);
+
+            var ms = new MemoryStream();
+            pdf.Save(ms, false);
+            ms.Position = 0;
+
+            return File(ms, "application/pdf", $"{file.SongName ?? file.Filename}.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao gerar PDF de cifra");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    private int CalculateCapoFret(string originalKey, string targetKey)
+    {
+        var notes = new[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        var origIdx = Array.IndexOf(notes, originalKey.Split('/')[0]);
+        var targetIdx = Array.IndexOf(notes, targetKey.Split('/')[0]);
+
+        if (origIdx < 0 || targetIdx < 0) return 0;
+        return (targetIdx - origIdx + 12) % 12;
     }
 
     private Dictionary<string, List<string>>? ParseCustomFilters()

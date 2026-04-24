@@ -42,6 +42,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<SystemMetric> SystemMetrics { get; set; }
     public DbSet<AlertConfiguration> AlertConfigurations { get; set; }
+    public DbSet<UserSongPreference> UserSongPreferences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,12 +79,17 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SongName).HasColumnName("song_name");
             entity.Property(e => e.MusicalKey).HasColumnName("musical_key");
             entity.Property(e => e.YoutubeLink).HasColumnName("youtube_link");
-            entity.Property(e => e.FilePath).HasColumnName("file_path").IsRequired();
+            entity.Property(e => e.FilePath).HasColumnName("file_path");
             entity.Property(e => e.FileSize).HasColumnName("file_size");
             entity.Property(e => e.UploadDate).HasColumnName("upload_date");
             entity.Property(e => e.FileHash).HasColumnName("file_hash");
             entity.Property(e => e.PageCount).HasColumnName("page_count");
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.ContentType).HasColumnName("content_type").HasDefaultValue("pdf_only");
+            entity.Property(e => e.ChordContent).HasColumnName("chord_content");
+            entity.Property(e => e.OcrStatus).HasColumnName("ocr_status");
+            entity.Property(e => e.OcrStartedAt).HasColumnName("ocr_started_at");
+            entity.Property(e => e.OcrError).HasColumnName("ocr_error");
             entity.Property(e => e.WorkspaceId).HasColumnName("workspace_id");
             entity.HasIndex(e => e.FileHash).IsUnique();
             entity.HasIndex(e => e.WorkspaceId);
@@ -92,6 +98,29 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.Workspace)
                 .WithMany(w => w.PdfFiles)
                 .HasForeignKey(e => e.WorkspaceId);
+        });
+
+        // UserSongPreference
+        modelBuilder.Entity<UserSongPreference>(entity =>
+        {
+            entity.ToTable("user_song_preferences");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id").IsRequired().HasMaxLength(255);
+            entity.Property(e => e.PdfFileId).HasColumnName("pdf_file_id");
+            entity.Property(e => e.TransposeAmount).HasColumnName("transpose_amount").HasDefaultValue(0);
+            entity.Property(e => e.CapoFret).HasColumnName("capo_fret").HasDefaultValue(0);
+            entity.Property(e => e.ArrangementJson).HasColumnName("arrangement_json").HasColumnType("json");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            // Unique index to ensure one preference per user per song
+            entity.HasIndex(e => new { e.UserId, e.PdfFileId }).IsUnique();
+
+            entity.HasOne(e => e.PdfFile)
+                .WithMany()
+                .HasForeignKey(e => e.PdfFileId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Category
@@ -154,6 +183,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.MergeListId).HasColumnName("merge_list_id");
             entity.Property(e => e.PdfFileId).HasColumnName("pdf_file_id");
             entity.Property(e => e.OrderPosition).HasColumnName("order_position");
+            entity.Property(e => e.KeyOverride).HasColumnName("key_override").HasMaxLength(10);
+            entity.Property(e => e.CapoOverride).HasColumnName("capo_override");
             entity.HasIndex(e => new { e.MergeListId, e.OrderPosition });
 
             entity.HasOne(e => e.MergeList)

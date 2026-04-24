@@ -14,7 +14,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { musicApi, handleApiError } from '@/lib/api'
 import type { UploadResponse } from '@/types'
-import { Upload, FileText, AlertTriangle, RefreshCw, Lock, Loader2 } from 'lucide-react'
+import { Upload, FileText, AlertTriangle, RefreshCw, Lock, Loader2, Music2, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import { useToast } from '@core/hooks/use-toast'
 import { useAuth } from '@core/contexts/auth-context'
 import { InstructionsModal, PAGE_INSTRUCTIONS } from '@/components/ui/instructions-modal'
@@ -216,6 +217,27 @@ export default function UploadPage() {
                 {/* Upload Zone - Full when no files, Compact when files exist */}
                 {!uploadState.results && (
                     <>
+                        {uploadState.files.length === 0 && (
+                            <Card className="border-dashed bg-muted/30">
+                                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-600">
+                                        <Music2 className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium">Criar música sem arquivo?</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Digite a cifra em formato ChordPro, com transposição e exportação para PDF.
+                                        </p>
+                                    </div>
+                                    <Button asChild variant="outline" size="sm" className="gap-2 shrink-0">
+                                        <Link href="/music/new-chord">
+                                            Digitar Cifra
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
                         {uploadState.files.length === 0 ? (
                             <Card>
                                 <CardContent className="p-6">

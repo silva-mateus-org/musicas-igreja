@@ -9,6 +9,12 @@ const nextConfig = {
 
     transpilePackages: ['@core'],
 
+    // Disable webpack cache in dev to prevent out-of-memory errors
+    onDemandEntries: {
+        maxInactiveAge: 15 * 60 * 1000,
+        pagesBufferLength: 2,
+    },
+
     // Remover rewrites conflitantes - usar API routes específicas
 
     // Configuração para arquivos estáticos e PDFs

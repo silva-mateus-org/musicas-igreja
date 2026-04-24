@@ -1,5 +1,12 @@
 -- Enable unaccent extension for accent-insensitive search
-CREATE EXTENSION IF NOT EXISTS unaccent;
+-- Note: Requires superuser or database creation privilege
+-- Will be skipped if permission denied (non-critical)
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS unaccent;
+EXCEPTION WHEN OTHERS THEN
+    NULL;  -- Ignore if permission denied
+END $$;
 
 -- Create workspaces table
 CREATE TABLE IF NOT EXISTS workspaces (

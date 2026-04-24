@@ -46,6 +46,9 @@ if (-not $SkipDocker -and -not $FrontendOnly) {
 }
 
 try {
+    # Increase Node.js heap for Next.js dev server (prevent OOM during webpack cache)
+    $env:NODE_OPTIONS = "--max-old-space-size=4096"
+
     & "$PSScriptRoot\core\scripts\start-dev.ps1" `
         -ProjectName         "MusicasIgreja" `
         -ProjectRoot         $PSScriptRoot `

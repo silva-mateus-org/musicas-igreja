@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { useMusic, musicKeys } from '@/hooks/use-music'
 import { request, getActiveWorkspaceId, customFiltersApi } from '@/lib/api'
 import type { SearchFilters, PaginationParams } from '@/types'
-import { Music, Upload, RefreshCw } from 'lucide-react'
+import { Music, Music2, Upload, RefreshCw } from 'lucide-react'
 import { useAuth } from '@core/contexts/auth-context'
 import { useWorkspace } from '@/contexts/workspace-context'
 import Link from 'next/link'
@@ -200,14 +200,24 @@ function MusicPageContent() {
                                 </Button>
                             </SimpleTooltip>
                             {canUpload && (
-                                <SimpleTooltip label="Fazer upload de novas músicas">
-                                    <Button asChild>
-                                        <Link href="/upload" className="gap-2">
-                                            <Upload className="h-4 w-4" />
-                                            Upload
-                                        </Link>
-                                    </Button>
-                                </SimpleTooltip>
+                                <>
+                                    <SimpleTooltip label="Criar nova música digitando cifra (ChordPro)">
+                                        <Button asChild variant="outline">
+                                            <Link href="/music/new-chord" className="gap-2">
+                                                <Music2 className="h-4 w-4" />
+                                                <span className="hidden sm:inline">Digitar Cifra</span>
+                                            </Link>
+                                        </Button>
+                                    </SimpleTooltip>
+                                    <SimpleTooltip label="Fazer upload de novas músicas">
+                                        <Button asChild>
+                                            <Link href="/upload" className="gap-2">
+                                                <Upload className="h-4 w-4" />
+                                                Upload
+                                            </Link>
+                                        </Button>
+                                    </SimpleTooltip>
+                                </>
                             )}
                         </div>
                     }

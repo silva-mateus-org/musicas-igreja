@@ -1,6 +1,7 @@
 using Core.Auth.Helpers;
 using Core.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MusicasIgreja.Api;
 using MusicasIgreja.Api.Data;
 using MusicasIgreja.Api.DTOs;
@@ -153,10 +154,14 @@ public class MergeListsController : ControllerBase
 public class MergeListItemsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ICoreAuthService _authService;
+    private readonly ILogger<MergeListItemsController> _logger;
 
-    public MergeListItemsController(AppDbContext context)
+    public MergeListItemsController(AppDbContext context, ICoreAuthService authService, ILogger<MergeListItemsController> logger)
     {
         _context = context;
+        _authService = authService;
+        _logger = logger;
     }
 
     [HttpDelete("{id}")]
@@ -173,5 +178,36 @@ public class MergeListItemsController : ControllerBase
         _context.MergeListItems.Remove(item);
         await _context.SaveChangesAsync();
         return Ok(new { success = true });
+    }
+
+    [HttpPut("{id}/overrides")]
+    public async Task<ActionResult<object>> UpdateItemOverrides(int id, [FromBody] UpdateMergeListItemDto dto)
+    {
+        if (!CoreAuthHelper.IsAuthenticated(HttpContext))
+            return Unauthorized(new { error = "Não autenticado" });
+        if (!await CoreAuthHelper.HasPermissionAsync(HttpContext, _authService, Permissions.ManageLists))
+            return StatusCode(403, new { error = "Sem permissão" });
+
+        try
+        {
+            var item = await _context.MergeListItems.FindAsync(id);
+            if (item == null)
+                return NotFound(new { success = false, error = "Item não encontrado" });
+
+            item.KeyOverride = dto.KeyOverride;
+            item.CapoOverride = dto.CapoOverride;
+
+            var list = await _context.MergeLists.FindAsync(item.MergeListId);
+            if (list != null)
+                list.UpdatedDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "Overrides atualizados com sucesso" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao atualizar overrides do item {ItemId}", id);
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 }

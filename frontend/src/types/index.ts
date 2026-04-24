@@ -95,6 +95,9 @@ export interface MusicFile {
     observations?: string
     duplicate_of?: number
     is_duplicate: boolean
+    content_type?: 'pdf_only' | 'chord' | 'chord_converting'
+    chord_content?: string
+    ocr_status?: string
 }
 
 export interface MusicList {
@@ -113,6 +116,8 @@ export interface MusicListItem {
     music_id: number
     position: number
     music?: MusicFile
+    key_override?: string
+    capo_override?: number
 }
 
 // Filter option returned by API (slug for URL, label for display)
@@ -291,4 +296,32 @@ export interface AlertConfigurationInput {
     comparison_operator: ComparisonOperator
     severity: EventSeverity
     is_enabled: boolean
+}
+
+// Chord song types
+export interface CreateChordSongDto {
+    song_name?: string
+    artist?: string
+    categories?: string[]
+    musical_key?: string
+    chord_content: string
+    youtube_link?: string
+    description?: string
+    custom_filters?: Record<string, string[]>
+}
+
+export interface UpdateChordContentDto {
+    chord_content: string
+    musical_key?: string
+}
+
+export interface UpdateMergeListItemDto {
+    key_override?: string
+    capo_override?: number
+}
+
+export interface ChordPdfExportDto {
+    transposed_key?: string
+    use_capo: boolean
+    capo_fret?: number
 }

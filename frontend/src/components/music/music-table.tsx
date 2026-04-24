@@ -19,7 +19,9 @@ import {
     User,
     Hash,
     FolderOpen,
-    Calendar
+    Calendar,
+    FileText,
+    Loader
 } from 'lucide-react'
 import { useAuth } from '@core/contexts/auth-context'
 import { useRouter } from 'next/navigation'
@@ -71,6 +73,12 @@ export function MusicTable({
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+    }
+
+    const getContentTypeIcon = (contentType?: string) => {
+        if (contentType === 'chord') return <Music2 className="w-4 h-4 text-blue-600" />
+        if (contentType === 'chord_converting') return <Loader className="w-4 h-4 text-yellow-600 animate-spin" />
+        return <FileText className="w-4 h-4 text-red-600" />
     }
 
     if (isLoading) {
@@ -188,8 +196,9 @@ export function MusicTable({
                         >
                             <TableCell className="font-medium min-w-[180px] max-w-[320px] md:max-w-[420px]">
                                 <div>
-                                    <div className="font-medium line-clamp-2">
-                                        {music.title || music.original_name}
+                                    <div className="font-medium line-clamp-2 flex items-center gap-2">
+                                        {getContentTypeIcon(music.content_type)}
+                                        <span>{music.title || music.original_name}</span>
                                     </div>
 
                                     {/* Mobile: show key, categories and times below title */}

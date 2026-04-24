@@ -21,7 +21,9 @@ public record MergeListDetailDto(
 public record MergeListItemDto(
     int ItemId,
     int OrderPosition,
-    MergeListFileDto File
+    MergeListFileDto File,
+    string? KeyOverride,
+    int? CapoOverride
 );
 
 public record MergeListFileDto(
@@ -32,8 +34,15 @@ public record MergeListFileDto(
     string? Category,
     Dictionary<string, List<string>> CustomFilters,
     string? MusicalKey,
-    string? YoutubeLink
+    string? YoutubeLink,
+    string ContentType
 );
+
+public record UpdateMergeListItemDto
+{
+    public string? KeyOverride { get; init; }
+    public int? CapoOverride { get; init; }
+}
 
 public record CreateMergeListDto
 {

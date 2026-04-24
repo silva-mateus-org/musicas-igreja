@@ -6,6 +6,8 @@ public class MergeListItem
     public int MergeListId { get; set; }
     public int PdfFileId { get; set; }
     public int OrderPosition { get; set; }
+    public string? KeyOverride { get; set; }
+    public int? CapoOverride { get; set; }
 
     // Navigation properties
     public MergeList MergeList { get; set; } = null!;

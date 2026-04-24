@@ -8,12 +8,17 @@ public class PdfFile
     public string? SongName { get; set; }
     public string? MusicalKey { get; set; }
     public string? YoutubeLink { get; set; }
-    public string FilePath { get; set; } = string.Empty;
+    public string? FilePath { get; set; }
     public long? FileSize { get; set; }
     public DateTime UploadDate { get; set; } = DateTime.UtcNow;
     public string? FileHash { get; set; }
     public int? PageCount { get; set; }
     public string? Description { get; set; }
+    public string ContentType { get; set; } = "pdf_only";
+    public string? ChordContent { get; set; }
+    public string? OcrStatus { get; set; }
+    public DateTime? OcrStartedAt { get; set; }
+    public string? OcrError { get; set; }
 
     public int WorkspaceId { get; set; }
     public Workspace Workspace { get; set; } = null!;

@@ -325,7 +325,8 @@ public class MusicService : IMusicService
         f.FileArtists.Select(fa => fa.Artist.Name).FirstOrDefault(),
         f.FileCategories.Select(fc => fc.Category.Name).ToList(),
         MapCustomFilters(f),
-        f.MusicalKey, f.YoutubeLink, f.FileSize, f.PageCount, f.UploadDate, f.Description);
+        f.MusicalKey, f.YoutubeLink, f.FileSize, f.PageCount, f.UploadDate, f.Description,
+        f.ContentType, f.ChordContent, f.OcrStatus);
 
     private static GroupedFileItemDto MapToGroupedItem(PdfFile f) => new(
         f.Id, f.Filename, f.SongName,
@@ -333,7 +334,7 @@ public class MusicService : IMusicService
         f.MusicalKey,
         f.FileCategories.Select(fc => fc.Category.Name).ToList(),
         MapCustomFilters(f),
-        f.YoutubeLink);
+        f.YoutubeLink, f.ContentType);
 
     private static Dictionary<string, FileCustomFilterGroupDto> MapCustomFilters(PdfFile f)
     {
@@ -409,5 +410,95 @@ public class MusicService : IMusicService
             await _context.SaveChangesAsync();
         }
         return artist;
+    }
+
+    public async Task<PdfFile> CreateChordSongAsync(int workspaceId, CreateChordSongDto dto)
+    {
+        var pdfFile = new PdfFile
+        {
+            SongName = dto.SongName,
+            MusicalKey = dto.MusicalKey ?? "C",
+            YoutubeLink = dto.YoutubeLink,
+            Description = dto.Description,
+            ContentType = "chord",
+            ChordContent = dto.ChordContent,
+            UploadDate = DateTime.UtcNow,
+            WorkspaceId = workspaceId
+        };
+
+        _context.PdfFiles.Add(pdfFile);
+        await _context.SaveChangesAsync();
+
+        var categories = await ResolveCategoriesAsync(workspaceId, dto.Categories);
+        var artist = await ResolveArtistAsync(dto.Artist);
+
+        foreach (var c in categories)
+            _context.FileCategories.Add(new FileCategory { FileId = pdfFile.Id, CategoryId = c.Id });
+        if (artist != null)
+            _context.FileArtists.Add(new FileArtist { FileId = pdfFile.Id, ArtistId = artist.Id });
+
+        await ResolveAndSaveCustomFiltersAsync(workspaceId, pdfFile.Id, dto.CustomFilters);
+        await _context.SaveChangesAsync();
+        return pdfFile;
+    }
+
+    public async Task<bool> UpdateChordContentAsync(int id, UpdateChordContentDto dto)
+    {
+        var file = await _context.PdfFiles.FindAsync(id);
+        if (file == null) return false;
+
+        file.ChordContent = dto.ChordContent;
+        if (dto.MusicalKey != null)
+            file.MusicalKey = dto.MusicalKey;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<UserSongPreferenceDto?> GetUserPreferenceAsync(int fileId, string userId)
+    {
+        var pref = await _context.UserSongPreferences
+            .FirstOrDefaultAsync(p => p.PdfFileId == fileId && p.UserId == userId);
+        
+        if (pref == null) return null;
+
+        return new UserSongPreferenceDto(pref.TransposeAmount, pref.CapoFret, pref.ArrangementJson);
+    }
+
+    public async Task<bool> UpdateUserPreferenceAsync(int fileId, string userId, UpdateUserSongPreferenceDto dto)
+    {
+        var fileExists = await _context.PdfFiles.AnyAsync(f => f.Id == fileId);
+        if (!fileExists) return false;
+
+        var pref = await _context.UserSongPreferences
+            .FirstOrDefaultAsync(p => p.PdfFileId == fileId && p.UserId == userId);
+
+        if (pref == null)
+        {
+            pref = new UserSongPreference
+            {
+                PdfFileId = fileId,
+                UserId = userId,
+                TransposeAmount = dto.TransposeAmount,
+                CapoFret = dto.CapoFret,
+                ArrangementJson = dto.ArrangementJson
+            };
+            _context.UserSongPreferences.Add(pref);
+        }
+        else
+        {
+            pref.TransposeAmount = dto.TransposeAmount;
+            pref.CapoFret = dto.CapoFret;
+            pref.ArrangementJson = dto.ArrangementJson;
+            pref.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
     }
 }
